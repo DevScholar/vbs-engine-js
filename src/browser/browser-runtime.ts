@@ -1,4 +1,4 @@
-import { VbsEngine } from '../core/index.ts';
+import { VbsEngine, type VbsEngineOptions } from '../core/index.ts';
 import { createBrowserMsgBox } from '../builtins/msgbox.ts';
 import { createBrowserInputBox } from '../builtins/inputbox.ts';
 import type { BrowserRuntimeOptions, TimerOverrideState, EvalOverrideState } from './types.ts';
@@ -7,8 +7,21 @@ import { overrideEval, restoreEval } from './eval-override.ts';
 import { setupVbscriptProtocol, cleanupVbscriptProtocol, type ProtocolHandlerResult } from './protocol-handler.ts';
 import { createObject, getObject } from './activex.ts';
 import { autoRunScripts, setupForEventScript } from './script-parser.ts';
-import { setupInlineEventHandlers, setupNamedEventHandlers, syncFunctionsToGlobalThis, cleanupNamedEventHandlers, type BoundNamedHandler } from './event-handlers.ts';
+import { setupInlineEventHandlers, setupNamedEventHandlers, cleanupNamedEventHandlers, type BoundNamedHandler } from './event-handlers.ts';
 import { startObserver, stopObserver, type ObserverContext } from './dom-observer.ts';
+
+const DEFAULT_BROWSER_OPTIONS = {
+  parseScriptElement: true,
+  parseInlineEventAttributes: true,
+  parseEventSubNames: true,
+  overrideJSEvalFunctions: true,
+  parseVbsProtocol: true,
+};
+
+const DEFAULT_ENGINE_OPTIONS: VbsEngineOptions = {
+  maxExecutionTime: -1,
+  injectGlobalThis: true,
+};
 
 export class VbsBrowserEngine {
   private engine: VbsEngine;
@@ -21,21 +34,21 @@ export class VbsBrowserEngine {
   private options: Required<BrowserRuntimeOptions>;
 
   constructor(options: BrowserRuntimeOptions = {}) {
-    this.engine = new VbsEngine();
-
-    this.options = {
-      parseScriptElement: options.parseScriptElement ?? true,
-      parseInlineEventAttributes: options.parseInlineEventAttributes ?? true,
-      injectGlobalThis: options.injectGlobalThis ?? true,
-      parseEventSubNames: options.parseEventSubNames ?? true,
-      maxExecutingTime: options.maxExecutingTime ?? -1,
-      overrideJSEvalFunctions: options.overrideJSEvalFunctions ?? true,
-      parseVbsProtocol: options.parseVbsProtocol ?? true,
+    const engineOptions: VbsEngineOptions = {
+      maxExecutionTime: options.maxExecutionTime ?? DEFAULT_ENGINE_OPTIONS.maxExecutionTime,
+      injectGlobalThis: options.injectGlobalThis ?? DEFAULT_ENGINE_OPTIONS.injectGlobalThis,
     };
 
-    if (this.options.maxExecutingTime > 0) {
-      this.engine.setMaxExecutionTime(this.options.maxExecutingTime);
-    }
+    this.engine = new VbsEngine(engineOptions);
+
+    this.options = {
+      ...engineOptions,
+      parseScriptElement: options.parseScriptElement ?? DEFAULT_BROWSER_OPTIONS.parseScriptElement,
+      parseInlineEventAttributes: options.parseInlineEventAttributes ?? DEFAULT_BROWSER_OPTIONS.parseInlineEventAttributes,
+      parseEventSubNames: options.parseEventSubNames ?? DEFAULT_BROWSER_OPTIONS.parseEventSubNames,
+      overrideJSEvalFunctions: options.overrideJSEvalFunctions ?? DEFAULT_BROWSER_OPTIONS.overrideJSEvalFunctions,
+      parseVbsProtocol: options.parseVbsProtocol ?? DEFAULT_BROWSER_OPTIONS.parseVbsProtocol,
+    };
 
     if (typeof window !== 'undefined') {
       if (this.options.overrideJSEvalFunctions) {
@@ -83,13 +96,7 @@ export class VbsBrowserEngine {
   }
 
   private autoRunScripts(): void {
-    const onScriptRun = (): void => {
-      if (this.options.injectGlobalThis) {
-        syncFunctionsToGlobalThis(this.engine);
-      }
-    };
-
-    autoRunScripts(this.engine, onScriptRun);
+    autoRunScripts(this.engine);
   }
 
   run(code: string): unknown {

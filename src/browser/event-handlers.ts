@@ -1,5 +1,4 @@
 import type { VbsEngine } from '../core/index.ts';
-import { jsToVb, vbToJs } from './conversion.ts';
 
 export interface BoundNamedHandler {
   target: EventTarget;
@@ -109,40 +108,6 @@ export function setupNamedEventHandlers(
 
         target.addEventListener(eventType, handler);
         boundNamedHandlers.set(funcName, { target, handler });
-      }
-    }
-  }
-}
-
-export function syncFunctionsToGlobalThis(engine: VbsEngine): void {
-  if (typeof globalThis === 'undefined') return;
-
-  const context = engine.getContext?.();
-  if (!context) return;
-
-  const funcRegistry = context.functionRegistry;
-  if (!funcRegistry) return;
-
-  const userFuncs = funcRegistry.getUserDefinedFunctions?.();
-  if (!userFuncs) return;
-
-  for (const [, info] of userFuncs) {
-    const funcName = info.name;
-    if (!(funcName in (globalThis as Record<string, unknown>))) {
-      (globalThis as Record<string, unknown>)[funcName] = (...args: unknown[]) => {
-        const vbArgs = args.map(a => jsToVb(a));
-        return vbToJs(funcRegistry.call(funcName, vbArgs));
-      };
-    }
-  }
-
-  if (context.globalScope) {
-    const allVars = context.globalScope.getAllVariables();
-    for (const [varName, vbVar] of allVars) {
-      if (vbVar.value && vbVar.value.type !== 'Empty') {
-        if (!(varName in (globalThis as Record<string, unknown>))) {
-          (globalThis as Record<string, unknown>)[varName] = vbToJs(vbVar.value);
-        }
       }
     }
   }

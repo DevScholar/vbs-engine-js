@@ -1,9 +1,9 @@
-export interface BrowserRuntimeOptions {
+import type { VbsEngineOptions } from '../core/index.ts';
+
+export interface BrowserRuntimeOptions extends VbsEngineOptions {
   parseScriptElement?: boolean;
   parseInlineEventAttributes?: boolean;
-  injectGlobalThis?: boolean;
   parseEventSubNames?: boolean;
-  maxExecutingTime?: number;
   overrideJSEvalFunctions?: boolean;
   parseVbsProtocol?: boolean;
 }

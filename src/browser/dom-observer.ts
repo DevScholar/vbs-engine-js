@@ -1,6 +1,6 @@
 import type { VbsEngine } from '../core/index.ts';
-import { isVbscriptElement, parseScriptElement, setupForEventScript } from './script-parser.ts';
-import { setupElementInlineEvents, setupNamedEventHandlers, syncFunctionsToGlobalThis } from './event-handlers.ts';
+import { isVbscriptElement, setupForEventScript } from './script-parser.ts';
+import { setupElementInlineEvents, setupNamedEventHandlers } from './event-handlers.ts';
 import type { BrowserRuntimeOptions } from './types.ts';
 import type { BoundNamedHandler } from './event-handlers.ts';
 
@@ -29,9 +29,6 @@ export function startObserver(
             } else {
               try {
                 engine.run(code);
-                if (options.injectGlobalThis) {
-                  syncFunctionsToGlobalThis(engine);
-                }
                 if (options.injectGlobalThis && options.parseEventSubNames) {
                   setupNamedEventHandlers(engine, boundNamedHandlers);
                 }
@@ -58,9 +55,6 @@ export function startObserver(
                 } else {
                   try {
                     engine.run(code);
-                    if (options.injectGlobalThis) {
-                      syncFunctionsToGlobalThis(engine);
-                    }
                     if (options.injectGlobalThis && options.parseEventSubNames) {
                       setupNamedEventHandlers(engine, boundNamedHandlers);
                     }
