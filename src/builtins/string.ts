@@ -1,6 +1,190 @@
 import type { VbValue } from '../runtime/index.ts';
 import { createVbValue, toNumber, toString, toBoolean, VbEmpty, VbNull, VbNothing, isNumeric, isEmpty, isNull, createVbArrayFromValues } from '../runtime/index.ts';
 
+function formatDate(value: Date, format: string): string {
+  const result: string[] = [];
+  let i = 0;
+  
+  while (i < format.length) {
+    const char = format[i].toLowerCase();
+    let count = 1;
+    while (i + count < format.length && format[i + count].toLowerCase() === char) {
+      count++;
+    }
+    
+    switch (char) {
+      case 'y':
+        if (count >= 4) {
+          result.push(value.getFullYear().toString());
+        } else if (count === 3) {
+          result.push(value.getFullYear().toString());
+        } else if (count === 2) {
+          result.push(value.getFullYear().toString().slice(-2));
+        } else {
+          result.push(value.getFullYear().toString().slice(-2));
+        }
+        break;
+      case 'm':
+        if (count >= 4) {
+          const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          result.push(months[value.getMonth()]);
+        } else if (count === 3) {
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          result.push(months[value.getMonth()]);
+        } else if (count === 2) {
+          result.push((value.getMonth() + 1).toString().padStart(2, '0'));
+        } else {
+          result.push((value.getMonth() + 1).toString());
+        }
+        break;
+      case 'd':
+        if (count >= 4) {
+          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          result.push(days[value.getDay()]);
+        } else if (count === 3) {
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          result.push(days[value.getDay()]);
+        } else if (count === 2) {
+          result.push(value.getDate().toString().padStart(2, '0'));
+        } else {
+          result.push(value.getDate().toString());
+        }
+        break;
+      case 'h':
+        if (count >= 2) {
+          result.push((value.getHours() % 12 || 12).toString().padStart(2, '0'));
+        } else {
+          result.push((value.getHours() % 12 || 12).toString());
+        }
+        break;
+      case 'n':
+        if (count >= 2) {
+          result.push(value.getMinutes().toString().padStart(2, '0'));
+        } else {
+          result.push(value.getMinutes().toString());
+        }
+        break;
+      case 's':
+        if (count >= 2) {
+          result.push(value.getSeconds().toString().padStart(2, '0'));
+        } else {
+          result.push(value.getSeconds().toString());
+        }
+        break;
+      case 'q':
+        result.push(Math.floor(value.getMonth() / 3 + 1).toString());
+        break;
+      case 'w':
+        result.push((value.getDay() + 1).toString());
+        break;
+      case 'a':
+        if (count >= 2) {
+          result.push(value.getHours() >= 12 ? 'PM' : 'AM');
+        } else {
+          result.push(value.getHours() >= 12 ? 'P' : 'A');
+        }
+        break;
+      default:
+        result.push(format.substring(i, i + count));
+    }
+    i += count;
+  }
+  
+  return result.join('');
+}
+
+function formatNumber(value: number, format: string): string {
+  let positiveFormat = format;
+  let negativeFormat = '';
+  let zeroFormat = '';
+  
+  const semicolonIndex = format.indexOf(';');
+  if (semicolonIndex !== -1) {
+    positiveFormat = format.substring(0, semicolonIndex);
+    const remaining = format.substring(semicolonIndex + 1);
+    const secondSemicolon = remaining.indexOf(';');
+    if (secondSemicolon !== -1) {
+      negativeFormat = remaining.substring(0, secondSemicolon);
+      zeroFormat = remaining.substring(secondSemicolon + 1);
+    } else {
+      negativeFormat = remaining;
+    }
+  }
+  
+  if (value === 0 && zeroFormat) {
+    return formatNumberInternal(0, zeroFormat);
+  }
+  
+  if (value < 0 && negativeFormat) {
+    return formatNumberInternal(Math.abs(value), negativeFormat);
+  }
+  
+  if (value < 0) {
+    return '-' + formatNumberInternal(Math.abs(value), positiveFormat);
+  }
+  
+  return formatNumberInternal(value, positiveFormat);
+}
+
+function formatNumberInternal(value: number, format: string): string {
+  let hasPercent = format.includes('%');
+  if (hasPercent) {
+    value *= 100;
+  }
+  
+  const formatLower = format.toLowerCase();
+  let decimalPos = formatLower.indexOf('.');
+  let decimalDigits = 0;
+  let hasDecimal = false;
+  
+  if (decimalPos !== -1) {
+    let i = decimalPos + 1;
+    while (i < format.length && (format[i] === '0' || format[i] === '#')) {
+      decimalDigits++;
+      if (format[i] === '0') hasDecimal = true;
+      i++;
+    }
+  }
+  
+  let intPart = Math.floor(Math.abs(value));
+  let decPart = decimalDigits > 0 ? Math.round((Math.abs(value) - intPart) * Math.pow(10, decimalDigits)) : 0;
+  
+  if (decPart >= Math.pow(10, decimalDigits)) {
+    intPart++;
+    decPart = 0;
+  }
+  
+  let intStr = intPart.toString();
+  
+  const commaPos = formatLower.indexOf(',');
+  if (commaPos !== -1) {
+    intStr = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  
+  let result = intStr;
+  
+  if (decimalDigits > 0) {
+    const decStr = decPart.toString().padStart(decimalDigits, '0');
+    result += '.' + decStr;
+  }
+  
+  if (hasPercent) {
+    result += '%';
+  }
+  
+  return result;
+}
+
+function formatString(value: string, format: string): string {
+  if (format === '>' || format.toLowerCase() === '>') {
+    return value.toUpperCase();
+  }
+  if (format === '<' || format.toLowerCase() === '<') {
+    return value.toLowerCase();
+  }
+  return value;
+}
+
 export const stringFunctions = {
   Len: (str: VbValue): VbValue => {
     const s = toString(str);
@@ -189,5 +373,57 @@ export const stringFunctions = {
       return { type: 'String', value: plainArr.map(v => toString(v)).join(delim) };
     }
     return { type: 'String', value: '' };
+  },
+
+  Format: (expression: VbValue, format?: VbValue): VbValue => {
+    if (expression.type === 'Empty' || expression.type === 'Null') {
+      return { type: 'String', value: '' };
+    }
+    
+    const formatStr = format ? toString(format) : '';
+    
+    if (!formatStr) {
+      return { type: 'String', value: toString(expression) };
+    }
+    
+    if (expression.type === 'Date' && expression.value instanceof Date) {
+      return { type: 'String', value: formatDate(expression.value, formatStr) };
+    }
+    
+    if (expression.type === 'Boolean') {
+      return { type: 'String', value: expression.value ? 'True' : 'False' };
+    }
+    
+    if (['Integer', 'Long', 'Single', 'Double', 'Currency', 'Byte'].includes(expression.type)) {
+      return { type: 'String', value: formatNumber(toNumber(expression), formatStr) };
+    }
+    
+    if (expression.type === 'String') {
+      return { type: 'String', value: formatString(toString(expression), formatStr) };
+    }
+    
+    return { type: 'String', value: toString(expression) };
+  },
+
+  LSet: (string: VbValue, length: VbValue): VbValue => {
+    const str = toString(string);
+    const len = Math.max(0, Math.floor(toNumber(length)));
+    
+    if (str.length >= len) {
+      return { type: 'String', value: str.substring(0, len) };
+    }
+    
+    return { type: 'String', value: str.padEnd(len, ' ') };
+  },
+
+  RSet: (string: VbValue, length: VbValue): VbValue => {
+    const str = toString(string);
+    const len = Math.max(0, Math.floor(toNumber(length)));
+    
+    if (str.length >= len) {
+      return { type: 'String', value: str.substring(0, len) };
+    }
+    
+    return { type: 'String', value: str.padStart(len, ' ') };
   },
 };

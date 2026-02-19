@@ -138,9 +138,9 @@ This document tracks the compatibility between this VBScript engine implementati
 | Split | ✔️ | |
 | Join | ✔️ | |
 | Filter | ✔️ | |
-| FormatString | ❌ | Custom format strings |
-| LSet | ❌ | |
-| RSet | ❌ | |
+| Format | ✅ | Custom format strings |
+| LSet | ✅ | |
+| RSet | ✅ | |
 
 ### Mathematical Functions
 
@@ -413,7 +413,7 @@ This document tracks the compatibility between this VBScript engine implementati
 |----------|--------|-------|
 | vbBinaryCompare | ✔️ | |
 | vbTextCompare | ✔️ | |
-| vbDatabaseCompare | ❌ | Requires Access database engine |
+| vbDatabaseCompare | ⛔ | Requires Access database engine |
 
 ### Other Constants
 
