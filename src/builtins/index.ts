@@ -7,6 +7,7 @@ import { arrayFunctions } from './array.ts';
 import { registerMsgBox } from './msgbox.ts';
 import { registerInputBox } from './inputbox.ts';
 import { registerRegExp } from './regexp.ts';
+import { localeFunctions } from './locale.ts';
 
 export function registerBuiltins(context: VbContext): void {
   Object.entries(stringFunctions).forEach(([name, func]) => {
@@ -40,6 +41,10 @@ export function registerBuiltins(context: VbContext): void {
   registerMsgBox(context);
   registerInputBox(context);
   registerRegExp(context);
+
+  Object.entries(localeFunctions).forEach(([name, func]) => {
+    context.functionRegistry.register(name, func);
+  });
 
   context.functionRegistry.register('ScriptEngine', (): VbValue => {
     return { type: 'String', value: 'VBScript' };
@@ -194,14 +199,6 @@ export function registerBuiltins(context: VbContext): void {
   context.functionRegistry.register('Erase', (arrayname: VbValue): VbValue => {
     return { type: 'Empty', value: undefined };
   }, { isSub: true });
-
-  context.functionRegistry.register('SetLocale', (lcid: VbValue): VbValue => {
-    return { type: 'Integer', value: 1033 };
-  });
-
-  context.functionRegistry.register('GetLocale', (): VbValue => {
-    return { type: 'Integer', value: 1033 };
-  });
 
   context.functionRegistry.register('GetObject', (pathname?: VbValue, cls?: VbValue): VbValue => {
     return { type: 'Object', value: null };

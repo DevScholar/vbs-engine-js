@@ -243,17 +243,17 @@ This document tracks the compatibility between this VBScript engine implementati
 | MsgBox | ✔️ | Browser simulation using alert/confirm |
 | InputBox | ✔️ | Browser simulation using prompt |
 | GetRef | ✔️ | |
-| GetLocale | ✔️ | Returns fixed value (1033) |
-| SetLocale | ✔️ | No-op, returns fixed value |
+| GetLocale | ✔️ | Uses Intl API to detect browser locale |
+| SetLocale | ✔️ | Sets locale, returns LCID |
 | CreateObject | ⛔ | COM objects unavailable in browser |
 | GetObject | ⛔ | COM objects unavailable in browser |
 | LoadPicture | ✔️ | Returns stub IPictureDisp object |
 | RGB | ✔️ | Returns RGB color value |
 | QBColor | ✔️ | Returns legacy color value |
-| ScriptEngine | ✅ | Returns "VBScript" |
-| ScriptEngineMajorVersion | ✅ | Returns 10 |
-| ScriptEngineMinorVersion | ✅ | Returns 8 |
-| ScriptEngineBuildVersion | ✅ | Returns 16384 |
+| ScriptEngine | ✔️ | Returns "VBScript" |
+| ScriptEngineMajorVersion | ✔️ | Returns 10 |
+| ScriptEngineMinorVersion | ✔️ | Returns 8 |
+| ScriptEngineBuildVersion | ✔️ | Returns 16384 |
 
 ---
 
