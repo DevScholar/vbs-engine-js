@@ -250,10 +250,10 @@ This document tracks the compatibility between this VBScript engine implementati
 | LoadPicture | ✔️ | Returns stub IPictureDisp object |
 | RGB | ✔️ | Returns RGB color value |
 | QBColor | ✔️ | Returns legacy color value |
-| ScriptEngine | ❌ | |
-| ScriptEngineMajorVersion | ❌ | |
-| ScriptEngineMinorVersion | ❌ | |
-| ScriptEngineBuildVersion | ❌ | |
+| ScriptEngine | ✅ | Returns "VBScript" |
+| ScriptEngineMajorVersion | ✅ | Returns 10 |
+| ScriptEngineMinorVersion | ✅ | Returns 8 |
+| ScriptEngineBuildVersion | ✅ | Returns 16384 |
 
 ---
 

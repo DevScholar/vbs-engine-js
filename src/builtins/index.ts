@@ -41,6 +41,22 @@ export function registerBuiltins(context: VbContext): void {
   registerInputBox(context);
   registerRegExp(context);
 
+  context.functionRegistry.register('ScriptEngine', (): VbValue => {
+    return { type: 'String', value: 'VBScript' };
+  });
+
+  context.functionRegistry.register('ScriptEngineMajorVersion', (): VbValue => {
+    return { type: 'Integer', value: 10 };
+  });
+
+  context.functionRegistry.register('ScriptEngineMinorVersion', (): VbValue => {
+    return { type: 'Integer', value: 8 };
+  });
+
+  context.functionRegistry.register('ScriptEngineBuildVersion', (): VbValue => {
+    return { type: 'Long', value: 16384 };
+  });
+
   context.functionRegistry.register('Eval', (expression: VbValue): VbValue => {
     const code = String(expression.value ?? expression);
     const result = context.evaluate?.(code);
