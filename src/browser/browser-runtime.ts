@@ -63,6 +63,8 @@ export interface BrowserRuntimeOptions {
   injectGlobalThis?: boolean;
   parseEventSubNames?: boolean;
   maxExecutingTime?: number;
+  overrideJSEvalFunctions?: boolean;
+  parseVbsProtocol?: boolean;
 }
 
 export class VbsBrowserEngine {
@@ -73,6 +75,7 @@ export class VbsBrowserEngine {
   private originalEval: OriginalEval | null = null;
   private observer: MutationObserver | null = null;
   private boundNamedHandlers: Map<string, { target: EventTarget; handler: EventListener }> = new Map();
+  private navigateHandler: ((event: NavigateEvent) => void) | null = null;
   private options: Required<BrowserRuntimeOptions>;
 
   constructor(options: BrowserRuntimeOptions = {}) {
@@ -84,6 +87,8 @@ export class VbsBrowserEngine {
       injectGlobalThis: options.injectGlobalThis ?? true,
       parseEventSubNames: options.parseEventSubNames ?? true,
       maxExecutingTime: options.maxExecutingTime ?? -1,
+      overrideJSEvalFunctions: options.overrideJSEvalFunctions ?? true,
+      parseVbsProtocol: options.parseVbsProtocol ?? true,
     };
 
     if (this.options.maxExecutingTime > 0) {
@@ -91,10 +96,14 @@ export class VbsBrowserEngine {
     }
 
     if (typeof window !== 'undefined') {
-      this.overrideTimers();
-      this.overrideEval();
+      if (this.options.overrideJSEvalFunctions) {
+        this.overrideTimers();
+        this.overrideEval();
+      }
       this.registerBrowserFunctions();
-      this.setupVbscriptProtocol();
+      if (this.options.parseVbsProtocol) {
+        this.setupVbscriptProtocol();
+      }
 
       if (this.options.parseScriptElement) {
         this.autoRunScripts();
@@ -185,24 +194,41 @@ export class VbsBrowserEngine {
   }
 
   private setupVbscriptProtocol(): void {
-    if (typeof document === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
-    document.addEventListener('click', (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      
-      if (target.tagName === 'A' || target.tagName === 'AREA') {
-        const href = target.getAttribute('href');
-        if (href && href.toLowerCase().startsWith('vbscript:')) {
+    if ('navigation' in window && window.navigation) {
+      this.navigateHandler = (event: NavigateEvent): void => {
+        const url = event.destination.url;
+        if (url && url.toLowerCase().startsWith('vbscript:')) {
           event.preventDefault();
-          const code = href.substring(9);
+          const code = url.substring(9);
           try {
             this.engine.run(code);
           } catch (error) {
             console.error('VBScript protocol error:', error);
           }
         }
-      }
-    }, true);
+      };
+      
+      window.navigation.addEventListener('navigate', this.navigateHandler);
+    } else {
+      document.addEventListener('click', (event: MouseEvent) => {
+        const target = event.target as HTMLElement;
+        
+        if (target.tagName === 'A' || target.tagName === 'AREA') {
+          const href = target.getAttribute('href');
+          if (href && href.toLowerCase().startsWith('vbscript:')) {
+            event.preventDefault();
+            const code = href.substring(9);
+            try {
+              this.engine.run(code);
+            } catch (error) {
+              console.error('VBScript protocol error:', error);
+            }
+          }
+        }
+      }, true);
+    }
   }
 
   private overrideTimers(): void {
@@ -215,9 +241,24 @@ export class VbsBrowserEngine {
     (window as unknown as Record<string, unknown>).setTimeout = function(
       handler: unknown,
       delay?: unknown,
+      languageOrArg?: unknown,
       ...args: unknown[]
     ): number {
       if (typeof handler === 'string') {
+        const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
+        const actualDelay = typeof delay === 'number' ? delay : 0;
+        
+        if (language === 'vbscript' || language === 'vbs') {
+          return self.originalSetTimeout!.call(window, () => {
+            const funcRegistry = self.engine.getContext()?.functionRegistry;
+            if (funcRegistry?.has(handler)) {
+              funcRegistry.call(handler, []);
+            } else {
+              self.engine.run(handler);
+            }
+          }, actualDelay);
+        }
+        
         return self.originalSetTimeout!.call(window, () => {
           const funcRegistry = self.engine.getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
@@ -225,18 +266,33 @@ export class VbsBrowserEngine {
           } else {
             self.engine.run(handler);
           }
-        }, (delay as number) ?? 0);
+        }, actualDelay);
       }
 
-      return self.originalSetTimeout!.call(window, handler as TimerHandler, delay as number | undefined, ...args);
+      return self.originalSetTimeout!.call(window, handler as TimerHandler, delay as number | undefined, ...[languageOrArg, ...args].filter(a => a !== undefined));
     };
 
     (window as unknown as Record<string, unknown>).setInterval = function(
       handler: unknown,
       delay?: unknown,
+      languageOrArg?: unknown,
       ...args: unknown[]
     ): number {
       if (typeof handler === 'string') {
+        const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
+        const actualDelay = typeof delay === 'number' ? delay : 0;
+        
+        if (language === 'vbscript' || language === 'vbs') {
+          return self.originalSetInterval!.call(window, () => {
+            const funcRegistry = self.engine.getContext()?.functionRegistry;
+            if (funcRegistry?.has(handler)) {
+              funcRegistry.call(handler, []);
+            } else {
+              self.engine.run(handler);
+            }
+          }, actualDelay);
+        }
+        
         return self.originalSetInterval!.call(window, () => {
           const funcRegistry = self.engine.getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
@@ -244,10 +300,10 @@ export class VbsBrowserEngine {
           } else {
             self.engine.run(handler);
           }
-        }, (delay as number) ?? 0);
+        }, actualDelay);
       }
 
-      return self.originalSetInterval!.call(window, handler as TimerHandler, delay as number | undefined, ...args);
+      return self.originalSetInterval!.call(window, handler as TimerHandler, delay as number | undefined, ...[languageOrArg, ...args].filter(a => a !== undefined));
     };
   }
 
@@ -262,7 +318,14 @@ export class VbsBrowserEngine {
       return vbToJs(result);
     };
 
-    (window as unknown as Record<string, unknown>).eval = function(code: unknown): unknown {
+    (window as unknown as Record<string, unknown>).eval = function(code: unknown, language?: unknown): unknown {
+      if (typeof language === 'string') {
+        const lang = language.toLowerCase();
+        if (lang === 'vbscript' || lang === 'vbs') {
+          const result = self.engine.run(String(code));
+          return vbToJs(result);
+        }
+      }
       return self.originalEval!.call(window, code);
     };
   }
@@ -602,14 +665,21 @@ export class VbsBrowserEngine {
     });
     this.boundNamedHandlers.clear();
 
-    if (this.originalSetTimeout && typeof window !== 'undefined') {
-      (window as unknown as Record<string, unknown>).setTimeout = this.originalSetTimeout;
+    if (this.navigateHandler && typeof window !== 'undefined' && window.navigation) {
+      window.navigation.removeEventListener('navigate', this.navigateHandler);
+      this.navigateHandler = null;
     }
-    if (this.originalSetInterval && typeof window !== 'undefined') {
-      (window as unknown as Record<string, unknown>).setInterval = this.originalSetInterval;
-    }
-    if (this.originalEval && typeof window !== 'undefined') {
-      (window as unknown as Record<string, unknown>).eval = this.originalEval;
+
+    if (this.options.overrideJSEvalFunctions) {
+      if (this.originalSetTimeout && typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>).setTimeout = this.originalSetTimeout;
+      }
+      if (this.originalSetInterval && typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>).setInterval = this.originalSetInterval;
+      }
+      if (this.originalEval && typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>).eval = this.originalEval;
+      }
     }
   }
 }
