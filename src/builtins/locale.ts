@@ -220,6 +220,76 @@ export function setLocale(lcid: VbValue): VbValue {
   return getLocale();
 }
 
+export function getCurrentLocaleTag(): string {
+  const locale = getBrowserLocale();
+  return locale.replace(/-/g, '_').split('_')[0] + (locale.includes('-') ? '-' + locale.split('-')[1].toUpperCase() : '');
+}
+
+export function getCurrentBCP47Locale(): string {
+  return getBrowserLocale();
+}
+
+const localeToCurrency: Map<string, string> = new Map([
+  ['en-us', 'USD'],
+  ['en-gb', 'GBP'],
+  ['en-au', 'AUD'],
+  ['en-ca', 'CAD'],
+  ['en-nz', 'NZD'],
+  ['en-za', 'ZAR'],
+  ['de-de', 'EUR'],
+  ['de-at', 'EUR'],
+  ['de-ch', 'CHF'],
+  ['fr-fr', 'EUR'],
+  ['fr-be', 'EUR'],
+  ['fr-ca', 'CAD'],
+  ['fr-ch', 'CHF'],
+  ['ja', 'JPY'],
+  ['zh-cn', 'CNY'],
+  ['zh-tw', 'TWD'],
+  ['zh-hk', 'HKD'],
+  ['ko', 'KRW'],
+  ['it', 'EUR'],
+  ['es', 'EUR'],
+  ['es-mx', 'MXN'],
+  ['pt-br', 'BRL'],
+  ['pt-pt', 'EUR'],
+  ['ru', 'RUB'],
+  ['pl', 'PLN'],
+  ['nl', 'EUR'],
+  ['sv', 'SEK'],
+  ['da', 'DKK'],
+  ['no', 'NOK'],
+  ['fi', 'EUR'],
+  ['cs', 'CZK'],
+  ['hu', 'HUF'],
+  ['tr', 'TRY'],
+  ['th', 'THB'],
+  ['id', 'IDR'],
+  ['ms', 'MYR'],
+  ['vi', 'VND'],
+  ['in', 'INR'],
+  ['hi', 'INR'],
+  ['ar-sa', 'SAR'],
+  ['ar-eg', 'EGP'],
+  ['ar-ae', 'AED'],
+  ['he', 'ILS'],
+  ['en-ie', 'EUR'],
+  ['en-ph', 'PHP'],
+  ['en-in', 'INR'],
+]);
+
+export function getCurrentCurrency(): string {
+  const locale = getBrowserLocale();
+  const currency = localeToCurrency.get(locale);
+  if (currency) return currency;
+  
+  const baseLocale = locale.split('-')[0];
+  const baseCurrency = localeToCurrency.get(baseLocale);
+  if (baseCurrency) return baseCurrency;
+  
+  return 'USD';
+}
+
 export const localeFunctions = {
   GetLocale: getLocale,
   SetLocale: setLocale,

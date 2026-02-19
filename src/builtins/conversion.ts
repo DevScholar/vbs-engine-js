@@ -1,5 +1,6 @@
 import type { VbValue } from '../runtime/index.ts';
 import { createVbValue, toNumber, toString, toBoolean, VbEmpty, VbNull, VbNothing, isEmpty, isNull, isNumeric } from '../runtime/index.ts';
+import { getCurrentCurrency, getCurrentBCP47Locale } from './locale.ts';
 
 export const conversionFunctions = {
   CBool: (expression: VbValue): VbValue => {
@@ -84,56 +85,94 @@ export const conversionFunctions = {
   FormatNumber: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
+    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
+    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    
     const options: Intl.NumberFormatOptions = {
       minimumFractionDigits: decimals >= 0 ? decimals : undefined,
       maximumFractionDigits: decimals >= 0 ? decimals : undefined,
+      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    return { type: 'String', value: num.toLocaleString(undefined, options) };
+    
+    if (leadingDigit === -1) {
+      options.minimumIntegerDigits = 1;
+    } else if (leadingDigit === 0) {
+      options.minimumIntegerDigits = 2;
+    }
+    
+    const locale = getCurrentBCP47Locale();
+    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatCurrency: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
+    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    
     const options: Intl.NumberFormatOptions = {
       style: 'currency',
-      currency: 'USD',
+      currency: getCurrentCurrency(),
       minimumFractionDigits: decimals >= 0 ? decimals : 2,
       maximumFractionDigits: decimals >= 0 ? decimals : 2,
+      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    return { type: 'String', value: num.toLocaleString(undefined, options) };
+    
+    if (leadingDigit === -1) {
+      options.minimumIntegerDigits = 1;
+    } else if (leadingDigit === 0) {
+      options.minimumIntegerDigits = 2;
+    }
+    
+    const locale = getCurrentBCP47Locale();
+    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatPercent: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
-    const num = toNumber(expression) * 100;
+    const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
+    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    
     const options: Intl.NumberFormatOptions = {
       style: 'percent',
       minimumFractionDigits: decimals >= 0 ? decimals : undefined,
       maximumFractionDigits: decimals >= 0 ? decimals : undefined,
+      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    return { type: 'String', value: (num / 100).toLocaleString(undefined, options) };
+    
+    if (leadingDigit === -1) {
+      options.minimumIntegerDigits = 1;
+    } else if (leadingDigit === 0) {
+      options.minimumIntegerDigits = 2;
+    }
+    
+    const locale = getCurrentBCP47Locale();
+    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatDateTime: (date: VbValue, namedFormat?: VbValue): VbValue => {
     const d = date.type === 'Date' ? (date.value as Date) : new Date(toString(date));
     const format = namedFormat ? Math.floor(toNumber(namedFormat)) : 0;
+    const locale = getCurrentBCP47Locale();
     
     let result: string;
     switch (format) {
       case 0:
-        result = d.toLocaleString();
+        result = d.toLocaleString(locale);
         break;
       case 1:
-        result = d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        result = d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         break;
       case 2:
-        result = d.toLocaleDateString();
+        result = d.toLocaleDateString(locale);
         break;
       case 3:
-        result = d.toLocaleTimeString();
+        result = d.toLocaleTimeString(locale);
         break;
       case 4:
-        result = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        result = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
         break;
       default:
         result = d.toLocaleString();

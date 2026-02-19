@@ -205,10 +205,10 @@ This document tracks the compatibility between this VBScript engine implementati
 | CVErr | ✔️ | |
 | Val | ✔️ | |
 | Str | ✔️ | |
-| FormatNumber | ✔️ | |
-| FormatCurrency | ✔️ | |
-| FormatPercent | ✔️ | |
-| FormatDateTime | ✔️ | |
+| FormatNumber | ✔️ | Uses Intl API with locale support |
+| FormatCurrency | ✔️ | Auto-detects currency from locale |
+| FormatPercent | ✔️ | Uses Intl API with locale support |
+| FormatDateTime | ✔️ | Uses Intl API with locale support |
 
 ### Inspection Functions
 
