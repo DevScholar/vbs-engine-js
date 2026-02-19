@@ -1,5 +1,6 @@
 import type { VbValue } from '../runtime/index.ts';
 import { createVbValue, toNumber, toString, toBoolean, VbEmpty, VbNull, VbNothing, isNumeric, isEmpty, isNull, createVbArrayFromValues } from '../runtime/index.ts';
+import { getCurrentBCP47Locale } from './locale.ts';
 
 function formatDate(value: Date, format: string): string {
   const result: string[] = [];
@@ -217,6 +218,7 @@ export const stringFunctions = {
     let start = 1;
     let str1: string;
     let str2: string;
+    let compareMode = 0;
     
     if (str1OrStr2 === undefined) {
       str1 = '';
@@ -228,9 +230,17 @@ export const stringFunctions = {
       start = Math.max(1, Math.floor(toNumber(startOrStr)));
       str1 = toString(str1OrStr2);
       str2 = toString(str2OrCompare);
+      if (compare) {
+        compareMode = Math.floor(toNumber(compare));
+      }
     }
     
-    const index = str1.toLowerCase().indexOf(str2.toLowerCase(), start - 1);
+    let index: number;
+    if (compareMode === 0) {
+      index = str1.indexOf(str2, start - 1);
+    } else {
+      index = str1.toLowerCase().indexOf(str2.toLowerCase(), start - 1);
+    }
     return { type: 'Long', value: index + 1 };
   },
 
@@ -238,7 +248,14 @@ export const stringFunctions = {
     const s1 = toString(str1);
     const s2 = toString(str2);
     const startPos = start ? Math.floor(toNumber(start)) : s1.length;
-    const index = s1.toLowerCase().lastIndexOf(s2.toLowerCase(), startPos - 1);
+    const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
+    
+    let index: number;
+    if (compareMode === 0) {
+      index = s1.lastIndexOf(s2, startPos - 1);
+    } else {
+      index = s1.toLowerCase().lastIndexOf(s2.toLowerCase(), startPos - 1);
+    }
     return { type: 'Long', value: index + 1 };
   },
 
@@ -268,19 +285,20 @@ export const stringFunctions = {
     const replaceStr = toString(replace);
     const startPos = start ? Math.max(1, Math.floor(toNumber(start))) - 1 : 0;
     const maxCount = count ? Math.floor(toNumber(count)) : -1;
+    const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
     
     let result = '';
     let replaced = 0;
     let i = startPos;
-    const lowerS = s.toLowerCase();
-    const lowerFind = findStr.toLowerCase();
+    const searchStr = compareMode === 0 ? s : s.toLowerCase();
+    const searchFind = compareMode === 0 ? findStr : findStr.toLowerCase();
     
     while (i < s.length) {
       if (maxCount !== -1 && replaced >= maxCount) {
         result += s.substring(i);
         break;
       }
-      if (lowerS.substring(i, i + findStr.length) === lowerFind) {
+      if (searchStr.substring(i, i + findStr.length) === searchFind) {
         result += replaceStr;
         i += findStr.length;
         replaced++;
@@ -337,6 +355,9 @@ export const stringFunctions = {
     let result: number;
     if (compareMode === 1) {
       result = s1.toLowerCase().localeCompare(s2.toLowerCase());
+    } else if (compareMode === 2) {
+      const locale = getCurrentBCP47Locale();
+      result = s1.localeCompare(s2, locale, { sensitivity: 'base' });
     } else {
       result = s1.localeCompare(s2);
     }

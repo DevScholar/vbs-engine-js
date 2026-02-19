@@ -413,7 +413,7 @@ This document tracks the compatibility between this VBScript engine implementati
 |----------|--------|-------|
 | vbBinaryCompare | ✔️ | |
 | vbTextCompare | ✔️ | |
-| vbDatabaseCompare | ⛔ | Requires Access database engine |
+| vbDatabaseCompare | ✔️ | Falls back to locale-aware comparison |
 
 ### Other Constants
 
