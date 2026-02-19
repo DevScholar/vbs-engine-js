@@ -113,3 +113,6 @@ new VbsBrowserEngine({
 });
 ```
 
+# Compatibility
+
+See [docs/compatibility.md](docs/compatibility.md) for details.
