@@ -137,19 +137,6 @@ export class VbsBrowserEngine {
     this.engine.registerFunction('MsgBox', createBrowserMsgBox());
     this.engine.registerFunction('InputBox', createBrowserInputBox());
 
-    this.engine.registerFunction('GetRef', (procname: VbValue): VbValue => {
-      const name = String(procname.value);
-      const self = this;
-      const func = function(this: unknown, ...args: unknown[]): unknown {
-        const vbArgs = args.map(a => jsToVb(a, this));
-        const context = self.engine.getContext();
-        if (!context) return undefined;
-        const result = context.functionRegistry.call(name, vbArgs);
-        return vbToJs(result);
-      };
-      return { type: 'Object', value: { type: 'vbref', name, func } };
-    });
-
     this.engine.registerFunction('CreateObject', (cls: VbValue, _servername?: VbValue): VbValue => {
       const className = String(cls.value ?? cls);
       

@@ -242,7 +242,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | ExecuteGlobal | ✔️ | Dynamic code execution in global scope |
 | MsgBox | ✔️ | Browser simulation using alert/confirm |
 | InputBox | ✔️ | Browser simulation using prompt |
-| GetRef | ❌ | |
+| GetRef | ✔️ | |
 | GetLocale | ✔️ | Returns fixed value (1033) |
 | SetLocale | ✔️ | No-op, returns fixed value |
 | CreateObject | ⛔ | COM objects unavailable in browser |

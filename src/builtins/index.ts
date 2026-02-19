@@ -64,6 +64,30 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Empty', value: undefined };
   }, { isSub: true });
 
+  context.functionRegistry.register('GetRef', (procname: VbValue): VbValue => {
+    const name = String(procname.value ?? procname);
+    const funcRegistry = context.functionRegistry;
+    return {
+      type: 'Object',
+      value: {
+        type: 'vbref',
+        name,
+        getProperty: (propName: string): VbValue => {
+          if (propName.toLowerCase() === 'name') {
+            return { type: 'String', value: name };
+          }
+          return { type: 'Empty', value: undefined };
+        },
+        hasProperty: (propName: string): boolean => {
+          return propName.toLowerCase() === 'name';
+        },
+        call: (...args: VbValue[]): VbValue => {
+          return funcRegistry.call(name, args);
+        },
+      },
+    };
+  });
+
   context.functionRegistry.register('TypeName', (expression: VbValue): VbValue => {
     if (expression.type === 'Object' && expression.value && typeof expression.value === 'object') {
       const obj = expression.value as { classInfo?: { name: string } };
