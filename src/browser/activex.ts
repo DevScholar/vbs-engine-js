@@ -3,9 +3,10 @@ import type { VbValue } from '../runtime/index.ts';
 export function createObject(cls: VbValue, _servername?: VbValue): VbValue {
   const className = String(cls.value ?? cls);
 
-  if (typeof window.ActiveXObject !== 'undefined') {
+  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+  if (axConstructor) {
     try {
-      const ax = new window.ActiveXObject(className);
+      const ax = new axConstructor(className);
       return { type: 'Object', value: {
         type: 'activex',
         object: ax,
@@ -20,13 +21,14 @@ export function createObject(cls: VbValue, _servername?: VbValue): VbValue {
 }
 
 export function getObject(pathname?: VbValue, cls?: VbValue): VbValue {
-  if (typeof window.ActiveXObject !== 'undefined') {
+  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+  if (axConstructor) {
     const path = pathname ? String(pathname.value ?? pathname) : '';
     const className = cls ? String(cls.value ?? cls) : '';
 
     try {
       if (path) {
-        const ax = new window.ActiveXObject(className || 'Scripting.FileSystemObject');
+        const ax = new axConstructor(className || 'Scripting.FileSystemObject');
         return { type: 'Object', value: {
           type: 'activex',
           object: ax,

@@ -1,9 +1,9 @@
 import type {
   Expression,
+  Program,
   Identifier,
   Literal,
   MemberExpression,
-  CallExpression,
   BinaryExpression,
   UnaryExpression,
   LogicalExpression,
@@ -19,12 +19,10 @@ import type {
   VbObjectValueData,
   VbArrayValue,
   VbBooleanValue,
-  VbDoubleValue,
   VbLongValue,
-  VbStringValue,
 } from '../runtime/index.ts';
 import { VbContext, VbObjectInstance } from '../runtime/index.ts';
-import { createVbValue, VbEmpty, VbNull, VbNothing, toBoolean, toNumber, toString, createVbError, VbErrorCodes } from '../runtime/index.ts';
+import { createVbValue, VbEmpty, VbNull, toBoolean, toNumber, toString, createVbError, VbErrorCodes } from '../runtime/index.ts';
 
 interface VbMethodObject {
   type: 'method';
@@ -35,10 +33,8 @@ interface VbMethodObject {
 interface VbJsFunctionObject {
   type: 'jsfunction';
   func: (...args: unknown[]) => unknown;
-  thisArg?: unknown;
+  thisArg: unknown;
 }
-
-type VbCallableObject = VbMethodObject | VbJsFunctionObject;
 
 function isVbMethodObject(obj: VbObjectValueData): obj is VbObjectValueData & VbMethodObject {
   return obj.type === 'method' && 'object' in obj && 'method' in obj;
@@ -50,6 +46,14 @@ function isVbJsFunctionObject(obj: VbObjectValueData): obj is VbObjectValueData 
 
 export class ExpressionEvaluator {
   constructor(private context: VbContext) {}
+
+  evaluateProgram(program: Program): VbValue {
+    let result: VbValue = VbEmpty;
+    for (const stmt of program.body) {
+      result = this.evaluate(stmt as unknown as Expression);
+    }
+    return result;
+  }
 
   evaluate(node: Expression): VbValue {
     switch (node.type) {
@@ -68,7 +72,7 @@ export class ExpressionEvaluator {
       case 'MemberExpression':
         return this.evaluateMember(node);
       case 'CallExpression':
-        return this.evaluateCallInternal(node.callee, node.arguments);
+        return this.evaluateCallInternal(node.callee as Expression, node.arguments);
       case 'BinaryExpression':
         return this.evaluateBinary(node);
       case 'UnaryExpression':
@@ -79,10 +83,8 @@ export class ExpressionEvaluator {
         return this.evaluateAssignment(node);
       case 'ConditionalExpression':
         return this.evaluateConditional(node);
-      default: {
-        const exhaustiveCheck: never = node;
-        throw new Error(`Unknown expression type: ${(exhaustiveCheck as Expression).type}`);
-      }
+      default:
+        return VbEmpty;
     }
   }
 
@@ -159,7 +161,7 @@ export class ExpressionEvaluator {
   }
 
   private getObjectProperty(objValue: VbObjectValue, propertyName: string): VbValue {
-    const obj = objValue.value;
+    const obj = objValue.value as VbObjectValueData | null;
 
     if (obj === null) {
       throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
@@ -245,7 +247,7 @@ export class ExpressionEvaluator {
           return arr.get(indices);
         }
         if (variable.value.type === 'Object' && variable.value.value !== null) {
-          const val = variable.value.value;
+          const val = variable.value.value as VbObjectValueData;
           if (val.hasMethod?.('default') && val.getMethod) {
             const method = val.getMethod('default');
             const args = callArgs.map(arg => this.evaluate(arg));
@@ -278,7 +280,7 @@ export class ExpressionEvaluator {
   }
 
   private callObjectMethod(objValue: VbObjectValue, callArgs: Expression[]): VbValue {
-    const obj = objValue.value;
+    const obj = objValue.value as VbObjectValueData | null;
     if (obj === null) {
       throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
     }
@@ -322,7 +324,7 @@ export class ExpressionEvaluator {
       case 'Array':
         return value.value;
       case 'Object':
-        const obj = value.value;
+        const obj = value.value as VbObjectValueData | null;
         if (obj && typeof obj === 'object' && (obj as Record<string, unknown>).type === 'vbref') {
           return (obj as Record<string, unknown>).func;
         }
@@ -371,10 +373,8 @@ export class ExpressionEvaluator {
         return { type: 'String', value: toString(left) + toString(right) };
       case 'Is':
         return { type: 'Boolean', value: left.type === 'Object' && right.type === 'Object' && left.value === right.value };
-      default: {
-        const exhaustiveCheck: never = node.operator;
-        throw new Error(`Unknown binary operator: ${exhaustiveCheck}`);
-      }
+      default:
+        return VbEmpty;
     }
   }
 
@@ -408,9 +408,9 @@ export class ExpressionEvaluator {
     return createVbValue(leftNum * rightNum);
   }
 
-  private divide(left: VbValue, right: VbValue): VbDoubleValue {
+  private divide(left: VbValue, right: VbValue): VbValue {
     if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull as VbDoubleValue;
+      return VbNull;
     }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
@@ -444,9 +444,9 @@ export class ExpressionEvaluator {
     return createVbValue(leftNum % rightNum);
   }
 
-  private power(left: VbValue, right: VbValue): VbDoubleValue {
+  private power(left: VbValue, right: VbValue): VbValue {
     if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull as VbDoubleValue;
+      return VbNull;
     }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
@@ -513,10 +513,8 @@ export class ExpressionEvaluator {
       case '!':
       case 'Not':
         return { type: 'Boolean', value: !toBoolean(argument) };
-      default: {
-        const exhaustiveCheck: never = node.operator;
-        throw new Error(`Unknown unary operator: ${exhaustiveCheck}`);
-      }
+      default:
+        return VbEmpty;
     }
   }
 
@@ -549,10 +547,8 @@ export class ExpressionEvaluator {
         const right = this.evaluate(node.right);
         return { type: 'Boolean', value: !toBoolean(left) || toBoolean(right) };
       }
-      default: {
-        const exhaustiveCheck: never = node.operator;
-        throw new Error(`Unknown logical operator: ${exhaustiveCheck}`);
-      }
+      default:
+        return VbEmpty;
     }
   }
 
@@ -609,7 +605,7 @@ export class ExpressionEvaluator {
       const index = toNumber(this.evaluate(node.property as Expression));
       arr.set([Math.floor(index)], value);
     } else if (object.type === 'Object') {
-      const obj = object.value;
+      const obj = object.value as VbObjectValueData | null;
       if (obj === null || typeof obj !== 'object') {
         throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
       }

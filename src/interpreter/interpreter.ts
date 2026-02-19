@@ -1,10 +1,10 @@
-import type { Program, Expression, Statement, VbLabelStatement } from '../ast/index.ts';
+import type { Program, Statement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbContext, VbEmpty } from '../runtime/index.ts';
 import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 import { registerBuiltins } from '../builtins/index.ts';
-import { Parser } from '../parser/index.ts';
+import { parse } from '../parser/index.ts';
 
 interface LabelInfo {
   index: number;
@@ -14,14 +14,12 @@ interface LabelInfo {
 export class Interpreter {
   private context: VbContext;
   private executor: StatementExecutor;
-  private parser: Parser;
   private maxExecutionTime: number = -1;
   private startTime: number = 0;
 
   constructor() {
     this.context = new VbContext();
     this.executor = new StatementExecutor(this.context);
-    this.parser = new Parser();
     registerBuiltins(this.context);
   }
 
@@ -41,7 +39,7 @@ export class Interpreter {
   private collectLabels(statements: Statement[]): Map<string, LabelInfo> {
     const labels = new Map<string, LabelInfo>();
     for (let i = 0; i < statements.length; i++) {
-      const stmt = statements[i];
+      const stmt = statements[i]!;
       if (stmt.type === 'VbLabelStatement') {
         const labelStmt = stmt as VbLabelStatement;
         labels.set(labelStmt.label.name.toLowerCase(), { index: i, statement: labelStmt });
@@ -65,7 +63,7 @@ export class Interpreter {
       }
       
       this.checkTimeout();
-      const stmt = statements[i];
+      const stmt = statements[i]!;
       
       try {
         result = this.executor.execute(stmt);
@@ -103,7 +101,7 @@ export class Interpreter {
 
   evaluate(code: string): VbValue {
     try {
-      const ast = this.parser.parse(code);
+      const ast = parse(code);
       const evaluator = new ExpressionEvaluator(this.context);
       const result = evaluator.evaluateProgram(ast);
       return result;
@@ -130,7 +128,7 @@ export class Interpreter {
       }
       
       this.checkTimeout();
-      const stmt = statements[i];
+      const stmt = statements[i]!;
       
       try {
         result = this.executor.execute(stmt);
@@ -155,7 +153,7 @@ export class Interpreter {
   }
 
   executeInCurrentScope(code: string): VbValue {
-    const ast = this.parser.parse(code);
+    const ast = parse(code);
     return this.executeStatements(ast.body);
   }
 
@@ -163,7 +161,7 @@ export class Interpreter {
     const savedScope = this.context.currentScope;
     this.context.currentScope = this.context.globalScope;
     try {
-      const ast = this.parser.parse(code);
+      const ast = parse(code);
       return this.executeStatements(ast.body);
     } finally {
       this.context.currentScope = savedScope;

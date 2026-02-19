@@ -1,7 +1,7 @@
 import type { VbsEngine } from '../core/index.ts';
 
 export interface ProtocolHandlerResult {
-  navigateHandler: ((event: NavigateEvent) => void) | null;
+  navigateHandler: ((event: Event) => void) | null;
   clickHandler: ((event: MouseEvent) => void) | null;
 }
 
@@ -10,12 +10,13 @@ export function setupVbscriptProtocol(engine: VbsEngine): ProtocolHandlerResult 
     return { navigateHandler: null, clickHandler: null };
   }
 
-  let navigateHandler: ((event: NavigateEvent) => void) | null = null;
+  let navigateHandler: ((event: Event) => void) | null = null;
   let clickHandler: ((event: MouseEvent) => void) | null = null;
 
   if ('navigation' in window && window.navigation) {
-    navigateHandler = (event: NavigateEvent): void => {
-      const url = event.destination.url;
+    navigateHandler = (event: Event): void => {
+      const navEvent = event as { destination?: { url?: string } };
+      const url = navEvent.destination?.url;
       if (url && url.toLowerCase().startsWith('vbscript:')) {
         event.preventDefault();
         const code = url.substring(9);
@@ -27,7 +28,7 @@ export function setupVbscriptProtocol(engine: VbsEngine): ProtocolHandlerResult 
       }
     };
 
-    window.navigation.addEventListener('navigate', navigateHandler);
+    (window.navigation as EventTarget).addEventListener('navigate', navigateHandler);
   } else {
     clickHandler = (event: MouseEvent): void => {
       const target = event.target as HTMLElement;
@@ -56,7 +57,7 @@ export function cleanupVbscriptProtocol(result: ProtocolHandlerResult): void {
   if (typeof window === 'undefined') return;
 
   if (result.navigateHandler && 'navigation' in window && window.navigation) {
-    window.navigation.removeEventListener('navigate', result.navigateHandler);
+    (window.navigation as EventTarget).removeEventListener('navigate', result.navigateHandler);
   }
 
   if (result.clickHandler) {

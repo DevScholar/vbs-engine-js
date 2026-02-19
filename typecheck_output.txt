@@ -1,0 +1,112 @@
+src/__tests__/interpreter.test.ts(915,45): error TS6133: 'pathname' is declared but its value is never read.
+src/__tests__/parser.test.ts(8,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(13,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(18,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(27,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(32,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(37,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(44,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(56,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(61,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(66,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(71,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(76,14): error TS2532: Object is possibly 'undefined'.
+src/__tests__/parser.test.ts(81,14): error TS2532: Object is possibly 'undefined'.
+src/ast/types.ts(585,5): error TS2304: Cannot find name 'VbDateLiteral'.
+src/ast/types.ts(586,5): error TS2304: Cannot find name 'VbNothingLiteral'.
+src/ast/types.ts(588,5): error TS2304: Cannot find name 'VbNullLiteral'.
+src/ast/types.ts(589,5): error TS2304: Cannot find name 'VbstringConcatExpression'.
+src/ast/types.ts(590,5): error TS2552: Cannot find name 'VbIsExpression'. Did you mean 'BaseExpression'?
+src/ast/types.ts(592,5): error TS2552: Cannot find name 'VbMeExpression'. Did you mean 'BaseExpression'?
+src/ast/types.ts(593,5): error TS2552: Cannot find name 'VbIndexExpression'. Did you mean 'VbNewExpression'?
+src/ast/types.ts(594,5): error TS2304: Cannot find name 'VbDefaultPropertyExpression'.
+src/browser/activex.ts(6,21): error TS2339: Property 'ActiveXObject' does not exist on type 'Window & typeof globalThis'.
+src/browser/activex.ts(8,29): error TS2339: Property 'ActiveXObject' does not exist on type 'Window & typeof globalThis'.
+src/browser/activex.ts(23,21): error TS2339: Property 'ActiveXObject' does not exist on type 'Window & typeof globalThis'.
+src/browser/activex.ts(29,31): error TS2339: Property 'ActiveXObject' does not exist on type 'Window & typeof globalThis'.
+src/browser/browser-runtime.ts(9,26): error TS6133: 'setupForEventScript' is declared but its value is never read.
+src/browser/browser-runtime.ts(66,11): error TS6133: 'initialized' is declared but its value is never read.
+src/browser/browser-runtime.ts(75,11): error TS2375: Type '{ maxExecutionTime: number | undefined; injectGlobalThis: boolean | undefined; }' is not assignable to type 'VbsEngineOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'maxExecutionTime' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/browser/browser-runtime.ts(82,5): error TS2322: Type '{ parseScriptElement: boolean; parseInlineEventAttributes: boolean; parseEventSubNames: boolean; overrideJSEvalFunctions: boolean; parseVbsProtocol: boolean; maxExecutionTime?: number; injectGlobalThis?: boolean; }' is not assignable to type 'Required<BrowserRuntimeOptions>'.
+  Property 'maxExecutionTime' is optional in type '{ parseScriptElement: boolean; parseInlineEventAttributes: boolean; parseEventSubNames: boolean; overrideJSEvalFunctions: boolean; parseVbsProtocol: boolean; maxExecutionTime?: number; injectGlobalThis?: boolean; }' but required in type 'Required<BrowserRuntimeOptions>'.
+src/browser/eval-override.ts(2,15): error TS6196: 'OriginalEval' is declared but never used.
+src/browser/eval-override.ts(25,38): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/browser/event-handlers.ts(12,22): error TS18048: 'attr' is possibly 'undefined'.
+src/browser/event-handlers.ts(15,21): error TS18048: 'attr' is possibly 'undefined'.
+src/browser/event-handlers.ts(19,10): error TS2352: Conversion of type 'Element' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Element'.
+src/browser/event-handlers.ts(19,59): error TS6133: 'event' is declared but its value is never read.
+src/browser/event-handlers.ts(64,11): error TS2532: Object is possibly 'undefined'.
+src/browser/event-handlers.ts(65,9): error TS2322: Type 'Element | undefined' is not assignable to type 'EventTarget | null'.
+  Type 'undefined' is not assignable to type 'EventTarget | null'.
+src/browser/protocol-handler.ts(4,29): error TS2304: Cannot find name 'NavigateEvent'.
+src/browser/protocol-handler.ts(13,33): error TS2304: Cannot find name 'NavigateEvent'.
+src/browser/protocol-handler.ts(17,31): error TS2304: Cannot find name 'NavigateEvent'.
+src/browser/protocol-handler.ts(30,23): error TS2339: Property 'addEventListener' does not exist on type '{}'.
+src/browser/protocol-handler.ts(59,23): error TS2339: Property 'removeEventListener' does not exist on type '{}'.
+src/browser/timer-override.ts(2,15): error TS6196: 'OriginalSetTimeout' is declared but never used.
+src/browser/timer-override.ts(2,35): error TS6196: 'OriginalSetInterval' is declared but never used.
+src/builtins/array.ts(2,54): error TS6133: 'VbEmpty' is declared but its value is never read.
+src/builtins/array.ts(34,70): error TS6133: 'compare' is declared but its value is never read.
+src/builtins/array.ts(48,20): error TS2304: Cannot find name 'createVbArray'.
+src/builtins/conversion.ts(2,10): error TS6133: 'createVbValue' is declared but its value is never read.
+src/builtins/conversion.ts(2,56): error TS6133: 'VbEmpty' is declared but its value is never read.
+src/builtins/conversion.ts(2,65): error TS6133: 'VbNull' is declared but its value is never read.
+src/builtins/conversion.ts(2,73): error TS6133: 'VbNothing' is declared but its value is never read.
+src/builtins/conversion.ts(89,11): error TS6133: 'parens' is declared but its value is never read.
+src/builtins/conversion.ts(108,105): error TS6133: 'useParensForNegativeNumbers' is declared but its value is never read.
+src/builtins/conversion.ts(132,104): error TS6133: 'useParensForNegativeNumbers' is declared but its value is never read.
+src/builtins/date.ts(2,10): error TS6133: 'createVbValue' is declared but its value is never read.
+src/builtins/date.ts(2,45): error TS6133: 'VbEmpty' is declared but its value is never read.
+src/builtins/date.ts(4,10): error TS6133: 'dateToSerial' is declared but its value is never read.
+src/builtins/date.ts(105,65): error TS6133: 'firstDayOfWeek' is declared but its value is never read.
+src/builtins/date.ts(105,91): error TS6133: 'firstWeekOfYear' is declared but its value is never read.
+src/builtins/date.ts(148,48): error TS6133: 'firstDayOfWeek' is declared but its value is never read.
+src/builtins/date.ts(148,74): error TS6133: 'firstWeekOfYear' is declared but its value is never read.
+src/builtins/date.ts(232,57): error TS6133: 'firstDayOfWeek' is declared but its value is never read.
+src/builtins/index.ts(199,47): error TS6133: 'arrayname' is declared but its value is never read.
+src/builtins/index.ts(203,51): error TS6133: 'pathname' is declared but its value is never read.
+src/builtins/index.ts(203,71): error TS6133: 'cls' is declared but its value is never read.
+src/builtins/index.ts(207,68): error TS6133: 'servername' is declared but its value is never read.
+src/builtins/inputbox.ts(11,5): error TS6133: 'context' is declared but its value is never read.
+src/builtins/inputbox.ts(15,5): error TS6133: 'xPos' is declared but its value is never read.
+src/builtins/inputbox.ts(16,5): error TS6133: 'yPos' is declared but its value is never read.
+src/builtins/inputbox.ts(17,5): error TS6133: 'helpFile' is declared but its value is never read.
+src/builtins/inputbox.ts(18,5): error TS6133: 'contextVal' is declared but its value is never read.
+src/builtins/inputbox.ts(67,110): error TS6133: 'xPos' is declared but its value is never read.
+src/builtins/inputbox.ts(67,126): error TS6133: 'yPos' is declared but its value is never read.
+src/builtins/inputbox.ts(67,142): error TS6133: 'helpFile' is declared but its value is never read.
+src/builtins/inputbox.ts(67,162): error TS6133: 'contextVal' is declared but its value is never read.
+src/builtins/locale.ts(187,33): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/builtins/locale.ts(225,82): error TS2532: Object is possibly 'undefined'.
+src/builtins/locale.ts(287,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/builtins/math.ts(2,35): error TS6133: 'toString' is declared but its value is never read.
+src/builtins/math.ts(73,9): error TS6133: 'number' is declared but its value is never read.
+src/builtins/math.ts(77,15): error TS6133: 'number' is declared but its value is never read.
+src/builtins/msgbox.ts(148,10): error TS6133: 'getInputPrompt' is declared but its value is never read.
+src/builtins/msgbox.ts(148,55): error TS6133: 'defaultButton' is declared but its value is never read.
+src/builtins/msgbox.ts(173,10): error TS6133: 'readFromConsole' is declared but its value is never read.
+src/builtins/msgbox.ts(175,22): error TS2580: Cannot find name 'require'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(177,14): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(178,15): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(187,10): error TS6133: 'syncReadFromConsole' is declared but its value is never read.
+src/builtins/msgbox.ts(189,22): error TS2580: Cannot find name 'require'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(191,14): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(192,15): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/builtins/msgbox.ts(211,5): error TS6133: 'context' is declared but its value is never read.
+src/builtins/regexp.ts(44,10): error TS6133: 'createSubMatchesObject' is declared but its value is never read.
+src/builtins/regexp.ts(83,11): error TS2322: Type 'VbValue | undefined' is not assignable to type 'VbValue'.
+  Type 'undefined' is not assignable to type 'VbValue'.
+src/builtins/regexp.ts(104,17): error TS2322: Type 'VbValue | undefined' is not assignable to type 'VbValue'.
+  Type 'undefined' is not assignable to type 'VbValue'.
+src/builtins/string.ts(2,10): error TS6133: 'createVbValue' is declared but its value is never read.
+src/builtins/string.ts(2,45): error TS6133: 'toBoolean' is declared but its value is never read.
+src/builtins/string.ts(2,56): error TS6133: 'VbEmpty' is declared but its value is never read.
+src/builtins/string.ts(2,65): error TS6133: 'VbNull' is declared but its value is never read.
+src/builtins/string.ts(2,73): error TS6133: 'VbNothing' is declared but its value is never read.
+src/builtins/string.ts(139,7): error TS6133: '_hasDecimal' is declared but its value is never read.

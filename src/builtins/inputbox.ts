@@ -8,14 +8,14 @@ export interface InputBoxOptions {
 
 export function createInputBox(options?: InputBoxOptions) {
   return function(
-    context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } },
+    _context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } },
     promptVal: VbValue,
     title?: VbValue,
     defaultText?: VbValue,
-    xPos?: VbValue,
-    yPos?: VbValue,
-    helpFile?: VbValue,
-    contextVal?: VbValue
+    _xPos?: VbValue,
+    _yPos?: VbValue,
+    _helpFile?: VbValue,
+    _contextVal?: VbValue
   ): VbValue {
     const message = String(promptVal.value ?? promptVal);
     const titleStr = title ? String(title.value ?? title) : 'Input';
@@ -64,7 +64,7 @@ export function createBrowserInputBox() {
 }
 
 export function registerInputBox(context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } }): void {
-  context.functionRegistry.register('InputBox', (promptVal: VbValue, title?: VbValue, defaultText?: VbValue, xPos?: VbValue, yPos?: VbValue, helpFile?: VbValue, contextVal?: VbValue): VbValue => {
+  context.functionRegistry.register('InputBox', (promptVal: VbValue, title?: VbValue, defaultText?: VbValue, _xPos?: VbValue, _yPos?: VbValue, _helpFile?: VbValue, _contextVal?: VbValue): VbValue => {
     const message = String(promptVal.value ?? promptVal);
     const titleStr = title ? String(title.value ?? title) : 'Input';
     const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';

@@ -80,7 +80,7 @@ function createMatchesCollection(matches: VbMatch[]): VbValue {
       getProperty: (name: string): VbValue => {
         const index = parseInt(name, 10);
         if (!isNaN(index) && index >= 0 && index < matchObjects.length) {
-          return matchObjects[index];
+          return matchObjects[index] ?? { type: 'Empty', value: undefined };
         }
         return { type: 'Empty', value: undefined };
       },
@@ -101,7 +101,7 @@ function createMatchesCollection(matches: VbMatch[]): VbValue {
             func: (index: VbValue): VbValue => {
               const idx = Math.floor(Number(index.value ?? 0));
               if (idx >= 0 && idx < matchObjects.length) {
-                return matchObjects[idx];
+                return matchObjects[idx] ?? { type: 'Empty', value: undefined };
               }
               return { type: 'Empty', value: undefined };
             },

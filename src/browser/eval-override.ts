@@ -22,7 +22,7 @@ export function overrideEval(engine: VbsEngine): EvalOverrideState {
         return vbToJs(result);
       }
     }
-    return originalEval.call(window, code);
+    return originalEval.call(window, String(code));
   };
 
   return { originalEval };

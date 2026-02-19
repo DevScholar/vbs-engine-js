@@ -145,7 +145,7 @@ function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): 
   return options;
 }
 
-function getInputPrompt(buttonType: MsgBoxButtonType, defaultButton: number): string {
+function _getInputPrompt(buttonType: MsgBoxButtonType, _defaultButton: number): string {
   let prompt = '';
   switch (buttonType) {
     case 'OK':
@@ -170,11 +170,14 @@ function getInputPrompt(buttonType: MsgBoxButtonType, defaultButton: number): st
   return prompt;
 }
 
-function readFromConsole(): Promise<string | null> {
+function _readFromConsole(): Promise<string | null> {
   return new Promise((resolve) => {
+    // @ts-ignore - Node.js specific
     const readline = require('readline');
     const rl = readline.createInterface({
+      // @ts-ignore - Node.js specific
       input: process.stdin,
+      // @ts-ignore - Node.js specific
       output: process.stdout
     });
     rl.question('', (answer: string) => {
@@ -184,11 +187,14 @@ function readFromConsole(): Promise<string | null> {
   });
 }
 
-function syncReadFromConsole(): string | null {
+function _syncReadFromConsole(): string | null {
   try {
+    // @ts-ignore - Node.js specific
     const readline = require('readline');
     const rl = readline.createInterface({
+      // @ts-ignore - Node.js specific
       input: process.stdin,
+      // @ts-ignore - Node.js specific
       output: process.stdout
     });
     rl.question('', () => {});
@@ -208,7 +214,7 @@ export interface MsgBoxOptions {
 
 export function createMsgBox(options?: MsgBoxOptions) {
   return function(
-    context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue, options?: { isSub: boolean }) => void } },
+    _context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue, options?: { isSub: boolean }) => void } },
     promptVal: VbValue,
     buttons?: VbValue,
     title?: VbValue

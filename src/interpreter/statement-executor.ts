@@ -1,6 +1,6 @@
-import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbPropertyGetStatement, VbPropertyLetStatement, VbPropertySetStatement, VbOnErrorHandlerStatement, VbResumeStatement, VbCallStatement, Expression, VbGotoStatement, VbLabelStatement } from '../ast/index.ts';
+import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbOnErrorHandlerStatement, VbCallStatement, Expression, VbGotoStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty, VbNull, VbNothing, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, VbProperty } from '../runtime/index.ts';
+import { VbContext, VbEmpty, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, VbProperty } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
 export class ControlFlowSignal extends Error {
@@ -124,7 +124,7 @@ export class StatementExecutor {
 
   private executeDimStatement(node: VbDimStatement): VbValue {
     for (const decl of node.declarations) {
-      let value = VbEmpty;
+      let value: VbValue = VbEmpty;
       
       if (decl.isArray && decl.arrayBounds) {
         const bounds = decl.arrayBounds.map(b => {
@@ -400,7 +400,7 @@ export class StatementExecutor {
     throw new ControlFlowSignal('exit');
   }
 
-  private executeOptionExplicitStatement(node: VbOptionExplicitStatement): VbValue {
+  private executeOptionExplicitStatement(_node: VbOptionExplicitStatement): VbValue {
     this.context.optionExplicit = true;
     return VbEmpty;
   }
@@ -495,13 +495,11 @@ export class StatementExecutor {
   private bindParameters(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
     let argIndex = 0;
     
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      
+    for (const param of params) {
       if (param.isParamArray) {
         const restArgs: VbValue[] = [];
         while (argIndex < args.length) {
-          restArgs.push(args[argIndex++]);
+          restArgs.push(args[argIndex++]!);
         }
         const arr = createVbArray([restArgs.length]);
         restArgs.forEach((v, idx) => arr.set([idx], v));
@@ -510,7 +508,7 @@ export class StatementExecutor {
         let argValue: VbValue;
         
         if (argIndex < args.length) {
-          argValue = args[argIndex++];
+          argValue = args[argIndex++]!;
         } else if (param.defaultValue) {
           argValue = this.exprEvaluator.evaluate(param.defaultValue);
         } else if (param.isOptional) {
@@ -527,9 +525,7 @@ export class StatementExecutor {
   private updateByRefArgs(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
     let argIndex = 0;
     
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      
+    for (const param of params) {
       if (param.isParamArray) {
         break;
       }
@@ -722,7 +718,7 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private executePropertyStatement(node: Statement): VbValue {
+  private executePropertyStatement(_node: Statement): VbValue {
     return VbEmpty;
   }
 

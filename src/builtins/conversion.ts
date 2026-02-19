@@ -1,5 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbValue, toNumber, toString, toBoolean, VbEmpty, VbNull, VbNothing, isEmpty, isNull, isNumeric } from '../runtime/index.ts';
+import { toNumber, toString, toBoolean, isEmpty, isNull, isNumeric } from '../runtime/index.ts';
 import { getCurrentCurrency, getCurrentBCP47Locale } from './locale.ts';
 
 export const conversionFunctions = {
@@ -82,11 +82,10 @@ export const conversionFunctions = {
     return { type: 'String', value: str };
   },
 
-  FormatNumber: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatNumber: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
     const grouping = groupDigits ? toNumber(groupDigits) : -2;
     
     const options: Intl.NumberFormatOptions = {
@@ -105,7 +104,7 @@ export const conversionFunctions = {
     return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
-  FormatCurrency: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatCurrency: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
@@ -129,7 +128,7 @@ export const conversionFunctions = {
     return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
-  FormatPercent: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatPercent: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;

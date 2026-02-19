@@ -7,8 +7,8 @@ export interface Identifier extends BaseNode {
 
 export interface Literal extends BaseExpression {
   type: 'Literal';
-  value: string | number | boolean | null | RegExp | bigint | Date;
-  raw?: string;
+  value: string | number | boolean | null | RegExp | bigint | Date | symbol;
+  raw?: string | undefined;
 }
 
 export interface ArrayExpression extends BaseExpression {
@@ -192,7 +192,7 @@ export interface ChainExpression extends BaseExpression {
 export interface VbEmptyLiteral extends BaseExpression {
   type: 'VbEmptyLiteral';
   value: undefined;
-  raw?: string;
+  raw?: string | undefined;
 }
 
 export interface VbNewExpression extends BaseExpression {
@@ -371,8 +371,8 @@ export interface VbVariableDeclarator extends BaseNode {
   id: Identifier;
   init: Expression | null;
   isArray: boolean;
-  arrayBounds?: Expression[];
-  typeAnnotation?: VbTypeAnnotation;
+  arrayBounds?: Expression[] | undefined;
+  typeAnnotation?: VbTypeAnnotation | undefined;
 }
 
 export interface VbTypeAnnotation extends BaseNode {
@@ -403,7 +403,7 @@ export interface VbConstDeclarator extends BaseNode {
   type: 'VbConstDeclarator';
   id: Identifier;
   init: Expression;
-  typeAnnotation?: VbTypeAnnotation;
+  typeAnnotation?: VbTypeAnnotation | undefined;
 }
 
 export interface VbForToStatement extends BaseStatement {
@@ -582,16 +582,9 @@ export type Expression =
   | SequenceExpression
   | SpreadElement
   | ChainExpression
-  | VbDateLiteral
-  | VbNothingLiteral
+  | ThisExpression
   | VbEmptyLiteral
-  | VbNullLiteral
-  | VbstringConcatExpression
-  | VbIsExpression
   | VbNewExpression
-  | VbMeExpression
-  | VbIndexExpression
-  | VbDefaultPropertyExpression
   | VbWithObjectExpression;
 
 export type Statement =

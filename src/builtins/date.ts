@@ -1,10 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbValue, toNumber, toString, VbEmpty } from '../runtime/index.ts';
-
-function dateToSerial(date: Date): number {
-  const baseDate = new Date(1899, 11, 30);
-  return (date.getTime() - baseDate.getTime()) / 86400000;
-}
+import { toNumber, toString } from '../runtime/index.ts';
 
 function serialToDate(serial: number): Date {
   const baseDate = new Date(1899, 11, 30);
@@ -102,7 +97,7 @@ export const dateFunctions = {
     return { type: 'Date', value: d };
   },
 
-  DateDiff: (interval: VbValue, date1: VbValue, date2: VbValue, firstDayOfWeek?: VbValue, firstWeekOfYear?: VbValue): VbValue => {
+  DateDiff: (interval: VbValue, date1: VbValue, date2: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
     const intv = toString(interval).toLowerCase();
     const d1 = date1.type === 'Date' ? (date1.value as Date) : serialToDate(toNumber(date1));
     const d2 = date2.type === 'Date' ? (date2.value as Date) : serialToDate(toNumber(date2));
@@ -145,7 +140,7 @@ export const dateFunctions = {
     return { type: 'Long', value: result };
   },
 
-  DatePart: (interval: VbValue, date: VbValue, firstDayOfWeek?: VbValue, firstWeekOfYear?: VbValue): VbValue => {
+  DatePart: (interval: VbValue, date: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
     const intv = toString(interval).toLowerCase();
     const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
     
@@ -229,7 +224,7 @@ export const dateFunctions = {
     return { type: 'String', value: abbrev ? name.substring(0, 3) : name };
   },
 
-  WeekdayName: (weekday: VbValue, abbreviate?: VbValue, firstDayOfWeek?: VbValue): VbValue => {
+  WeekdayName: (weekday: VbValue, abbreviate?: VbValue, _firstDayOfWeek?: VbValue): VbValue => {
     const w = Math.floor(toNumber(weekday));
     const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const abbrev = abbreviate ? toNumber(abbreviate) !== 0 : false;

@@ -139,5 +139,5 @@ export interface Token {
     start: TokenLocation;
     end: TokenLocation;
   };
-  raw?: string;
+  raw?: string | undefined;
 }

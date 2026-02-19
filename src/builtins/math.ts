@@ -1,5 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbValue, toNumber, toString, VbEmpty } from '../runtime/index.ts';
+import { createVbValue, toNumber, VbEmpty } from '../runtime/index.ts';
 
 export const mathFunctions = {
   Abs: (number: VbValue): VbValue => {
@@ -70,11 +70,11 @@ export const mathFunctions = {
     return { type: 'Double', value: Math.log(num) };
   },
 
-  Rnd: (number?: VbValue): VbValue => {
+  Rnd: (_number?: VbValue): VbValue => {
     return { type: 'Single', value: Math.random() };
   },
 
-  Randomize: (number?: VbValue): VbValue => {
+  Randomize: (_number?: VbValue): VbValue => {
     return VbEmpty;
   },
 

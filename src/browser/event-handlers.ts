@@ -9,6 +9,7 @@ export function setupElementInlineEvents(engine: VbsEngine, element: Element): v
   const attrs = element.attributes;
   for (let i = 0; i < attrs.length; i++) {
     const attr = attrs[i];
+    if (!attr) continue;
     const attrName = attr.name.toLowerCase();
 
     if (attrName.startsWith('on') && attrName.length > 2) {
@@ -16,7 +17,7 @@ export function setupElementInlineEvents(engine: VbsEngine, element: Element): v
       if (value.toLowerCase().startsWith('vbscript:')) {
         const code = value.substring(9).trim();
 
-        (element as Record<string, unknown>)[attrName] = (event: Event): void => {
+        (element as unknown as Record<string, unknown>)[attrName] = (): void => {
           try {
             engine.run(code);
           } catch (error) {
@@ -61,8 +62,9 @@ export function resolveEventTarget(objectName: string): EventTarget | null {
 
     const allElements = document.querySelectorAll('[id]');
     for (let i = 0; i < allElements.length; i++) {
-      if (allElements[i].id.toLowerCase() === lowerName) {
-        return allElements[i];
+      const el = allElements[i];
+      if (el && el.id.toLowerCase() === lowerName) {
+        return el;
       }
     }
   }

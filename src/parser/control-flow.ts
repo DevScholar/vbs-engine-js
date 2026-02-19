@@ -190,26 +190,6 @@ export class ControlFlowParser {
     };
   }
 
-  private parseSingleLineStatement(): Statement {
-    if (this.state.check('Dim' as any)) {
-      return this.parseStatement();
-    }
-    if (this.state.check('ReDim' as any)) {
-      return this.parseStatement();
-    }
-    if (this.state.check('Const' as any)) {
-      return this.parseStatement();
-    }
-    if (this.state.check('Exit' as any)) {
-      return this.parseStatement();
-    }
-    if (this.state.check('Call' as any)) {
-      return this.parseStatement();
-    }
-
-    return this.parseStatement();
-  }
-
   private parseIfBlock(): BlockStatement {
     const body: Statement[] = [];
     let nestedIfDepth = 0;

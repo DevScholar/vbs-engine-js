@@ -1,5 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
-import { toNumber, VbArray, createVbArrayFromValues, VbEmpty } from '../runtime/index.ts';
+import { toNumber, VbArray, createVbArrayFromValues } from '../runtime/index.ts';
 
 export const arrayFunctions = {
   Array: (...args: VbValue[]): VbValue => {
@@ -31,7 +31,7 @@ export const arrayFunctions = {
     return { type: 'Boolean', value: expression.type === 'Array' };
   },
 
-  Filter: (inputStrings: VbValue, value: VbValue, include?: VbValue, compare?: VbValue): VbValue => {
+  Filter: (inputStrings: VbValue, value: VbValue, include?: VbValue, _compare?: VbValue): VbValue => {
     if (inputStrings.type !== 'Array') {
       throw new Error('Type mismatch: Filter');
     }
@@ -45,8 +45,7 @@ export const arrayFunctions = {
       return shouldInclude ? found : !found;
     });
     
-    const result = createVbArray([filtered.length]);
-    filtered.forEach((item, i) => result.set([i], item));
+    const result = createVbArrayFromValues(filtered);
     return { type: 'Array', value: result };
   },
 };

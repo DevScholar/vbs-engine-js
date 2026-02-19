@@ -4,13 +4,10 @@ import type {
   Literal,
   VbEmptyLiteral,
   VbNewExpression,
-  ThisExpression,
   MemberExpression,
   CallExpression,
   BinaryExpression,
-  UnaryExpression,
   LogicalExpression,
-  ConditionalExpression,
   AssignmentExpression,
 } from '../ast/index.ts';
 import type { Token, TokenType } from '../lexer/index.ts';
@@ -142,7 +139,7 @@ export class ExpressionParser {
 
   private continueStringConcat(left: Expression): Expression {
     while (this.state.check('Ampersand' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseLogicalOr();
       left = {
         type: 'BinaryExpression',
@@ -220,7 +217,7 @@ export class ExpressionParser {
     let left = this.parseLogicalOr();
 
     while (this.state.check('Ampersand' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseLogicalOr();
       left = {
         type: 'BinaryExpression',
@@ -241,7 +238,7 @@ export class ExpressionParser {
     let left = this.parseLogicalAnd();
 
     while (this.state.check('Or' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseLogicalAnd();
       left = {
         type: 'LogicalExpression',
@@ -262,7 +259,7 @@ export class ExpressionParser {
     let left = this.parseLogicalNot();
 
     while (this.state.check('And' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseLogicalNot();
       left = {
         type: 'LogicalExpression',
@@ -356,7 +353,7 @@ export class ExpressionParser {
     const left = this.parseConcatenation();
 
     if (this.state.check('Is' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseConcatenation();
       return {
         type: 'BinaryExpression',
@@ -425,7 +422,7 @@ export class ExpressionParser {
     let left = this.parseMod();
 
     while (this.state.check('Backslash' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseMod();
       left = {
         type: 'BinaryExpression',
@@ -446,7 +443,7 @@ export class ExpressionParser {
     let left = this.parsePower();
 
     while (this.state.check('Mod' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parsePower();
       left = {
         type: 'BinaryExpression',
@@ -467,7 +464,7 @@ export class ExpressionParser {
     let left = this.parseUnary();
 
     while (this.state.check('Caret' as TokenType)) {
-      const op = this.state.advance();
+      this.state.advance();
       const right = this.parseUnary();
       left = {
         type: 'BinaryExpression',
@@ -612,7 +609,7 @@ export class ExpressionParser {
         if (this.state.check('Comma' as TokenType)) {
           // Empty argument - push Empty literal
           args.push({
-            type: 'Literal',
+            type: 'VbEmptyLiteral',
             value: undefined,
             raw: '',
             loc: this.state.current.loc,
@@ -696,7 +693,7 @@ export class ExpressionParser {
   }
 
   private parseParenExpression(): Expression {
-    const lparen = this.state.advance();
+    this.state.advance();
     this.state.skipOptionalNewlines();
     const expr = this.parseExpression();
     this.state.skipOptionalNewlines();
@@ -709,7 +706,7 @@ export class ExpressionParser {
     return {
       type: 'Literal',
       value: token.value,
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }
@@ -732,7 +729,7 @@ export class ExpressionParser {
     return {
       type: 'Literal',
       value: new Date(token.value),
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }
@@ -742,7 +739,7 @@ export class ExpressionParser {
     return {
       type: 'Literal',
       value: token.value.toLowerCase() === 'true',
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }
@@ -752,7 +749,7 @@ export class ExpressionParser {
     return {
       type: 'Literal',
       value: Symbol.for('Nothing'),
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }
@@ -762,7 +759,7 @@ export class ExpressionParser {
     return {
       type: 'Literal',
       value: null,
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }
@@ -772,7 +769,7 @@ export class ExpressionParser {
     return {
       type: 'VbEmptyLiteral',
       value: undefined,
-      raw: token.raw,
+      raw: token.raw ?? undefined,
       loc: token.loc,
     };
   }

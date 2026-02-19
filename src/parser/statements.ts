@@ -211,9 +211,8 @@ export class StatementsParser {
         
         // Handle empty arguments (consecutive commas)
         if (this.state.check('Comma' as any)) {
-          // Empty argument - push Empty literal
           args.push({
-            type: 'Literal',
+            type: 'VbEmptyLiteral',
             value: undefined,
             raw: '',
             loc: this.state.current.loc,

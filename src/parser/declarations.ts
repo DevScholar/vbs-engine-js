@@ -1,5 +1,4 @@
 import type {
-  Statement,
   Expression,
   VbDimStatement,
   VbVariableDeclarator,

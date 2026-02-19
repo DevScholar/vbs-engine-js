@@ -196,15 +196,15 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Boolean', value: expression.type === 'Array' };
   });
 
-  context.functionRegistry.register('Erase', (arrayname: VbValue): VbValue => {
+  context.functionRegistry.register('Erase', (_arrayname: VbValue): VbValue => {
     return { type: 'Empty', value: undefined };
   }, { isSub: true });
 
-  context.functionRegistry.register('GetObject', (pathname?: VbValue, cls?: VbValue): VbValue => {
+  context.functionRegistry.register('GetObject', (_pathname?: VbValue, _cls?: VbValue): VbValue => {
     return { type: 'Object', value: null };
   });
 
-  context.functionRegistry.register('CreateObject', (cls: VbValue, servername?: VbValue): VbValue => {
+  context.functionRegistry.register('CreateObject', (cls: VbValue, _servername?: VbValue): VbValue => {
     const className = String(cls.value ?? cls);
     return { type: 'Object', value: { className, properties: new Map() } };
   });

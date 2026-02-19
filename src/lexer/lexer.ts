@@ -74,10 +74,10 @@ export class Lexer {
       
       if (this.current === '_' && (this.peek === '\n' || this.peek === '\r')) {
         this.advance();
-        if (this.current === '\r') {
+        if (this.peek === '\r') {
           this.advance();
         }
-        if (this.current === '\n') {
+        if (this.peek === '\n') {
           this.advance();
         }
         continue;

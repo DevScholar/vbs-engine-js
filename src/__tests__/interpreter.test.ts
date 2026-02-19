@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { VbsEngine } from '../index.ts';
+import type { VbValue } from '../runtime/values.ts';
 
 describe('Interpreter', () => {
   describe('basic expressions', () => {

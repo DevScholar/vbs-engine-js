@@ -8,7 +8,9 @@ export class ParseError extends Error {
     super(message);
     this.name = 'ParseError';
     this.token = token;
-    this.expected = expected;
+    if (expected !== undefined) {
+      this.expected = expected;
+    }
   }
 }
 
@@ -17,15 +19,18 @@ export class ParserState {
   private pos: number = 0;
 
   constructor(tokens: Token[]) {
+    if (tokens.length === 0) {
+      throw new Error('ParserState requires at least one token');
+    }
     this.tokens = tokens;
   }
 
   get current(): Token {
-    return this.tokens[this.pos] ?? this.tokens[this.tokens.length - 1];
+    return this.tokens[this.pos] ?? this.tokens[0]!;
   }
 
   get previous(): Token {
-    return this.tokens[this.pos - 1] ?? this.tokens[0];
+    return this.tokens[this.pos - 1] ?? this.tokens[0]!;
   }
 
   get isEOF(): boolean {
@@ -48,7 +53,7 @@ export class ParserState {
   }
 
   peek(offset: number = 0): Token {
-    return this.tokens[this.pos + offset] ?? this.tokens[this.tokens.length - 1];
+    return this.tokens[this.pos + offset] ?? this.tokens[0]!;
   }
 
   check(type: TokenType): boolean {

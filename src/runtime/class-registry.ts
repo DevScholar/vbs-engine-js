@@ -102,6 +102,12 @@ export class VbObjectInstance {
   hasMethod(name: string): boolean {
     return this.classInfo.methods.has(name.toLowerCase());
   }
+
+  setPropertiesFromObject(obj: Record<string, unknown>): void {
+    for (const [k, v] of Object.entries(obj)) {
+      this.properties.set(k.toLowerCase(), v as VbValue);
+    }
+  }
 }
 
 export class VbClassRegistry {
@@ -117,7 +123,7 @@ export class VbClassRegistry {
       const value = creator();
       if (value.type === 'Object' && value.value) {
         const obj = value.value as Record<string, unknown>;
-        instance.properties = new Map(Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v as VbValue]));
+        instance.setPropertiesFromObject(obj);
       }
     };
     this.classes.set(name.toLowerCase(), cls);

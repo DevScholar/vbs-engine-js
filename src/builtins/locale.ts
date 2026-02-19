@@ -183,7 +183,7 @@ function getBrowserLocale(): string {
     return exactKey;
   }
 
-  const baseLocale = normalized.split('-')[0];
+  const baseLocale = normalized.split('-')[0] ?? 'en';
   const baseKey = findLocaleKey(baseLocale);
   if (baseKey) {
     return baseKey;
@@ -222,7 +222,8 @@ export function setLocale(lcid: VbValue): VbValue {
 
 export function getCurrentLocaleTag(): string {
   const locale = getBrowserLocale();
-  return locale.replace(/-/g, '_').split('_')[0] + (locale.includes('-') ? '-' + locale.split('-')[1].toUpperCase() : '');
+  const parts = locale.replace(/-/g, '_').split('_');
+  return parts[0] + (locale.includes('-') ? '-' + (parts[1]?.toUpperCase() ?? '') : '');
 }
 
 export function getCurrentBCP47Locale(): string {
@@ -283,7 +284,7 @@ export function getCurrentCurrency(): string {
   const currency = localeToCurrency.get(locale);
   if (currency) return currency;
   
-  const baseLocale = locale.split('-')[0];
+  const baseLocale = locale.split('-')[0] ?? 'en';
   const baseCurrency = localeToCurrency.get(baseLocale);
   if (baseCurrency) return baseCurrency;
   

@@ -1,5 +1,17 @@
 import type { VbValue } from '../runtime/index.ts';
 
+/**
+ * Converts a VbValue to its JavaScript equivalent.
+ *
+ * @param value - The VbValue to convert
+ * @returns The JavaScript value (undefined, null, boolean, number, string, Date, array, or object)
+ *
+ * @example
+ * ```typescript
+ * const vbString = { type: 'String', value: 'hello' };
+ * const jsString = vbToJs(vbString); // 'hello'
+ * ```
+ */
 export function vbToJs(value: VbValue): unknown {
   switch (value.type) {
     case 'Empty':
@@ -24,6 +36,20 @@ export function vbToJs(value: VbValue): unknown {
   }
 }
 
+/**
+ * Converts a JavaScript value to a VbValue.
+ * Automatically determines the appropriate VBScript type based on the input.
+ *
+ * @param value - The JavaScript value to convert
+ * @param thisArg - Optional this context for function bindings
+ * @returns A VbValue representation
+ *
+ * @example
+ * ```typescript
+ * const vbNum = jsToVb(42); // { type: 'Long', value: 42 }
+ * const vbStr = jsToVb('hello'); // { type: 'String', value: 'hello' }
+ * ```
+ */
 export function jsToVb(value: unknown, thisArg?: unknown): VbValue {
   if (value === undefined) return { type: 'Empty', value: undefined };
   if (value === null) return { type: 'Null', value: null };

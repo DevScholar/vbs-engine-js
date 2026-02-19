@@ -1,5 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbValue, toNumber, toString, toBoolean, VbEmpty, VbNull, VbNothing, isNumeric, isEmpty, isNull, createVbArrayFromValues } from '../runtime/index.ts';
+import { toNumber, toString, createVbArrayFromValues } from '../runtime/index.ts';
 import { getCurrentBCP47Locale } from './locale.ts';
 
 function formatDate(value: Date, format: string): string {
@@ -7,9 +7,9 @@ function formatDate(value: Date, format: string): string {
   let i = 0;
   
   while (i < format.length) {
-    const char = format[i].toLowerCase();
+    const char = format[i]!.toLowerCase();
     let count = 1;
-    while (i + count < format.length && format[i + count].toLowerCase() === char) {
+    while (i + count < format.length && format[i + count]!.toLowerCase() === char) {
       count++;
     }
     
@@ -27,11 +27,11 @@ function formatDate(value: Date, format: string): string {
         break;
       case 'm':
         if (count >= 4) {
-          const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-          result.push(months[value.getMonth()]);
+          const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          result.push(months[value.getMonth()]!);
         } else if (count === 3) {
-          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          result.push(months[value.getMonth()]);
+          const months: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          result.push(months[value.getMonth()]!);
         } else if (count === 2) {
           result.push((value.getMonth() + 1).toString().padStart(2, '0'));
         } else {
@@ -40,11 +40,11 @@ function formatDate(value: Date, format: string): string {
         break;
       case 'd':
         if (count >= 4) {
-          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          result.push(days[value.getDay()]);
+          const days: string[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          result.push(days[value.getDay()]!);
         } else if (count === 3) {
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          result.push(days[value.getDay()]);
+          const days: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          result.push(days[value.getDay()]!);
         } else if (count === 2) {
           result.push(value.getDate().toString().padStart(2, '0'));
         } else {
@@ -136,13 +136,11 @@ function formatNumberInternal(value: number, format: string): string {
   const formatLower = format.toLowerCase();
   let decimalPos = formatLower.indexOf('.');
   let decimalDigits = 0;
-  let hasDecimal = false;
   
   if (decimalPos !== -1) {
     let i = decimalPos + 1;
     while (i < format.length && (format[i] === '0' || format[i] === '#')) {
       decimalDigits++;
-      if (format[i] === '0') hasDecimal = true;
       i++;
     }
   }
@@ -323,7 +321,7 @@ export const stringFunctions = {
   String: (number: VbValue, character: VbValue): VbValue => {
     const count = Math.max(0, Math.floor(toNumber(number)));
     const char = toString(character);
-    const charCode = char.length > 0 ? char[0] : ' ';
+    const charCode = char.length > 0 ? char[0]! : ' ';
     return { type: 'String', value: charCode.repeat(count) };
   },
 
@@ -364,7 +362,7 @@ export const stringFunctions = {
     return { type: 'Integer', value: result };
   },
 
-  Split: (str: VbValue, delimiter?: VbValue, count?: VbValue, compare?: VbValue): VbValue => {
+  Split: (str: VbValue, delimiter?: VbValue, count?: VbValue, _compare?: VbValue): VbValue => {
     const s = toString(str);
     const delim = delimiter ? toString(delimiter) : ' ';
     const maxCount = count ? Math.floor(toNumber(count)) : -1;

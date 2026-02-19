@@ -23,6 +23,44 @@ const DEFAULT_ENGINE_OPTIONS: VbsEngineOptions = {
   injectGlobalThis: true,
 };
 
+/**
+ * A VBScript engine designed for browser environments.
+ *
+ * This engine extends VbsEngine with browser-specific features:
+ * - Automatic parsing of `<script type="text/vbscript">` elements
+ * - Inline event attribute handling (`onclick="vbscript:..."`)
+ * - IE-style event binding via Sub names (`Button1_OnClick`)
+ * - `vbscript:` protocol handler for links
+ * - Integration with browser's `alert`, `confirm`, and `prompt` for MsgBox/InputBox
+ *
+ * @example
+ * ```html
+ * <!DOCTYPE html>
+ * <html>
+ * <head>
+ *   <script type="module">
+ *     import { VbsBrowserEngine } from './src/index.ts';
+ *     new VbsBrowserEngine();
+ *   </script>
+ * </head>
+ * <body>
+ *   <script type="text/vbscript">
+ *     MsgBox "Hello from VBScript!"
+ *   </script>
+ * </body>
+ * </html>
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With custom options
+ * const engine = new VbsBrowserEngine({
+ *   maxExecutionTime: 5000,
+ *   parseScriptElement: true,
+ *   parseInlineEventAttributes: true
+ * });
+ * ```
+ */
 export class VbsBrowserEngine {
   private engine: VbsEngine;
   private initialized: boolean = false;
@@ -34,15 +72,14 @@ export class VbsBrowserEngine {
   private options: Required<BrowserRuntimeOptions>;
 
   constructor(options: BrowserRuntimeOptions = {}) {
-    const engineOptions: VbsEngineOptions = {
-      maxExecutionTime: options.maxExecutionTime ?? DEFAULT_ENGINE_OPTIONS.maxExecutionTime,
-      injectGlobalThis: options.injectGlobalThis ?? DEFAULT_ENGINE_OPTIONS.injectGlobalThis,
-    };
+    const maxExecTime = options.maxExecutionTime ?? -1;
+    const injectGlobal = options.injectGlobalThis ?? true;
 
-    this.engine = new VbsEngine(engineOptions);
+    this.engine = new VbsEngine({ maxExecutionTime: maxExecTime, injectGlobalThis: injectGlobal });
 
     this.options = {
-      ...engineOptions,
+      maxExecutionTime: maxExecTime,
+      injectGlobalThis: injectGlobal,
       parseScriptElement: options.parseScriptElement ?? DEFAULT_BROWSER_OPTIONS.parseScriptElement,
       parseInlineEventAttributes: options.parseInlineEventAttributes ?? DEFAULT_BROWSER_OPTIONS.parseInlineEventAttributes,
       parseEventSubNames: options.parseEventSubNames ?? DEFAULT_BROWSER_OPTIONS.parseEventSubNames,
@@ -99,14 +136,31 @@ export class VbsBrowserEngine {
     autoRunScripts(this.engine);
   }
 
+  /**
+   * Executes VBScript code in the browser context.
+   *
+   * @param code - The VBScript code to execute
+   * @returns The result of the execution
+   */
   run(code: string): unknown {
     return this.engine.run(code);
   }
 
+  /**
+   * Gets the underlying VbsEngine instance.
+   * Use this to access lower-level engine functionality.
+   *
+   * @returns The VbsEngine instance
+   */
   getEngine(): VbsEngine {
     return this.engine;
   }
 
+  /**
+   * Cleans up all browser-specific overrides and event handlers.
+   * Call this method when you no longer need the engine to restore
+   * the original browser behavior and free resources.
+   */
   destroy(): void {
     if (this.observerContext) {
       stopObserver(this.observerContext);
@@ -128,6 +182,21 @@ export class VbsBrowserEngine {
   }
 }
 
+/**
+ * Creates and initializes a browser VBScript runtime.
+ * This is a convenience function that creates a new VbsBrowserEngine instance.
+ *
+ * @param options - Optional configuration for the browser runtime
+ * @returns A new VbsBrowserEngine instance
+ *
+ * @example
+ * ```typescript
+ * const runtime = createBrowserRuntime({
+ *   maxExecutionTime: 5000
+ * });
+ * runtime.run('MsgBox "Hello!"');
+ * ```
+ */
 export function createBrowserRuntime(options?: BrowserRuntimeOptions): VbsBrowserEngine {
   return new VbsBrowserEngine(options);
 }

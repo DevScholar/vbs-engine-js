@@ -30,7 +30,7 @@ export interface VbArgumentRef {
 export class VbFunctionRegistry {
   private functions: Map<string, VbFunctionInfo> = new Map();
 
-  register(name: string, func: VbFunction | VbSub, options: Partial<VbFunctionInfo> = {}): void {
+  register(name: string, func: VbFunction | VbSub | VbUserFunction, options: Partial<VbFunctionInfo> = {}): void {
     const lowerName = name.toLowerCase();
     this.functions.set(lowerName, {
       name,
@@ -104,8 +104,9 @@ export class VbFunctionRegistry {
     
     for (let i = 0; i < args.length && i < info.params.length; i++) {
       const param = info.params[i];
-      if (param.byRef && args[i].setValue && values[i] !== args[i].value) {
-        args[i].setValue!(values[i]);
+      const arg = args[i];
+      if (param && arg && param.byRef && arg.setValue && values[i] !== arg.value) {
+        arg.setValue(values[i]!);
       }
     }
     
