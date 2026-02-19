@@ -23,7 +23,7 @@ import type {
   VbLongValue,
   VbStringValue,
 } from '../runtime/index.ts';
-import { VbContext } from '../runtime/index.ts';
+import { VbContext, VbObjectInstance } from '../runtime/index.ts';
 import { createVbValue, VbEmpty, VbNull, VbNothing, toBoolean, toNumber, toString, createVbError, VbErrorCodes } from '../runtime/index.ts';
 
 interface VbMethodObject {
@@ -561,6 +561,10 @@ export class ExpressionEvaluator {
     const isSet = node.isSet ?? false;
 
     if (node.left.type === 'Identifier') {
+      if (isSet) {
+        const oldValue = this.context.getVariable(node.left.name);
+        this.callTerminateIfNeeded(oldValue, value);
+      }
       this.context.setVariable(node.left.name, value);
       return value;
     }
@@ -571,6 +575,18 @@ export class ExpressionEvaluator {
     }
 
     throw new Error(`Invalid assignment target: ${node.left.type}`);
+  }
+
+  private callTerminateIfNeeded(oldValue: VbValue, newValue: VbValue): void {
+    if (oldValue.type === 'Object' && oldValue.value instanceof VbObjectInstance) {
+      if (newValue.type !== 'Object' || newValue.value !== oldValue.value) {
+        const instance = oldValue.value as VbObjectInstance;
+        const terminateProp = instance.classInfo.properties.get('class_terminate');
+        if (terminateProp && terminateProp.get) {
+          terminateProp.get.call(instance);
+        }
+      }
+    }
   }
 
   private assignToMember(node: MemberExpression, value: VbValue, isSet: boolean): void {

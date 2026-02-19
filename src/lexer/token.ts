@@ -106,6 +106,8 @@ export enum TokenType {
   
   ByRef = 'ByRef',
   ByVal = 'ByVal',
+  Optional = 'Optional',
+  ParamArray = 'ParamArray',
   
   Rem = 'Rem',
   

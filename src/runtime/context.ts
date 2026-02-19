@@ -47,6 +47,8 @@ export class VbContext {
   public propertyGetName: string = '';
   public evaluate: ((code: string) => VbValue) | null = null;
   public checkTimeout: (() => void) | null = null;
+  public execute: ((code: string) => VbValue) | null = null;
+  public executeGlobal: ((code: string) => VbValue) | null = null;
 
   private withStack: VbValue[] = [];
   private callStack: string[] = [];

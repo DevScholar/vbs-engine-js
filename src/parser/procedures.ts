@@ -191,6 +191,18 @@ export class ProcedureParser {
 
   private parseParameter(): VbParameter {
     let byRef = true;
+    let isOptional = false;
+    let isParamArray = false;
+
+    if (this.state.check('Optional' as any)) {
+      this.state.advance();
+      isOptional = true;
+    }
+
+    if (this.state.check('ParamArray' as any)) {
+      this.state.advance();
+      isParamArray = true;
+    }
 
     if (this.state.check('ByRef' as any)) {
       this.state.advance();
@@ -220,6 +232,8 @@ export class ProcedureParser {
       byRef,
       isArray,
       defaultValue,
+      isOptional,
+      isParamArray,
       loc: createLocation({ loc: name.loc! } as Token, this.state.previous),
     };
   }

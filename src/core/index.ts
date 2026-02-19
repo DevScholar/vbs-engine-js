@@ -34,6 +34,8 @@ export class VbsEngine {
   constructor() {
     this.interpreter = new Interpreter();
     this.interpreter.getContext().evaluate = (code: string) => this.interpreter.evaluate(code);
+    this.interpreter.getContext().execute = (code: string) => this.interpreter.executeInCurrentScope(code);
+    this.interpreter.getContext().executeGlobal = (code: string) => this.interpreter.executeInGlobalScope(code);
   }
 
   setMaxExecutionTime(ms: number): void {

@@ -43,6 +43,8 @@ export const KEYWORDS: Record<string, TokenType> = {
   'explicit': TokenType.Explicit,
   'byref': TokenType.ByRef,
   'byval': TokenType.ByVal,
+  'optional': TokenType.Optional,
+  'paramarray': TokenType.ParamArray,
   'rem': TokenType.Rem,
   'as': TokenType.As,
   'and': TokenType.And,

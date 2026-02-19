@@ -1,11 +1,17 @@
-import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbPropertyGetStatement, VbPropertyLetStatement, VbPropertySetStatement, VbOnErrorHandlerStatement, VbResumeStatement, VbCallStatement, Expression } from '../ast/index.ts';
+import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbPropertyGetStatement, VbPropertyLetStatement, VbPropertySetStatement, VbOnErrorHandlerStatement, VbResumeStatement, VbCallStatement, Expression, VbGotoStatement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbContext, VbEmpty, VbNull, VbNothing, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, VbProperty } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
 export class ControlFlowSignal extends Error {
-  constructor(public type: 'exit' | 'return' | 'continue' | 'break', public value?: VbValue) {
+  constructor(public type: 'exit' | 'return' | 'continue' | 'break' | 'goto', public value?: VbValue) {
     super(type);
+  }
+}
+
+export class GotoSignal extends ControlFlowSignal {
+  constructor(public labelName: string) {
+    super('goto');
   }
 }
 
@@ -59,6 +65,10 @@ export class StatementExecutor {
           return this.executeOnErrorHandlerStatement(node);
         case 'VbCallStatement':
           return this.executeCallStatement(node);
+        case 'VbGotoStatement':
+          return this.executeGotoStatement(node);
+        case 'VbLabelStatement':
+          return VbEmpty;
         case 'ReturnStatement':
           throw new ControlFlowSignal('return');
         default:
@@ -404,28 +414,14 @@ export class StatementExecutor {
       self.context.pushCall(subName);
       
       try {
-        for (let i = 0; i < node.params.length; i++) {
-          const param = node.params[i];
-          const argValue = args[i] ?? (param.defaultValue ? self.exprEvaluator.evaluate(param.defaultValue) : VbEmpty);
-          self.context.declareVariable(param.name.name, argValue);
-        }
+        self.bindParameters(node.params, args);
         
         self.executeBlockStatement(node.body);
         
-        for (let i = 0; i < node.params.length && i < args.length; i++) {
-          const param = node.params[i];
-          if (param.byRef) {
-            args[i] = self.context.getVariable(param.name.name);
-          }
-        }
+        self.updateByRefArgs(node.params, args);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal && signal.type === 'return') {
-          for (let i = 0; i < node.params.length && i < args.length; i++) {
-            const param = node.params[i];
-            if (param.byRef) {
-              args[i] = self.context.getVariable(param.name.name);
-            }
-          }
+          self.updateByRefArgs(node.params, args);
         } else {
           throw signal;
         }
@@ -440,7 +436,9 @@ export class StatementExecutor {
     const params = node.params.map(p => ({
       name: p.name.name,
       byRef: p.byRef,
-      isArray: p.isArray
+      isArray: p.isArray,
+      isOptional: p.isOptional,
+      isParamArray: p.isParamArray,
     }));
     
     this.context.functionRegistry.register(subName, subFunc, { isSub: true, params, isUserDefined: true });
@@ -460,30 +458,16 @@ export class StatementExecutor {
       let result: VbValue = VbEmpty;
       
       try {
-        for (let i = 0; i < node.params.length; i++) {
-          const param = node.params[i];
-          const argValue = args[i] ?? (param.defaultValue ? self.exprEvaluator.evaluate(param.defaultValue) : VbEmpty);
-          self.context.declareVariable(param.name.name, argValue);
-        }
+        self.bindParameters(node.params, args);
         
         self.executeBlockStatement(node.body);
         
-        for (let i = 0; i < node.params.length && i < args.length; i++) {
-          const param = node.params[i];
-          if (param.byRef) {
-            args[i] = self.context.getVariable(param.name.name);
-          }
-        }
+        self.updateByRefArgs(node.params, args);
         
         result = self.context.getVariable(funcName);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal && signal.type === 'return') {
-          for (let i = 0; i < node.params.length && i < args.length; i++) {
-            const param = node.params[i];
-            if (param.byRef) {
-              args[i] = self.context.getVariable(param.name.name);
-            }
-          }
+          self.updateByRefArgs(node.params, args);
           result = self.context.getVariable(funcName);
         } else {
           throw signal;
@@ -499,17 +483,70 @@ export class StatementExecutor {
     const params = node.params.map(p => ({
       name: p.name.name,
       byRef: p.byRef,
-      isArray: p.isArray
+      isArray: p.isArray,
+      isOptional: p.isOptional,
+      isParamArray: p.isParamArray,
     }));
     
     this.context.functionRegistry.register(funcName, func, { params, isUserDefined: true });
     return VbEmpty;
   }
 
+  private bindParameters(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
+    let argIndex = 0;
+    
+    for (let i = 0; i < params.length; i++) {
+      const param = params[i];
+      
+      if (param.isParamArray) {
+        const restArgs: VbValue[] = [];
+        while (argIndex < args.length) {
+          restArgs.push(args[argIndex++]);
+        }
+        const arr = createVbArray([restArgs.length]);
+        restArgs.forEach((v, idx) => arr.set([idx], v));
+        this.context.declareVariable(param.name.name, { type: 'Array', value: arr });
+      } else {
+        let argValue: VbValue;
+        
+        if (argIndex < args.length) {
+          argValue = args[argIndex++];
+        } else if (param.defaultValue) {
+          argValue = this.exprEvaluator.evaluate(param.defaultValue);
+        } else if (param.isOptional) {
+          argValue = VbEmpty;
+        } else {
+          argValue = VbEmpty;
+        }
+        
+        this.context.declareVariable(param.name.name, argValue);
+      }
+    }
+  }
+
+  private updateByRefArgs(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
+    let argIndex = 0;
+    
+    for (let i = 0; i < params.length; i++) {
+      const param = params[i];
+      
+      if (param.isParamArray) {
+        break;
+      }
+      
+      if (argIndex < args.length && param.byRef) {
+        args[argIndex] = this.context.getVariable(param.name.name);
+      }
+      argIndex++;
+    }
+  }
+
   private executeClassStatement(node: VbClassStatement): VbValue {
     const className = node.name.name;
     const cls = new VbClass(className);
     const self = this;
+    let initializeFunc: VbProperty | undefined;
+    let terminateFunc: VbProperty | undefined;
     
     for (const member of node.body) {
       if (member.type === 'VbDimStatement') {
@@ -520,18 +557,54 @@ export class StatementExecutor {
         }
       } else if (member.type === 'VbSubStatement') {
         const memberNode = member;
-        cls.methods.set(member.name.name.toLowerCase(), {
+        const memberName = member.name.name.toLowerCase();
+        
+        if (memberName === 'class_initialize') {
+          initializeFunc = {
+            name: 'Class_Initialize',
+            get: function(this: VbObjectInstance): VbValue {
+              const prevInstance = self.context.currentInstance;
+              self.context.currentInstance = this;
+              self.context.pushScope();
+              try {
+                self.executeBlockStatement(memberNode.body);
+              } finally {
+                self.context.popScope();
+                self.context.currentInstance = prevInstance;
+              }
+              return VbEmpty;
+            },
+          };
+          continue;
+        }
+        
+        if (memberName === 'class_terminate') {
+          terminateFunc = {
+            name: 'Class_Terminate',
+            get: function(this: VbObjectInstance): VbValue {
+              const prevInstance = self.context.currentInstance;
+              self.context.currentInstance = this;
+              self.context.pushScope();
+              try {
+                self.executeBlockStatement(memberNode.body);
+              } finally {
+                self.context.popScope();
+                self.context.currentInstance = prevInstance;
+              }
+              return VbEmpty;
+            },
+          };
+          continue;
+        }
+        
+        cls.methods.set(memberName, {
           name: member.name.name,
           func: function(this: VbObjectInstance, ...args: VbValue[]): VbValue {
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
             try {
-              for (let i = 0; i < memberNode.params.length; i++) {
-                const param = memberNode.params[i];
-                const argValue = args[i] ?? (param.defaultValue ? self.exprEvaluator.evaluate(param.defaultValue) : VbEmpty);
-                self.context.declareVariable(param.name.name, argValue);
-              }
+              self.bindParameters(memberNode.params, args);
               self.executeBlockStatement(memberNode.body);
             } finally {
               self.context.popScope();
@@ -550,11 +623,7 @@ export class StatementExecutor {
             self.context.currentInstance = this;
             self.context.pushScope();
             self.context.declareVariable(memberNode.name.name, VbEmpty);
-            for (let i = 0; i < memberNode.params.length; i++) {
-              const param = memberNode.params[i];
-              const argValue = args[i] ?? (param.defaultValue ? self.exprEvaluator.evaluate(param.defaultValue) : VbEmpty);
-              self.context.declareVariable(param.name.name, argValue);
-            }
+            self.bindParameters(memberNode.params, args);
             let result: VbValue = VbEmpty;
             try {
               self.executeBlockStatement(memberNode.body);
@@ -642,6 +711,13 @@ export class StatementExecutor {
       }
     }
     
+    if (initializeFunc) {
+      cls.properties.set('class_initialize', initializeFunc);
+    }
+    if (terminateFunc) {
+      cls.properties.set('class_terminate', terminateFunc);
+    }
+    
     this.context.classRegistry.register(cls);
     return VbEmpty;
   }
@@ -658,5 +734,9 @@ export class StatementExecutor {
       this.context.clearError();
     }
     return VbEmpty;
+  }
+
+  private executeGotoStatement(node: VbGotoStatement): VbValue {
+    throw new GotoSignal(node.label.name.toLowerCase());
   }
 }

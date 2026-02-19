@@ -111,6 +111,18 @@ export class VbClassRegistry {
     this.classes.set(cls.name.toLowerCase(), cls);
   }
 
+  registerClass(name: string, creator: () => VbValue): void {
+    const cls = new VbClass(name);
+    cls.initializer = (instance: VbObjectInstance) => {
+      const value = creator();
+      if (value.type === 'Object' && value.value) {
+        const obj = value.value as Record<string, unknown>;
+        instance.properties = new Map(Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v as VbValue]));
+      }
+    };
+    this.classes.set(name.toLowerCase(), cls);
+  }
+
   get(name: string): VbClass | undefined {
     return this.classes.get(name.toLowerCase());
   }
@@ -130,6 +142,11 @@ export class VbClassRegistry {
     const initMethod = cls.methods.get('class_initialize');
     if (initMethod) {
       initMethod.func.call(instance);
+    }
+
+    const initProperty = cls.properties.get('class_initialize');
+    if (initProperty && initProperty.get) {
+      initProperty.get.call(instance);
     }
 
     return instance;

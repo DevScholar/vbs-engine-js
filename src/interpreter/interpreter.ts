@@ -1,10 +1,15 @@
-import type { Program, Expression } from '../ast/index.ts';
+import type { Program, Expression, Statement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbContext, VbEmpty } from '../runtime/index.ts';
-import { StatementExecutor } from './statement-executor.ts';
+import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 import { registerBuiltins } from '../builtins/index.ts';
 import { Parser } from '../parser/index.ts';
+
+interface LabelInfo {
+  index: number;
+  statement: VbLabelStatement;
+}
 
 export class Interpreter {
   private context: VbContext;
@@ -33,13 +38,52 @@ export class Interpreter {
     }
   }
 
+  private collectLabels(statements: Statement[]): Map<string, LabelInfo> {
+    const labels = new Map<string, LabelInfo>();
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      if (stmt.type === 'VbLabelStatement') {
+        const labelStmt = stmt as VbLabelStatement;
+        labels.set(labelStmt.label.name.toLowerCase(), { index: i, statement: labelStmt });
+      }
+    }
+    return labels;
+  }
+
   run(program: Program): VbValue {
     this.startTime = Date.now();
     let result: VbValue = VbEmpty;
+    const statements = program.body;
+    const labels = this.collectLabels(statements);
+    let i = 0;
+    const maxIterations = statements.length * 10000;
+    let iterations = 0;
 
-    for (const stmt of program.body) {
+    while (i < statements.length) {
+      if (iterations++ > maxIterations) {
+        throw new Error('Possible infinite loop detected (too many goto jumps)');
+      }
+      
       this.checkTimeout();
-      result = this.executor.execute(stmt);
+      const stmt = statements[i];
+      
+      try {
+        result = this.executor.execute(stmt);
+        i++;
+      } catch (error) {
+        if (error instanceof GotoSignal) {
+          const labelInfo = labels.get(error.labelName);
+          if (labelInfo) {
+            i = labelInfo.index + 1;
+            continue;
+          }
+          throw new Error(`Label not found: ${error.labelName}`);
+        }
+        if (error instanceof ControlFlowSignal) {
+          throw error;
+        }
+        throw error;
+      }
     }
 
     return result;
@@ -71,6 +115,59 @@ export class Interpreter {
 
   getContext(): VbContext {
     return this.context;
+  }
+
+  executeStatements(statements: Statement[]): VbValue {
+    const labels = this.collectLabels(statements);
+    let result: VbValue = VbEmpty;
+    let i = 0;
+    const maxIterations = statements.length * 10000;
+    let iterations = 0;
+
+    while (i < statements.length) {
+      if (iterations++ > maxIterations) {
+        throw new Error('Possible infinite loop detected (too many goto jumps)');
+      }
+      
+      this.checkTimeout();
+      const stmt = statements[i];
+      
+      try {
+        result = this.executor.execute(stmt);
+        i++;
+      } catch (error) {
+        if (error instanceof GotoSignal) {
+          const labelInfo = labels.get(error.labelName);
+          if (labelInfo) {
+            i = labelInfo.index + 1;
+            continue;
+          }
+          throw new Error(`Label not found: ${error.labelName}`);
+        }
+        if (error instanceof ControlFlowSignal) {
+          throw error;
+        }
+        throw error;
+      }
+    }
+
+    return result;
+  }
+
+  executeInCurrentScope(code: string): VbValue {
+    const ast = this.parser.parse(code);
+    return this.executeStatements(ast.body);
+  }
+
+  executeInGlobalScope(code: string): VbValue {
+    const savedScope = this.context.currentScope;
+    this.context.currentScope = this.context.globalScope;
+    try {
+      const ast = this.parser.parse(code);
+      return this.executeStatements(ast.body);
+    } finally {
+      this.context.currentScope = savedScope;
+    }
   }
 }
 

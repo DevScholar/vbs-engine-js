@@ -1,4 +1,4 @@
-import type { Statement } from '../ast/index.ts';
+import type { Statement, VbGotoStatement, VbLabelStatement } from '../ast/index.ts';
 import type { TokenType } from '../lexer/index.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
@@ -6,6 +6,7 @@ import { DeclarationParser } from './declarations.ts';
 import { ProcedureParser } from './procedures.ts';
 import { ControlFlowParser } from './control-flow.ts';
 import { StatementsParser } from './statements.ts';
+import { createLocation } from './location.ts';
 
 export class StatementParser {
   private state: ParserState;
@@ -73,12 +74,43 @@ export class StatementParser {
         return this.statementsParser.parseOnStatement();
       case 'Resume' as TokenType:
         return this.statementsParser.parseResumeStatement();
+      case 'Goto' as TokenType:
+        return this.parseGotoStatement();
       case 'Colon' as TokenType:
         this.state.advance();
         return this.parseStatement();
       default:
+        if (this.state.checkIdentifier() && this.state.peek(1).type === 'Colon' as TokenType) {
+          return this.parseLabelStatement();
+        }
         return this.statementsParser.parseExpressionStatement();
     }
+  }
+
+  private parseGotoStatement(): VbGotoStatement {
+    const gotoToken = this.state.advance();
+    const label = this.exprParser.parseIdentifier();
+    
+    return {
+      type: 'VbGotoStatement',
+      label,
+      loc: createLocation(gotoToken, this.state.previous),
+    };
+  }
+
+  private parseLabelStatement(): VbLabelStatement {
+    const labelToken = this.state.advance();
+    this.state.expect('Colon' as TokenType);
+    
+    return {
+      type: 'VbLabelStatement',
+      label: {
+        type: 'Identifier',
+        name: labelToken.value,
+        loc: labelToken.loc,
+      },
+      loc: createLocation(labelToken, this.state.previous),
+    };
   }
 
   private parseVisibilityStatement(): Statement {

@@ -346,6 +346,8 @@ export interface VbParameter extends BaseNode {
   byRef: boolean;
   defaultValue?: Expression;
   isArray: boolean;
+  isOptional: boolean;
+  isParamArray: boolean;
 }
 
 export interface VbSubStatement extends BaseStatement {

@@ -6,6 +6,7 @@ import { conversionFunctions, inspectionFunctions } from './conversion.ts';
 import { arrayFunctions } from './array.ts';
 import { registerMsgBox } from './msgbox.ts';
 import { registerInputBox } from './inputbox.ts';
+import { registerRegExp } from './regexp.ts';
 
 export function registerBuiltins(context: VbContext): void {
   Object.entries(stringFunctions).forEach(([name, func]) => {
@@ -38,12 +39,25 @@ export function registerBuiltins(context: VbContext): void {
 
   registerMsgBox(context);
   registerInputBox(context);
+  registerRegExp(context);
 
   context.functionRegistry.register('Eval', (expression: VbValue): VbValue => {
     const code = String(expression.value ?? expression);
     const result = context.evaluate?.(code);
     return result ?? { type: 'Empty', value: undefined };
   });
+
+  context.functionRegistry.register('Execute', (expression: VbValue): VbValue => {
+    const code = String(expression.value ?? expression);
+    const result = context.execute?.(code);
+    return result ?? { type: 'Empty', value: undefined };
+  }, { isSub: true });
+
+  context.functionRegistry.register('ExecuteGlobal', (expression: VbValue): VbValue => {
+    const code = String(expression.value ?? expression);
+    const result = context.executeGlobal?.(code);
+    return result ?? { type: 'Empty', value: undefined };
+  }, { isSub: true });
 
   context.functionRegistry.register('Print', (...args: VbValue[]): VbValue => {
     console.log(...args.map(a => a.value ?? a));
@@ -156,6 +170,55 @@ export function registerBuiltins(context: VbContext): void {
   context.functionRegistry.register('CreateObject', (cls: VbValue, servername?: VbValue): VbValue => {
     const className = String(cls.value ?? cls);
     return { type: 'Object', value: { className, properties: new Map() } };
+  });
+
+  context.functionRegistry.register('LoadPicture', (picturename: VbValue): VbValue => {
+    const path = String(picturename.value ?? picturename);
+    const imageObj = {
+      classInfo: { name: 'IPictureDisp' },
+      getProperty: (name: string): VbValue => {
+        const lowerName = name.toLowerCase();
+        if (lowerName === 'handle') {
+          return { type: 'Long', value: 0 };
+        }
+        if (lowerName === 'width') {
+          return { type: 'Long', value: 0 };
+        }
+        if (lowerName === 'height') {
+          return { type: 'Long', value: 0 };
+        }
+        if (lowerName === 'type') {
+          return { type: 'Long', value: 1 };
+        }
+        return { type: 'Empty', value: undefined };
+      },
+      hasProperty: (name: string): boolean => {
+        const lowerName = name.toLowerCase();
+        return ['handle', 'width', 'height', 'type'].includes(lowerName);
+      },
+      _path: path,
+    };
+    return { type: 'Object', value: imageObj };
+  });
+
+  context.functionRegistry.register('RGB', (red: VbValue, green: VbValue, blue: VbValue): VbValue => {
+    const r = Math.max(0, Math.min(255, Math.floor(Number(red.value ?? 0))));
+    const g = Math.max(0, Math.min(255, Math.floor(Number(green.value ?? 0))));
+    const b = Math.max(0, Math.min(255, Math.floor(Number(blue.value ?? 0))));
+    const rgbValue = r + (g * 256) + (b * 65536);
+    return { type: 'Long', value: rgbValue };
+  });
+
+  context.functionRegistry.register('QBColor', (color: VbValue): VbValue => {
+    const colorIndex = Math.floor(Number(color.value ?? 0));
+    const colors = [
+      0x000000, 0x800000, 0x008000, 0x808000,
+      0x000080, 0x800080, 0x008080, 0xC0C0C0,
+      0x808080, 0xFF0000, 0x00FF00, 0xFFFF00,
+      0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF
+    ];
+    const rgbValue = colors[colorIndex] ?? 0;
+    return { type: 'Long', value: rgbValue };
   });
 
   const errObject = {
