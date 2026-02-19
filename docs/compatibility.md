@@ -138,9 +138,9 @@ This document tracks the compatibility between this VBScript engine implementati
 | Split | ✔️ | |
 | Join | ✔️ | |
 | Filter | ✔️ | |
-| Format | ✅ | Custom format strings |
-| LSet | ✅ | |
-| RSet | ✅ | |
+| Format | ✔️ | Custom format strings |
+| LSet | ✔️ | |
+| RSet | ✔️ | |
 
 ### Mathematical Functions
 
