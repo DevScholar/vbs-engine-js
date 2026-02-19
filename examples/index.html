@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VBScript Engine Demo</title>
+  <script type="module">
+    import { VbsBrowserEngine } from '../src/index.ts';
+    new VbsBrowserEngine();
+  </script>
+</head>
+<body>
+  <h1>VBScript Engine Demo</h1>
+
+  <h2>Clock</h2>
+  <div id="clock" style="font-size: 2em; font-family: monospace;">--:--:--</div>
+
+  <h2>JS/VBS Shared Variables</h2>
+  <button id="btnSetVbs">Set from VBS</button>
+  <button id="btnReadJs">Read from JS</button>
+  <button id="btnSetJs">Set from JS</button>
+  <button id="btnReadVbs">Read from VBS</button>
+  <pre id="sharedOutput"></pre>
+
+  <h2>Functions</h2>
+  <div id="output"></div>
+
+  <h2>MsgBox / InputBox</h2>
+  <button id="btnMsgBox">Show MsgBox</button>
+  <button id="btnInputBox">Show InputBox</button>
+
+  <h2>Inline onlick="vbscript:..."</h2>
+  <button id="btnInline" onclick="vbscript:MsgBox &quot;Inline VBScript works!&quot;, 64, &quot;Inline Test&quot;">Test Inline VBScript</button>
+
+  <h2>&lt;script for="..." event="..."&gt;</h2>
+  <input type="button" id="button1" value="Click Me (for/event)">
+  <script for="button1" event="onclick" language="vbscript">
+    MsgBox "Button clicked via for/event syntax!", 64, "For/Event Test"
+  </script>
+
+  <h2>vbscript: Protocol</h2>
+  <a href="vbscript:MsgBox &quot;Link clicked via vbscript: protocol!&quot;, 64, &quot;Protocol Test&quot;">Click this link (vbscript: protocol)</a>
+
+  <script type="text/vbscript">
+    ' Shared variable from VBScript
+    sharedMessage = "Hello from VBScript!"
+    
+    Function Add(a, b)
+        Add = a + b
+    End Function
+    
+    Sub Init()
+        Set el = document.getElementById("output")
+        el.innerHTML = "Add(10, 20) = " & Add(10, 20)
+    End Sub
+    
+    Sub UpdateClock()
+        t = Now
+        h = Hour(t)
+        m = Minute(t)
+        s = Second(t)
+        ampm = "AM"
+        If h >= 12 Then
+            ampm = "PM"
+            If h > 12 Then h = h - 12
+        End If
+        If h = 0 Then h = 12
+        timeStr = Right("0" & h, 2) & ":" & Right("0" & m, 2) & ":" & Right("0" & s, 2) & " " & ampm
+        Set clockEl = document.getElementById("clock")
+        clockEl.innerHTML = timeStr
+    End Sub
+    
+    Sub BtnMsgBox_OnClick()
+        MsgBox "This is a VBScript MsgBox!", 64, "Demo"
+    End Sub
+    
+    Sub BtnInputBox_OnClick()
+        name = InputBox("Enter your name:", "Input", "User")
+        If name <> "" Then
+            MsgBox "Hello, " & name & "!", 64, "Welcome"
+        End If
+    End Sub
+    
+    Sub BtnSetVbs_OnClick()
+        sharedMessage = "Updated from VBScript!"
+        document.getElementById("sharedOutput").innerHTML = "VBS set: sharedMessage = " & sharedMessage
+    End Sub
+    
+    Sub BtnReadJs_OnClick()
+        MsgBox "JS variable: " & jsVar, 64, "From JS"
+    End Sub
+    
+    Sub BtnSetJs_OnClick()
+        document.getElementById("sharedOutput").innerHTML = "JS variable is: " & jsVar
+    End Sub
+    
+    Sub BtnReadVbs_OnClick()
+        MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
+    End Sub
+    
+    Call Init()
+    Call UpdateClock()
+    Call setInterval("UpdateClock", 1000)
+  </script>
+
+  <script>
+    function setFromJs() {
+      window.jsVar = "Hello from JavaScript!";
+      document.getElementById("sharedOutput").innerHTML = "JS set: jsVar = " + window.jsVar;
+    }
+    document.getElementById("btnSetJs").addEventListener("click", setFromJs);
+  </script>
+</body>
+</html>
