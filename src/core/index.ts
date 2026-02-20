@@ -1,5 +1,5 @@
 import { Lexer } from '../lexer/index.ts';
-import { Parser } from '../parser/index.ts';
+import { Parser, globalParserCache } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
@@ -228,10 +228,18 @@ export class VbsEngine {
   addCode(code: string): void {
     this.clearError();
     try {
-      const lexer = new Lexer(code);
-      const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
-      const program = parser.parse();
+      // Try to get from cache first
+      let program = globalParserCache.get(code);
+      
+      if (!program) {
+        // Parse and cache
+        const lexer = new Lexer(code);
+        const tokens = lexer.tokenize();
+        const parser = new Parser(tokens);
+        program = parser.parse();
+        globalParserCache.set(code, program);
+      }
+      
       this.interpreter.run(program);
       this.syncFunctionsToGlobalThis();
     } catch (err) {
@@ -253,10 +261,18 @@ export class VbsEngine {
   executeStatement(statement: string): void {
     this.clearError();
     try {
-      const lexer = new Lexer(statement);
-      const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
-      const program = parser.parse();
+      // Try to get from cache first
+      let program = globalParserCache.get(statement);
+      
+      if (!program) {
+        // Parse and cache
+        const lexer = new Lexer(statement);
+        const tokens = lexer.tokenize();
+        const parser = new Parser(tokens);
+        program = parser.parse();
+        globalParserCache.set(statement, program);
+      }
+      
       this.interpreter.run(program);
     } catch (err) {
       this.handleError(err);

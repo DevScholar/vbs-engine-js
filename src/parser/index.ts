@@ -8,3 +8,6 @@ export { ProcedureParser } from './procedures.ts';
 export { ControlFlowParser } from './control-flow.ts';
 export { StatementsParser } from './statements.ts';
 export { createLocation, tokenToPosition, tokenToEndPosition, mergeLocations } from './location.ts';
+
+// Performance optimization
+export { ParserCache, globalParserCache, parseWithCache } from './parser-cache.ts';
