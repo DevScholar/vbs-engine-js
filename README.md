@@ -115,7 +115,7 @@ console.log(greeting);  // "Hello, World!"
 
 Run with `npx tsx examples/node-demo.ts`.
 
-## API Reference (MSScriptControl Compatible)
+## API Reference
 
 The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 
