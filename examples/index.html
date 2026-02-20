@@ -26,7 +26,10 @@
   <div id="output"></div>
 
   <h2>MsgBox / InputBox</h2>
-  <button id="btnMsgBox">Show MsgBox</button>
+  <button id="btnMsgBox">Show MsgBox (OK)</button>
+  <button id="btnMsgBoxYesNo">Show MsgBox (Yes/No)</button>
+  <button id="btnMsgBoxYesNoCancel">Show MsgBox (Yes/No/Cancel)</button>
+  <button id="btnMsgBoxAbortRetryIgnore">Show MsgBox (Abort/Retry/Ignore)</button>
   <button id="btnInputBox">Show InputBox</button>
 
   <h2>Inline onclick="vbscript:..."</h2>
@@ -72,6 +75,37 @@
     
     Sub BtnMsgBox_OnClick()
         MsgBox "This is a VBScript MsgBox!", 64, "Demo"
+    End Sub
+    
+    Sub BtnMsgBoxYesNo_OnClick()
+        result = MsgBox("Do you like VBScript?", 4 + 32, "Yes/No Test")
+        If result = 6 Then
+            MsgBox "You clicked Yes!", 64, "Result"
+        ElseIf result = 7 Then
+            MsgBox "You clicked No!", 64, "Result"
+        End If
+    End Sub
+    
+    Sub BtnMsgBoxYesNoCancel_OnClick()
+        result = MsgBox("Save changes before closing?", 3 + 48, "Yes/No/Cancel Test")
+        If result = 6 Then
+            MsgBox "You clicked Yes - Saving!", 64, "Result"
+        ElseIf result = 7 Then
+            MsgBox "You clicked No - Discarding!", 64, "Result"
+        ElseIf result = 2 Then
+            MsgBox "You clicked Cancel!", 64, "Result"
+        End If
+    End Sub
+    
+    Sub BtnMsgBoxAbortRetryIgnore_OnClick()
+        result = MsgBox("File operation failed!", 2 + 16, "Abort/Retry/Ignore Test")
+        If result = 3 Then
+            MsgBox "You clicked Abort!", 64, "Result"
+        ElseIf result = 4 Then
+            MsgBox "You clicked Retry!", 64, "Result"
+        ElseIf result = 5 Then
+            MsgBox "You clicked Ignore!", 64, "Result"
+        End If
     End Sub
     
     Sub BtnInputBox_OnClick()

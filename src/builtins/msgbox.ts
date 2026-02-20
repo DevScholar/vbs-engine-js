@@ -281,17 +281,55 @@ export function createBrowserMsgBox() {
       return { type: 'Integer', value: MsgBoxConstants.vbOK };
     }
 
-    if (buttonType === 'OKCancel' || buttonType === 'YesNo' || buttonType === 'YesNoCancel') {
+    if (buttonType === 'OKCancel') {
       const confirmed = confirm(fullPrompt);
-      if (buttonType === 'OKCancel') {
-        return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
-      }
+      return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
+    }
+
+    if (buttonType === 'YesNo') {
+      const confirmed = confirm(fullPrompt + '\n[OK]=Yes / [Cancel]=No');
       return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo };
     }
 
+    if (buttonType === 'YesNoCancel') {
+      const input = window.prompt(fullPrompt + '\n\nEnter: Y (Yes) / N (No) / C (Cancel) or invalid value for cancel', '');
+      if (input === null) {
+        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      }
+      const normalized = input.trim().toUpperCase();
+      if (normalized === 'Y' || normalized === 'YES') {
+        return { type: 'Integer', value: MsgBoxConstants.vbYes };
+      }
+      if (normalized === 'N' || normalized === 'NO') {
+        return { type: 'Integer', value: MsgBoxConstants.vbNo };
+      }
+      if (normalized === 'C' || normalized === 'CANCEL' || normalized === '') {
+        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      }
+      return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+    }
+
     if (buttonType === 'RetryCancel') {
-      const confirmed = confirm(fullPrompt + '\n[Retry] / [Cancel]');
+      const confirmed = confirm(fullPrompt + '\n[OK]=Retry / [Cancel]=Cancel');
       return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel };
+    }
+
+    if (buttonType === 'AbortRetryIgnore') {
+      const input = window.prompt(fullPrompt + '\n\nEnter: A (Abort) / R (Retry) / I (Ignore)', '');
+      if (input === null) {
+        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      }
+      const normalized = input.trim().toUpperCase();
+      if (normalized === 'A' || normalized === 'ABORT') {
+        return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+      }
+      if (normalized === 'R' || normalized === 'RETRY') {
+        return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+      }
+      if (normalized === 'I' || normalized === 'IGNORE' || normalized === '') {
+        return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+      }
+      return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
     }
 
     alert(fullPrompt);
@@ -318,22 +356,52 @@ export function registerMsgBox(context: { functionRegistry: { register: (name: s
     }
 
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      if (buttonType === 'OKCancel' || buttonType === 'YesNo' || buttonType === 'YesNoCancel') {
+      if (buttonType === 'OKCancel') {
         const confirmed = confirm(fullPrompt);
-        if (buttonType === 'OKCancel') {
-          return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
-        }
+        return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
+      }
+
+      if (buttonType === 'YesNo') {
+        const confirmed = confirm(fullPrompt + '\n[OK]=Yes / [Cancel]=No');
         return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo };
       }
 
+      if (buttonType === 'YesNoCancel' && typeof window.prompt === 'function') {
+        const input = window.prompt(fullPrompt + '\n\nEnter: Y (Yes) / N (No) / C (Cancel) or invalid value for cancel', '');
+        if (input === null) {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const normalized = input.trim().toUpperCase();
+        if (normalized === 'Y' || normalized === 'YES') {
+          return { type: 'Integer', value: MsgBoxConstants.vbYes };
+        }
+        if (normalized === 'N' || normalized === 'NO') {
+          return { type: 'Integer', value: MsgBoxConstants.vbNo };
+        }
+        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      }
+
       if (buttonType === 'RetryCancel') {
-        const confirmed = confirm(fullPrompt + '\n[R]etry / [C]ancel');
+        const confirmed = confirm(fullPrompt + '\n[OK]=Retry / [Cancel]=Cancel');
         return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel };
       }
 
-      if (buttonType === 'AbortRetryIgnore') {
-        const confirmed = confirm(fullPrompt + '\n[A]bort / [R]etry / [I]gnore');
-        return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbAbort : MsgBoxConstants.vbRetry };
+      if (buttonType === 'AbortRetryIgnore' && typeof window.prompt === 'function') {
+        const input = window.prompt(fullPrompt + '\n\nEnter: A (Abort) / R (Retry) / I (Ignore)', '');
+        if (input === null) {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const normalized = input.trim().toUpperCase();
+        if (normalized === 'A' || normalized === 'ABORT') {
+          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+        }
+        if (normalized === 'R' || normalized === 'RETRY') {
+          return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+        }
+        if (normalized === 'I' || normalized === 'IGNORE' || normalized === '') {
+          return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+        }
+        return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
       }
     }
 
