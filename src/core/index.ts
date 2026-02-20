@@ -3,6 +3,7 @@ import { Parser } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
+import { initializeBrowserEngine } from '../browser/index.ts';
 
 export { jsToVb, vbToJs } from './conversion.ts';
 
@@ -180,11 +181,7 @@ export class VbsEngine {
   }
 
   private initializeBrowserMode(): void {
-    import('../browser/index.ts').then(({ initializeBrowserEngine }) => {
-      this.browserCleanup = initializeBrowserEngine(this, this.options);
-    }).catch(err => {
-      console.error('Failed to initialize browser mode:', err);
-    });
+    this.browserCleanup = initializeBrowserEngine(this, this.options);
   }
 
   private setMaxExecutionTime(ms: number): void {

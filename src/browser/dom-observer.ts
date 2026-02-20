@@ -28,7 +28,7 @@ export function startObserver(
               setupForEventScript(engine, forAttr, eventAttr, code);
             } else {
               try {
-                engine.run(code);
+                engine.addCode(code);
                 if (options.injectGlobalThis && options.parseEventSubNames) {
                   setupNamedEventHandlers(engine, boundNamedHandlers);
                 }
@@ -54,7 +54,7 @@ export function startObserver(
                   setupForEventScript(engine, forAttr, eventAttr, code);
                 } else {
                   try {
-                    engine.run(code);
+                    engine.addCode(code);
                     if (options.injectGlobalThis && options.parseEventSubNames) {
                       setupNamedEventHandlers(engine, boundNamedHandlers);
                     }

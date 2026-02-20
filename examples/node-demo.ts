@@ -7,20 +7,19 @@ globalThis.nodeFs = fs;
 
 const engine = new VbsEngine();
 
-const currentDir = process.cwd();
-
-engine.run(`
+engine.addCode(`
   ' Node.js modules are automatically available from globalThis
-  currentDir = nodePath.resolve(".")
+  Function GetCurrentDir()
+      GetCurrentDir = nodePath.resolve(".")
+  End Function
   
-  ' Read package.json
-  content = nodeFs.readFileSync("package.json", "utf8")
-  
-  ' Print result
-  MsgBox "Current Directory: " & currentDir
-  MsgBox "Package.json length: " & Len(content)
+  Function ReadPackageJson()
+      ReadPackageJson = nodeFs.readFileSync("package.json", "utf8")
+  End Function
 `);
 
-console.log('VBScript executed successfully!');
-console.log('currentDir (from VBS):', engine.getVariableAsJs('currentDir'));
-console.log('content length:', engine.getVariableAsJs('content'));
+const currentDir = engine.run('GetCurrentDir');
+const content = engine.run('ReadPackageJson');
+
+console.log('Current Directory:', currentDir);
+console.log('Package.json length:', typeof content === 'string' ? content.length : 0);

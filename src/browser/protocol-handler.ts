@@ -21,7 +21,7 @@ export function setupVbscriptProtocol(engine: VbsEngine): ProtocolHandlerResult 
         event.preventDefault();
         const code = url.substring(9);
         try {
-          engine.run(code);
+          engine.executeStatement(code);
         } catch (error) {
           console.error('VBScript protocol error:', error);
         }
@@ -39,7 +39,7 @@ export function setupVbscriptProtocol(engine: VbsEngine): ProtocolHandlerResult 
           event.preventDefault();
           const code = href.substring(9);
           try {
-            engine.run(code);
+            engine.executeStatement(code);
           } catch (error) {
             console.error('VBScript protocol error:', error);
           }

@@ -23,8 +23,8 @@ Write VBScript code using the `<script type="text/vbscript">` or `<script langua
   <meta charset="UTF-8">
   <title>VBScript Demo</title>
   <script type="module">
-    import { VbsBrowserEngine } from './src/index.ts';
-    new VbsBrowserEngine();
+    import { VbsEngine } from './src/index.ts';
+    new VbsEngine({ mode: 'browser' });
   </script>
 </head>
 <body>
@@ -63,56 +63,139 @@ import { VbsEngine } from './src/index.ts';
 
 const engine = new VbsEngine();
 
-engine.run(`
-  name = "World"
-  Function Greet(n)
-      Greet = "Hello, " & n & "!"
+// Add function definitions
+engine.addCode(`
+  Function Add(a, b)
+      Add = a + b
   End Function
-  Print Greet(name)
 `);
 
-console.log(engine.getVariableAsJs('name'));
+// Call a function
+const result = engine.run('Add', 10, 20);
+console.log('Result:', result);  // 30
+
+// Execute a statement
+engine.executeStatement('name = "World"');
+
+// Evaluate an expression
+const greeting = engine.eval('"Hello, " & name & "!"');
+console.log(greeting);  // "Hello, World!"
 ```
 
 Run with `npx tsx examples/node-demo.ts`.
 
+## API Reference (MSScriptControl Compatible)
 
-## Browser Runtime Options
+The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 
-The `VbsBrowserEngine` constructor accepts an options object with the following properties:
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `addCode(code: string)` | Adds script code to the engine (function/class definitions) |
+| `executeStatement(statement: string)` | Executes a single VBScript statement |
+| `run(procedureName: string, ...args)` | Calls a function and returns the result |
+| `eval(expression: string)` | Evaluates an expression and returns the result |
+| `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |
+| `clearError()` | Clears the last error |
+| `destroy()` | Cleans up resources (browser mode) |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `error` | `VbsError \| null` | The last error that occurred, or null |
+
+### Example Usage
 
 ```typescript
-interface BrowserRuntimeOptions {
-  parseScriptElement?: boolean;
-  parseInlineEventAttributes?: boolean;
-  injectGlobalThis?: boolean;
-  parseEventSubNames?: boolean;
-  maxExecutingTime?: number;
+import { VbsEngine } from './src/index.ts';
+
+const engine = new VbsEngine();
+
+// Define functions
+engine.addCode(`
+  Function Multiply(a, b)
+      Multiply = a * b
+  End Function
+  
+  Class Calculator
+      Public Function Add(x, y)
+          Add = x + y
+      End Function
+  End Class
+`);
+
+// Call functions
+const product = engine.run('Multiply', 6, 7);
+console.log(product);  // 42
+
+// Expose JavaScript objects
+const myApp = {
+  name: 'MyApp',
+  version: '1.0.0',
+  greet: (name: string) => `Hello, ${name}!`
+};
+engine.addObject('MyApp', myApp, true);
+
+// Use exposed object in VBScript
+engine.executeStatement('result = MyApp.greet("World")');
+const result = engine.eval('result');
+console.log(result);  // "Hello, World!"
+
+// Error handling
+engine.executeStatement('x = CInt("not a number")');
+if (engine.error) {
+  console.log('Error:', engine.error.description);
+}
+```
+
+## Engine Options
+
+```typescript
+interface VbsEngineOptions {
+  mode?: 'general' | 'browser';  // Default: 'general'
+  injectGlobalThis?: boolean;    // Default: true
+  maxExecutionTime?: number;     // Default: -1 (unlimited)
+  
+  // Browser mode only:
+  parseScriptElement?: boolean;       // Default: true
+  parseInlineEventAttributes?: boolean; // Default: true
+  parseEventSubNames?: boolean;       // Default: true
+  parseVbsProtocol?: boolean;         // Default: true
+  overrideJSEvalFunctions?: boolean;  // Default: true
 }
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `parseScriptElement` | `boolean` | `true` | Automatically process and execute all `<script type="text/vbscript">` tags |
-| `parseInlineEventAttributes` | `boolean` | `true` | Automatically process inline event attributes like `onclick="vbscript:..."` |
+| `mode` | `'general' \| 'browser'` | `'general'` | Engine mode. Use `'browser'` for web applications |
 | `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript |
-| `parseEventSubNames` | `boolean` | `true` | Automatically bind event handlers from Sub names like `Button1_OnClick`. Requires `injectGlobalThis: true` |
-| `maxExecutingTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |
+| `maxExecutionTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |
+| `parseScriptElement` | `boolean` | `true` | Automatically process `<script type="text/vbscript">` tags (browser mode) |
+| `parseInlineEventAttributes` | `boolean` | `true` | Process inline event attributes like `onclick="vbscript:..."` (browser mode) |
+| `parseEventSubNames` | `boolean` | `true` | Auto-bind event handlers from Sub names like `Button1_OnClick` (browser mode) |
+| `parseVbsProtocol` | `boolean` | `true` | Handle `vbscript:` protocol in links (browser mode) |
+| `overrideJSEvalFunctions` | `boolean` | `true` | Override JS eval functions to support VBScript (browser mode) |
 
 ### Example Usage
 
 ```typescript
-import { VbsBrowserEngine } from './src/index.ts';
+// General mode (Node.js or browser without auto-parsing)
+const engine = new VbsEngine({
+  injectGlobalThis: true,
+  maxExecutionTime: 5000
+});
 
-new VbsBrowserEngine({
+// Browser mode (auto-parsing enabled)
+const browserEngine = new VbsEngine({
+  mode: 'browser',
   parseScriptElement: true,
   parseInlineEventAttributes: true,
-  injectGlobalThis: true,
-  parseEventSubNames: true,
-  maxExecutingTime: 5000
+  parseEventSubNames: true
 });
 ```
 
-# Compatibility
+## Compatibility
 
 See [docs/compatibility.md](docs/compatibility.md) for details.

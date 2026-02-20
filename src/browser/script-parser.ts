@@ -26,7 +26,7 @@ export function parseScriptElement(
     setupForEventScript(engine, forAttr, eventAttr, code);
   } else {
     try {
-      engine.run(code);
+      engine.addCode(code);
       onScriptRun?.();
     } catch (error) {
       console.error('Vbscript error:', error);
@@ -47,7 +47,7 @@ export function setupForEventScript(
     if (target) {
       const handler = (): void => {
         try {
-          engine.run(code);
+          engine.addCode(code);
         } catch (error) {
           console.error('VBScript event handler error:', error);
         }

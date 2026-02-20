@@ -19,7 +19,7 @@ export function setupElementInlineEvents(engine: VbsEngine, element: Element): v
 
         (element as unknown as Record<string, unknown>)[attrName] = (): void => {
           try {
-            engine.run(code);
+            engine.executeStatement(code);
           } catch (error) {
             console.error('VBScript event handler error:', error);
           }
