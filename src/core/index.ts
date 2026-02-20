@@ -31,9 +31,48 @@ function vbToJsAuto(value: VbValue): unknown {
 }
 
 /**
+ * The mode of operation for the VbsEngine.
+ * - 'general': Standard mode for Node.js or custom environments
+ * - 'browser': Browser mode with automatic DOM integration, event handling, etc.
+ */
+export type VbsEngineMode = 'general' | 'browser';
+
+/**
+ * Browser-specific options for VbsEngine.
+ */
+export interface BrowserEngineOptions {
+  /**
+   * Automatically parse and execute `<script type="text/vbscript">` elements.
+   * @default true
+   */
+  parseScriptElement?: boolean;
+  /**
+   * Automatically parse inline event attributes like `onclick="vbscript:..."`.
+   * @default true
+   */
+  parseInlineEventAttributes?: boolean;
+  /**
+   * Automatically bind event handlers from Sub names like `Button1_OnClick`.
+   * Requires `injectGlobalThis` to be true.
+   * @default true
+   */
+  parseEventSubNames?: boolean;
+  /**
+   * Override JavaScript's eval, setTimeout, and setInterval to support VBScript code.
+   * @default true
+   */
+  overrideJSEvalFunctions?: boolean;
+  /**
+   * Enable the `vbscript:` protocol handler for links and forms.
+   * @default true
+   */
+  parseVbsProtocol?: boolean;
+}
+
+/**
  * Configuration options for the VbsEngine.
  */
-export interface VbsEngineOptions {
+export interface VbsEngineOptions extends BrowserEngineOptions {
   /**
    * Maximum execution time in milliseconds.
    * Set to -1 for unlimited execution time (default).
@@ -47,6 +86,13 @@ export interface VbsEngineOptions {
    * @default true
    */
   injectGlobalThis?: boolean;
+  /**
+   * The mode of operation for the engine.
+   * - 'general': Standard mode for Node.js or custom environments (default)
+   * - 'browser': Browser mode with automatic DOM integration
+   * @default 'general'
+   */
+  mode?: VbsEngineMode;
 }
 
 /**
@@ -62,10 +108,13 @@ export interface VbsEngineOptions {
  *
  * @example
  * ```typescript
- * // Basic usage
+ * // Basic usage (Node.js or general)
  * const engine = new VbsEngine();
  * engine.run('x = 1 + 2');
  * console.log(engine.getVariableAsJs('x')); // 3
+ *
+ * // Browser mode
+ * const engine = new VbsEngine({ mode: 'browser' });
  *
  * // With options
  * const engine = new VbsEngine({ maxExecutionTime: 5000 });
@@ -74,11 +123,18 @@ export interface VbsEngineOptions {
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
+  private browserCleanup: (() => void) | null = null;
 
   constructor(options: VbsEngineOptions = {}) {
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
       injectGlobalThis: options.injectGlobalThis ?? true,
+      mode: options.mode ?? 'general',
+      parseScriptElement: options.parseScriptElement ?? true,
+      parseInlineEventAttributes: options.parseInlineEventAttributes ?? true,
+      parseEventSubNames: options.parseEventSubNames ?? true,
+      overrideJSEvalFunctions: options.overrideJSEvalFunctions ?? true,
+      parseVbsProtocol: options.parseVbsProtocol ?? true,
     };
 
     this.interpreter = new Interpreter();
@@ -89,6 +145,20 @@ export class VbsEngine {
     if (this.options.maxExecutionTime > 0) {
       this.setMaxExecutionTime(this.options.maxExecutionTime);
     }
+
+    // Initialize browser mode if requested
+    if (this.options.mode === 'browser' && typeof window !== 'undefined') {
+      this.initializeBrowserMode();
+    }
+  }
+
+  private initializeBrowserMode(): void {
+    // Dynamic import to avoid loading browser code in Node.js
+    import('../browser/index.ts').then(({ initializeBrowserEngine }) => {
+      this.browserCleanup = initializeBrowserEngine(this, this.options);
+    }).catch(err => {
+      console.error('Failed to initialize browser mode:', err);
+    });
   }
 
   /**
@@ -189,6 +259,17 @@ export class VbsEngine {
    */
   getContext() {
     return this.interpreter.getContext();
+  }
+
+  /**
+   * Cleans up resources and restores any overridden browser functions.
+   * Call this method when you no longer need the engine.
+   */
+  destroy(): void {
+    if (this.browserCleanup) {
+      this.browserCleanup();
+      this.browserCleanup = null;
+    }
   }
 
   private syncFunctionsToGlobalThis(): void {

@@ -8,7 +8,7 @@
  *
  * @example
  * ```typescript
- * // Node.js usage
+ * // Node.js usage (general mode)
  * import { VbsEngine, runVbscript } from 'vbs-engine-js';
  *
  * const engine = new VbsEngine();
@@ -23,13 +23,35 @@
  * ```html
  * <!-- Browser usage -->
  * <script type="module">
- *   import { VbsBrowserEngine } from 'vbs-engine-js';
- *   new VbsBrowserEngine();
+ *   import { VbsEngine } from 'vbs-engine-js';
+ *   // Use browser mode for automatic DOM integration
+ *   new VbsEngine({ mode: 'browser' });
  * </script>
  * <script type="text/vbscript">
  *   MsgBox "Hello from VBScript!"
  * </script>
  * ```
+ *
+ * @example
+ * ```typescript
+ * // Browser mode with options
+ * const engine = new VbsEngine({
+ *   mode: 'browser',
+ *   parseScriptElement: true,
+ *   parseInlineEventAttributes: true,
+ *   parseEventSubNames: true
+ * });
+ * ```
  */
-export { VbsEngine, runVbscript, type VbsEngineOptions, jsToVb, vbToJs } from './core/index.ts';
-export { VbsBrowserEngine, createBrowserRuntime, type BrowserRuntimeOptions } from './browser/index.ts';
+export {
+  VbsEngine,
+  runVbscript,
+  type VbsEngineOptions,
+  type VbsEngineMode,
+  type BrowserEngineOptions,
+  jsToVb,
+  vbToJs
+} from './core/index.ts';
+
+// Browser-specific exports
+export type { BrowserRuntimeOptions } from './browser/index.ts';
