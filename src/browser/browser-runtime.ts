@@ -30,10 +30,10 @@ export function initializeBrowserEngine(
   const boundNamedHandlers: Map<string, BoundNamedHandler> = new Map();
 
   // Register browser-specific functions
-  engine.registerFunction('MsgBox', createBrowserMsgBox());
-  engine.registerFunction('InputBox', createBrowserInputBox());
-  engine.registerFunction('CreateObject', createObject);
-  engine.registerFunction('GetObject', getObject);
+  engine._registerFunction('MsgBox', createBrowserMsgBox());
+  engine._registerFunction('InputBox', createBrowserInputBox());
+  engine._registerFunction('CreateObject', createObject);
+  engine._registerFunction('GetObject', getObject);
 
   // Override JS functions if requested
   if (options.overrideJSEvalFunctions) {

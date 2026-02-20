@@ -70,6 +70,22 @@ export interface BrowserEngineOptions {
 }
 
 /**
+ * Error information from script execution.
+ */
+export interface VbsError {
+  /** Error number/code */
+  number: number;
+  /** Error description */
+  description: string;
+  /** Source line number where error occurred */
+  line?: number;
+  /** Source column where error occurred */
+  column?: number;
+  /** Source text where error occurred */
+  text?: string;
+}
+
+/**
  * Configuration options for the VbsEngine.
  */
 export interface VbsEngineOptions extends BrowserEngineOptions {
@@ -98,32 +114,44 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
 /**
  * A VBScript engine that can parse and execute VBScript code.
  *
- * This engine supports the full VBScript language including:
- * - Variables, constants, and arrays
- * - Control flow statements (If, For, Do, While, Select Case)
- * - Procedures (Sub and Function)
- * - Classes with properties and methods
- * - Error handling (On Error)
- * - Built-in functions (string, math, date, conversion, etc.)
+ * This API is designed to be compatible with MSScriptControl.ScriptControl:
+ * - `addCode(code)` - Add script code (functions, classes)
+ * - `executeStatement(statement)` - Execute a single statement
+ * - `run(procedureName, ...args)` - Call a script function
+ * - `addObject(name, object, addMembers?)` - Expose a JS object to script
+ * - `eval(expression)` - Evaluate an expression
  *
  * @example
  * ```typescript
- * // Basic usage (Node.js or general)
+ * // Basic usage
  * const engine = new VbsEngine();
- * engine.run('x = 1 + 2');
- * console.log(engine.getVariableAsJs('x')); // 3
  *
- * // Browser mode
- * const engine = new VbsEngine({ mode: 'browser' });
+ * // Add code (function definitions)
+ * engine.addCode(`
+ *   Function Add(a, b)
+ *     Add = a + b
+ *   End Function
+ * `);
  *
- * // With options
- * const engine = new VbsEngine({ maxExecutionTime: 5000 });
+ * // Call the function
+ * const result = engine.run('Add', 5, 3);  // 8
+ *
+ * // Execute a statement
+ * engine.executeStatement('MsgBox "Hello"');
+ *
+ * // Evaluate an expression
+ * const value = engine.eval('2 + 3 * 4');  // 14
+ *
+ * // Expose an object to script
+ * engine.addObject('console', console, true);
+ * engine.executeStatement('console.log "Hello from VBScript"');
  * ```
  */
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
   private browserCleanup: (() => void) | null = null;
+  private lastError: VbsError | null = null;
 
   constructor(options: VbsEngineOptions = {}) {
     this.options = {
@@ -146,14 +174,12 @@ export class VbsEngine {
       this.setMaxExecutionTime(this.options.maxExecutionTime);
     }
 
-    // Initialize browser mode if requested
     if (this.options.mode === 'browser' && typeof window !== 'undefined') {
       this.initializeBrowserMode();
     }
   }
 
   private initializeBrowserMode(): void {
-    // Dynamic import to avoid loading browser code in Node.js
     import('../browser/index.ts').then(({ initializeBrowserEngine }) => {
       this.browserCleanup = initializeBrowserEngine(this, this.options);
     }).catch(err => {
@@ -161,104 +187,184 @@ export class VbsEngine {
     });
   }
 
-  /**
-   * Sets the maximum execution time for script execution.
-   * @param ms - Maximum time in milliseconds, or -1 for unlimited
-   */
-  setMaxExecutionTime(ms: number): void {
+  private setMaxExecutionTime(ms: number): void {
     this.interpreter.setMaxExecutionTime(ms);
     this.interpreter.getContext().checkTimeout = () => this.interpreter.checkTimeout();
   }
 
   /**
-   * Executes VBScript source code.
+   * Gets the last error that occurred during script execution.
+   * Returns null if no error occurred.
+   */
+  get error(): VbsError | null {
+    return this.lastError;
+  }
+
+  /**
+   * Clears the last error.
+   */
+  clearError(): void {
+    this.lastError = null;
+  }
+
+  /**
+   * Adds script code to the engine.
+   * Use this to define functions, classes, or variables that can be used later.
    *
-   * @param source - The VBScript code to execute
-   * @returns The result of the last evaluated expression
-   * @throws Error if the code contains syntax errors or runtime errors
+   * @param code - The VBScript code to add (function/class definitions)
    *
    * @example
    * ```typescript
-   * engine.run('x = 5: y = 10: result = x + y');
+   * engine.addCode(`
+   *   Function Multiply(a, b)
+   *     Multiply = a * b
+   *   End Function
+   *
+   *   Class Calculator
+   *     Public Function Add(x, y)
+   *       Add = x + y
+   *     End Function
+   *   End Class
+   * `);
    * ```
    */
-  run(source: string): VbValue {
-    const lexer = new Lexer(source);
-    const tokens = lexer.tokenize();
-    const parser = new Parser(tokens);
-    const program = parser.parse();
-    const result = this.interpreter.run(program);
-    
-    if (this.options.injectGlobalThis) {
+  addCode(code: string): void {
+    this.clearError();
+    try {
+      const lexer = new Lexer(code);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const program = parser.parse();
+      this.interpreter.run(program);
       this.syncFunctionsToGlobalThis();
+    } catch (err) {
+      this.handleError(err);
     }
-    
-    return result;
   }
 
   /**
-   * Gets a variable value from the VBScript context.
+   * Executes a single VBScript statement.
    *
-   * @param name - The variable name (case-insensitive)
-   * @returns The VbValue representation of the variable
-   */
-  getVariable(name: string): VbValue {
-    return this.interpreter.getVariable(name);
-  }
-
-  /**
-   * Gets a variable value converted to a JavaScript type.
-   *
-   * @param name - The variable name (case-insensitive)
-   * @returns The JavaScript value (string, number, boolean, object, etc.)
+   * @param statement - The statement to execute
    *
    * @example
    * ```typescript
-   * engine.run('name = "John"');
-   * const name = engine.getVariableAsJs('name'); // "John" (string)
+   * engine.executeStatement('x = 10');
+   * engine.executeStatement('MsgBox "Hello World"');
    * ```
    */
-  getVariableAsJs(name: string): unknown {
-    return vbToJsAuto(this.interpreter.getVariable(name));
+  executeStatement(statement: string): void {
+    this.clearError();
+    try {
+      const lexer = new Lexer(statement);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const program = parser.parse();
+      this.interpreter.run(program);
+    } catch (err) {
+      this.handleError(err);
+    }
   }
 
   /**
-   * Sets a variable in the VBScript context.
+   * Calls a function defined in the script and returns the result.
    *
-   * @param name - The variable name
-   * @param value - The VbValue to set
-   */
-  setVariable(name: string, value: VbValue): void {
-    this.interpreter.setVariable(name, value);
-  }
-
-  /**
-   * Registers a custom function that can be called from VBScript code.
-   *
-   * @param name - The function name as it will appear in VBScript
-   * @param func - The function implementation
+   * @param procedureName - The name of the function or sub to call
+   * @param args - Arguments to pass to the function
+   * @returns The return value of the function (undefined for Subs)
    *
    * @example
    * ```typescript
-   * engine.registerFunction('DoubleIt', (val) => ({
-   *   type: 'Long',
-   *   value: val.value * 2
-   * }));
-   * engine.run('result = DoubleIt(5)'); // result = 10
+   * engine.addCode('Function Add(a, b): Add = a + b: End Function');
+   * const result = engine.run('Add', 5, 3);  // 8
    * ```
    */
-  registerFunction(name: string, func: (...args: VbValue[]) => VbValue): void {
-    this.interpreter.registerFunction(name, func);
+  run(procedureName: string, ...args: unknown[]): unknown {
+    this.clearError();
+    try {
+      const context = this.interpreter.getContext();
+      const funcRegistry = context.functionRegistry;
+      
+      const vbArgs = args.map(arg => jsToVb(arg));
+      const result = funcRegistry.call(procedureName, vbArgs);
+      
+      return vbToJs(result);
+    } catch (err) {
+      this.handleError(err);
+      return undefined;
+    }
   }
 
   /**
-   * Gets the internal execution context.
-   * Use this for advanced scenarios requiring direct context manipulation.
+   * Exposes a JavaScript object to the VBScript context.
+   * The object can then be accessed by name in VBScript code.
    *
-   * @returns The VbContext instance
+   * @param name - The name by which the object will be known in VBScript
+   * @param object - The JavaScript object to expose
+   * @param addMembers - If true, the object's methods/properties can be called directly
+   *
+   * @example
+   * ```typescript
+   * // Expose console to VBScript
+   * engine.addObject('console', console, true);
+   * engine.executeStatement('console.log "Hello from VBScript"');
+   *
+   * // Expose a custom object
+   * const myApp = {
+   *   name: 'MyApp',
+   *   getVersion: () => '1.0.0',
+   *   doSomething: (x) => x * 2
+   * };
+   * engine.addObject('MyApp', myApp, true);
+   * engine.executeStatement('result = MyApp.doSomething(5)');  // result = 10
+   * ```
    */
-  getContext() {
-    return this.interpreter.getContext();
+  addObject(name: string, object: unknown, addMembers: boolean = true): void {
+    this.clearError();
+    try {
+      const vbValue = jsToVb(object);
+      this.interpreter.setVariable(name, vbValue);
+      
+      if (addMembers && typeof object === 'object' && object !== null) {
+        const obj = object as Record<string, unknown>;
+        for (const key of Object.keys(obj)) {
+          const memberName = `${name}.${key}`;
+          const member = obj[key];
+          if (typeof member === 'function') {
+            this.interpreter.registerFunction(memberName, (...args: VbValue[]) => {
+              const jsArgs = args.map(vbToJs);
+              const result = (member as (...args: unknown[]) => unknown)(...jsArgs);
+              return jsToVb(result);
+            });
+          }
+        }
+      }
+    } catch (err) {
+      this.handleError(err);
+    }
+  }
+
+  /**
+   * Evaluates a VBScript expression and returns the result.
+   *
+   * @param expression - The expression to evaluate
+   * @returns The result of the expression
+   *
+   * @example
+   * ```typescript
+   * const result = engine.eval('2 + 3 * 4');  // 14
+   * const greeting = engine.eval('"Hello" & " " & "World"');  // "Hello World"
+   * ```
+   */
+  eval(expression: string): unknown {
+    this.clearError();
+    try {
+      const result = this.interpreter.evaluate(expression);
+      return vbToJs(result);
+    } catch (err) {
+      this.handleError(err);
+      return undefined;
+    }
   }
 
   /**
@@ -272,10 +378,46 @@ export class VbsEngine {
     }
   }
 
+  /**
+   * @internal Registers a built-in function. Used by browser module.
+   */
+  _registerFunction(name: string, func: (...args: VbValue[]) => VbValue): void {
+    this.interpreter.registerFunction(name, func);
+  }
+
+  /**
+   * @internal Gets the interpreter context. Used by browser module.
+   */
+  _getContext() {
+    return this.interpreter.getContext();
+  }
+
+  /**
+   * @internal Gets a variable value. Used for testing.
+   */
+  _getVariable(name: string): VbValue {
+    return this.interpreter.getVariable(name);
+  }
+
+  private handleError(err: unknown): void {
+    if (err instanceof Error) {
+      this.lastError = {
+        number: -1,
+        description: err.message,
+      };
+    } else {
+      this.lastError = {
+        number: -1,
+        description: String(err),
+      };
+    }
+  }
+
   private syncFunctionsToGlobalThis(): void {
     if (typeof globalThis === 'undefined') return;
+    if (!this.options.injectGlobalThis) return;
 
-    const context = this.getContext();
+    const context = this.interpreter.getContext();
     if (!context) return;
 
     const funcRegistry = context.functionRegistry;
@@ -288,8 +430,7 @@ export class VbsEngine {
       const funcName = info.name;
       if (!(funcName in (globalThis as Record<string, unknown>))) {
         (globalThis as Record<string, unknown>)[funcName] = (...args: unknown[]) => {
-          const vbArgs = args.map(a => jsToVb(a));
-          return vbToJs(funcRegistry.call(funcName, vbArgs));
+          return this.run(funcName, ...args);
         };
       }
     }
@@ -308,19 +449,18 @@ export class VbsEngine {
 }
 
 /**
- * A convenience function to quickly execute VBScript code.
- * Creates a new VbsEngine instance, runs the code, and returns the result.
+ * A convenience function to quickly evaluate a VBScript expression.
+ * Creates a new VbsEngine instance, evaluates the expression, and returns the result.
  *
- * @param source - The VBScript code to execute
- * @returns The result of the last evaluated expression
+ * @param expression - The VBScript expression to evaluate
+ * @returns The result of the expression
  *
  * @example
  * ```typescript
- * const result = runVbscript('x = 5 + 3: x * 2');
- * // result.value === 16
+ * const result = evalVbscript('2 + 3 * 4');  // 14
  * ```
  */
-export function runVbscript(source: string): VbValue {
+export function evalVbscript(expression: string): unknown {
   const engine = new VbsEngine();
-  return engine.run(source);
+  return engine.eval(expression);
 }

@@ -4,19 +4,44 @@
  * This module provides a complete VBScript engine that can execute VBScript code
  * in both Node.js and browser environments.
  *
+ * The API is designed to be compatible with MSScriptControl.ScriptControl:
+ * - `addCode(code)` - Add script code (functions, classes)
+ * - `executeStatement(statement)` - Execute a single statement
+ * - `run(procedureName, ...args)` - Call a script function
+ * - `addObject(name, object, addMembers?)` - Expose a JS object to script
+ * - `eval(expression)` - Evaluate an expression
+ *
  * @packageDocumentation
  *
  * @example
  * ```typescript
  * // Node.js usage (general mode)
- * import { VbsEngine, runVbscript } from 'vbs-engine-js';
+ * import { VbsEngine, evalVbscript } from 'vbs-engine-js';
  *
  * const engine = new VbsEngine();
- * engine.run('x = 5 + 3');
- * console.log(engine.getVariableAsJs('x')); // 8
+ *
+ * // Add code (function definitions)
+ * engine.addCode(`
+ *   Function Add(a, b)
+ *     Add = a + b
+ *   End Function
+ * `);
+ *
+ * // Call the function
+ * const result = engine.run('Add', 5, 3);  // 8
+ *
+ * // Execute a statement
+ * engine.executeStatement('MsgBox "Hello"');
+ *
+ * // Evaluate an expression
+ * const value = engine.eval('2 + 3 * 4');  // 14
+ *
+ * // Expose an object to script
+ * engine.addObject('console', console, true);
+ * engine.executeStatement('console.log "Hello from VBScript"');
  *
  * // Or use the convenience function
- * const result = runVbscript('MsgBox "Hello"');
+ * const result = evalVbscript('2 + 3 * 4');  // 14
  * ```
  *
  * @example
@@ -31,24 +56,14 @@
  *   MsgBox "Hello from VBScript!"
  * </script>
  * ```
- *
- * @example
- * ```typescript
- * // Browser mode with options
- * const engine = new VbsEngine({
- *   mode: 'browser',
- *   parseScriptElement: true,
- *   parseInlineEventAttributes: true,
- *   parseEventSubNames: true
- * });
- * ```
  */
 export {
   VbsEngine,
-  runVbscript,
+  evalVbscript,
   type VbsEngineOptions,
   type VbsEngineMode,
   type BrowserEngineOptions,
+  type VbsError,
   jsToVb,
   vbToJs
 } from './core/index.ts';

@@ -78,7 +78,7 @@ export function setupNamedEventHandlers(
 ): void {
   if (typeof window === 'undefined') return;
 
-  const funcRegistry = engine.getContext()?.functionRegistry;
+  const funcRegistry = engine._getContext()?.functionRegistry;
   if (!funcRegistry) return;
 
   const userFuncs = funcRegistry.getUserDefinedFunctions?.();
@@ -102,7 +102,7 @@ export function setupNamedEventHandlers(
 
         const handler = (): void => {
           try {
-            engine.getContext()?.functionRegistry.call(funcName, []);
+            engine._getContext()?.functionRegistry.call(funcName, []);
           } catch (error) {
             console.error(`VBScript ${funcName} error:`, error);
           }

@@ -21,21 +21,21 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
 
       if (language === 'vbscript' || language === 'vbs') {
         return originalSetTimeout.call(window, () => {
-          const funcRegistry = engine.getContext()?.functionRegistry;
+          const funcRegistry = engine._getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
-            funcRegistry.call(handler, []);
-          } else {
             engine.run(handler);
+          } else {
+            engine.executeStatement(handler);
           }
         }, actualDelay);
       }
 
       return originalSetTimeout.call(window, () => {
-        const funcRegistry = engine.getContext()?.functionRegistry;
+        const funcRegistry = engine._getContext()?.functionRegistry;
         if (funcRegistry?.has(handler)) {
-          funcRegistry.call(handler, []);
-        } else {
           engine.run(handler);
+        } else {
+          engine.executeStatement(handler);
         }
       }, actualDelay);
     }
@@ -55,21 +55,21 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
 
       if (language === 'vbscript' || language === 'vbs') {
         return originalSetInterval.call(window, () => {
-          const funcRegistry = engine.getContext()?.functionRegistry;
+          const funcRegistry = engine._getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
-            funcRegistry.call(handler, []);
-          } else {
             engine.run(handler);
+          } else {
+            engine.executeStatement(handler);
           }
         }, actualDelay);
       }
 
       return originalSetInterval.call(window, () => {
-        const funcRegistry = engine.getContext()?.functionRegistry;
+        const funcRegistry = engine._getContext()?.functionRegistry;
         if (funcRegistry?.has(handler)) {
-          funcRegistry.call(handler, []);
-        } else {
           engine.run(handler);
+        } else {
+          engine.executeStatement(handler);
         }
       }, actualDelay);
     }

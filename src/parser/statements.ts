@@ -180,7 +180,7 @@ export class StatementsParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('End' as any) && this.state.peek(1).type === 'With' as any) {
         break;

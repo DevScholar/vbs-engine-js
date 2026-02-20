@@ -242,7 +242,7 @@ export class ProcedureParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (endKeyword && this.state.check(endKeyword as any)) {
         break;
@@ -264,7 +264,7 @@ export class ProcedureParser {
     const body: VbClassElement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('End' as any)) {
         break;

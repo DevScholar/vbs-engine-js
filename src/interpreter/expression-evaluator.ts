@@ -50,7 +50,11 @@ export class ExpressionEvaluator {
   evaluateProgram(program: Program): VbValue {
     let result: VbValue = VbEmpty;
     for (const stmt of program.body) {
-      result = this.evaluate(stmt as unknown as Expression);
+      if (stmt.type === 'ExpressionStatement') {
+        result = this.evaluate((stmt as { expression: Expression }).expression);
+      } else {
+        result = this.evaluate(stmt as unknown as Expression);
+      }
     }
     return result;
   }

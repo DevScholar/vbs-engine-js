@@ -115,4 +115,8 @@ export class ParserState {
   skipOptionalNewlines(): void {
     this.skipNewlines();
   }
+
+  skipStatementSeparators(): void {
+    while (this.matchAny('Newline' as TokenType, 'Colon' as TokenType)) {}
+  }
 }

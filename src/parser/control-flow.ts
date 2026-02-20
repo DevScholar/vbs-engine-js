@@ -195,7 +195,7 @@ export class ControlFlowParser {
     let nestedIfDepth = 0;
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('If' as any)) {
         const savedPos = this.state.save();
@@ -337,7 +337,7 @@ export class ControlFlowParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('Next' as any)) {
         break;
@@ -364,7 +364,7 @@ export class ControlFlowParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.checkAny('Loop' as any, 'While' as any, 'Until' as any)) {
         break;
@@ -386,7 +386,7 @@ export class ControlFlowParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('Wend' as any)) {
         break;
@@ -410,7 +410,7 @@ export class ControlFlowParser {
     const cases: VbCaseClause[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('End' as any)) {
         break;
@@ -489,7 +489,7 @@ export class ControlFlowParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
-      this.state.skipNewlines();
+      this.state.skipStatementSeparators();
 
       if (this.state.check('Case' as any) || this.state.check('End' as any)) {
         break;
