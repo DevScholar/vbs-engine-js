@@ -46,6 +46,7 @@ export const KEYWORDS: Record<string, TokenType> = {
   'optional': TokenType.Optional,
   'paramarray': TokenType.ParamArray,
   'rem': TokenType.Rem,
+  'erase': TokenType.Erase,
   'as': TokenType.As,
   'and': TokenType.And,
   'or': TokenType.Or,

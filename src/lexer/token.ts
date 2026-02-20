@@ -111,6 +111,8 @@ export enum TokenType {
   
   Rem = 'Rem',
   
+  Erase = 'Erase',
+  
   As = 'As',
   
   Integer = 'Integer',

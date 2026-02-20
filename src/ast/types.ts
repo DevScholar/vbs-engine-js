@@ -393,6 +393,11 @@ export interface VbReDimStatement extends BaseStatement {
   preserve: boolean;
 }
 
+export interface VbEraseStatement extends BaseStatement {
+  type: 'VbEraseStatement';
+  arrayName: Identifier;
+}
+
 export interface VbConstStatement extends BaseStatement {
   type: 'VbConstStatement';
   declarations: VbConstDeclarator[];
@@ -615,6 +620,7 @@ export type Statement =
   | VbPropertySetStatement
   | VbDimStatement
   | VbReDimStatement
+  | VbEraseStatement
   | VbConstStatement
   | VbForToStatement
   | VbForEachStatement

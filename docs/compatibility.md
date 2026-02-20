@@ -230,7 +230,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | Array | ✔️ | |
 | LBound | ✔️ | |
 | UBound | ✔️ | |
-| Erase | ✔️ | Basic implementation |
+| Erase | ✔️ | Full implementation for fixed-size arrays |
 | Filter | ✔️ | |
 
 ### Other Functions

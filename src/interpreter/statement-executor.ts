@@ -1,4 +1,4 @@
-import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbOnErrorHandlerStatement, VbCallStatement, Expression, VbGotoStatement } from '../ast/index.ts';
+import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbEraseStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbOnErrorHandlerStatement, VbCallStatement, Expression, VbGotoStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbContext, VbEmpty, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, VbProperty } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
@@ -35,6 +35,8 @@ export class StatementExecutor {
           return this.executeDimStatement(node);
         case 'VbReDimStatement':
           return this.executeReDimStatement(node);
+        case 'VbEraseStatement':
+          return this.executeEraseStatement(node);
         case 'VbConstStatement':
           return this.executeConstStatement(node);
         case 'VbForToStatement':
@@ -162,6 +164,24 @@ export class StatementExecutor {
         this.context.setVariable(decl.id.name, { type: 'Array', value: arr });
       }
     }
+    
+    return VbEmpty;
+  }
+
+  private executeEraseStatement(node: VbEraseStatement): VbValue {
+    const arrayName = node.arrayName.name;
+    const variable = this.context.currentScope.get(arrayName);
+    
+    if (!variable) {
+      throw new Error(`Variable '${arrayName}' not defined`);
+    }
+    
+    if (variable.value.type !== 'Array') {
+      throw new Error(`Type mismatch: '${arrayName}' is not an array`);
+    }
+    
+    const arr = variable.value.value as VbArray;
+    arr.erase();
     
     return VbEmpty;
   }

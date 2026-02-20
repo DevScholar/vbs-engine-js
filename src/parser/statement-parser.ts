@@ -36,6 +36,8 @@ export class StatementParser {
         return this.declarationParser.parseDimStatement();
       case 'ReDim' as TokenType:
         return this.declarationParser.parseReDimStatement();
+      case 'Erase' as TokenType:
+        return this.declarationParser.parseEraseStatement();
       case 'Const' as TokenType:
         return this.declarationParser.parseConstStatement();
       case 'Public' as TokenType:

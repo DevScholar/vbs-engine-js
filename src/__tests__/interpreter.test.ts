@@ -540,6 +540,47 @@ result = Err.Number
       const result = engine._getVariable('result');
       expect(result.value).toBe(2);
     });
+
+    it('should erase fixed-size array', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+Dim arr(5)
+arr(0) = 100
+arr(1) = 200
+Erase arr
+result = arr(0)
+`);
+      const result = engine._getVariable('result');
+      expect(result.value).toBeUndefined();
+    });
+
+    it('should erase dynamic array', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+Dim arr()
+ReDim arr(5)
+arr(0) = 100
+arr(1) = 200
+Erase arr
+result = arr(0)
+`);
+      const result = engine._getVariable('result');
+      expect(result.value).toBeUndefined();
+    });
+
+    it('should keep array bounds after erase', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement('Dim arr(5)');
+      engine.executeStatement('arr(0) = 100');
+      
+      // Erase the array
+      engine.executeStatement('Erase arr');
+      
+      // After Erase, value should be cleared
+      engine.executeStatement('result = arr(0)');
+      const result = engine._getVariable('result');
+      expect(result.value).toBeUndefined();
+    });
   });
 
   describe('variables and scope', () => {

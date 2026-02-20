@@ -3,6 +3,7 @@ import type {
   VbDimStatement,
   VbVariableDeclarator,
   VbReDimStatement,
+  VbEraseStatement,
   VbConstStatement,
   VbConstDeclarator,
   VbTypeAnnotation,
@@ -66,6 +67,17 @@ export class DeclarationParser {
       declarations,
       preserve,
       loc: createLocation(redimToken, this.state.previous),
+    };
+  }
+
+  parseEraseStatement(): VbEraseStatement {
+    const eraseToken = this.state.advance();
+    const arrayName = this.exprParser.parseIdentifier();
+
+    return {
+      type: 'VbEraseStatement',
+      arrayName,
+      loc: createLocation(eraseToken, this.state.previous),
     };
   }
 

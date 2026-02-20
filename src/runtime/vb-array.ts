@@ -78,6 +78,15 @@ export class VbArray {
   toArray(): VbValue[] {
     return [...this.data];
   }
+
+  /**
+   * Erase the array - reset all elements to Empty
+   * For fixed-size arrays: clears all elements but keeps dimensions
+   * For dynamic arrays: would normally deallocate, but we just clear
+   */
+  erase(): void {
+    this.data.fill(VbEmpty);
+  }
 }
 
 export function createVbArray(bounds: number[]): VbArray {
