@@ -36,7 +36,7 @@ export function initializeBrowserEngine(
   engine._registerFunction('GetObject', getObject);
 
   // Override JS functions if requested
-  if (options.overrideJSEvalFunctions) {
+  if (options.overrideJsEvalFunctions) {
     timerState.originalSetTimeout = overrideTimers(engine).originalSetTimeout;
     timerState.originalSetInterval = overrideTimers(engine).originalSetInterval;
     evalState.originalEval = overrideEval(engine).originalEval;
@@ -85,7 +85,7 @@ export function initializeBrowserEngine(
     if (protocolState.navigateHandler || protocolState.clickHandler) {
       cleanupVbscriptProtocol(protocolState);
     }
-    if (options.overrideJSEvalFunctions) {
+    if (options.overrideJsEvalFunctions) {
       restoreTimers(timerState);
       restoreEval(evalState);
     }

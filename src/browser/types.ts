@@ -25,7 +25,7 @@ export interface BrowserRuntimeOptions extends VbsEngineOptions {
    * Override JavaScript's eval, setTimeout, and setInterval to support VBScript code.
    * @default true
    */
-  overrideJSEvalFunctions?: boolean;
+  overrideJsEvalFunctions?: boolean;
   /**
    * Enable the `vbscript:` protocol handler for links and forms.
    * @default true

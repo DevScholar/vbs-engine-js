@@ -62,7 +62,7 @@ export interface BrowserEngineOptions {
    * Override JavaScript's eval, setTimeout, and setInterval to support VBScript code.
    * @default true
    */
-  overrideJSEvalFunctions?: boolean;
+  overrideJsEvalFunctions?: boolean;
   /**
    * Enable the `vbscript:` protocol handler for links and forms.
    * @default true
@@ -162,7 +162,7 @@ export class VbsEngine {
       parseScriptElement: options.parseScriptElement ?? true,
       parseInlineEventAttributes: options.parseInlineEventAttributes ?? true,
       parseEventSubNames: options.parseEventSubNames ?? true,
-      overrideJSEvalFunctions: options.overrideJSEvalFunctions ?? true,
+      overrideJsEvalFunctions: options.overrideJsEvalFunctions ?? true,
       parseVbsProtocol: options.parseVbsProtocol ?? true,
     };
 
