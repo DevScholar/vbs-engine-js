@@ -10,6 +10,37 @@ A VBScript engine implemented in TypeScript, supporting VBScript code execution 
 npm install
 ```
 
+## Running Examples
+
+### HTML Example (Browser)
+
+Start the development server and open the example page:
+
+```bash
+npm run dev
+```
+
+Then open your browser and visit:
+- `http://localhost:5173/examples/index.html` - Full demo with MsgBox, InputBox, clock, and event handlers
+
+Or directly:
+```bash
+npx vite examples/index.html
+```
+
+### Node.js Example
+
+Run the Node.js demo that shows how to use VBScript with Node.js modules:
+
+```bash
+npx tsx examples/node-demo.ts
+```
+
+This example demonstrates:
+- Defining VBScript functions with `addCode()`
+- Calling VBScript functions with `run()`
+- Accessing Node.js modules (path, fs) from VBScript via globalThis
+
 ## Quick Start
 
 ### Browser Environment
