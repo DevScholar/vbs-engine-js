@@ -31,5 +31,5 @@
  * </script>
  * ```
  */
-export { VbsEngine, runVbscript, type VbsEngineOptions } from './core/index.ts';
+export { VbsEngine, runVbscript, type VbsEngineOptions, jsToVb, vbToJs } from './core/index.ts';
 export { VbsBrowserEngine, createBrowserRuntime, type BrowserRuntimeOptions } from './browser/index.ts';

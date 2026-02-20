@@ -80,6 +80,9 @@ export class Lexer {
         if (this.peek === '\n') {
           this.advance();
         }
+        if ((this.current as string) === '\n') {
+          this.advance();
+        }
         continue;
       }
       

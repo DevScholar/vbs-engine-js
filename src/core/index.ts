@@ -4,6 +4,8 @@ import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
 
+export { jsToVb, vbToJs } from './conversion.ts';
+
 function vbToJsAuto(value: VbValue): unknown {
   switch (value.type) {
     case 'Empty':
@@ -39,10 +41,10 @@ export interface VbsEngineOptions {
    */
   maxExecutionTime?: number;
   /**
-   * When true, VBScript functions and variables are automatically
-   * injected into the global scope (globalThis), enabling IE-style
-   * interoperability between VBScript and JavaScript.
-   * @default false
+   * When true (default), JavaScript globals from globalThis are automatically
+   * shared with VBScript, and VBScript functions/variables are injected
+   * into globalThis for bidirectional interoperability.
+   * @default true
    */
   injectGlobalThis?: boolean;
 }
@@ -76,7 +78,7 @@ export class VbsEngine {
   constructor(options: VbsEngineOptions = {}) {
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
-      injectGlobalThis: options.injectGlobalThis ?? false,
+      injectGlobalThis: options.injectGlobalThis ?? true,
     };
 
     this.interpreter = new Interpreter();
