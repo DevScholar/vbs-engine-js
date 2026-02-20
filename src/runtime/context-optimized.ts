@@ -184,7 +184,7 @@ export class VbContextOptimized {
       for (const key of Object.keys(globalThis)) {
         if (globalStringInterner.intern(key) === internedName) {
           const value = (globalThis as Record<string, unknown>)[key];
-          const vbValue = jsToVbOptimized(value, globalThis);
+          const vbValue = jsToVbOptimized(value);
           globalThisCache.set(internedName, vbValue);
           return vbValue;
         }
@@ -195,7 +195,7 @@ export class VbContextOptimized {
     for (const key of Object.keys(globalThis)) {
       if (globalStringInterner.intern(key) === internedName) {
         const value = (globalThis as Record<string, unknown>)[key];
-        const vbValue = jsToVbOptimized(value, globalThis);
+        const vbValue = jsToVbOptimized(value);
         globalThisCache.set(internedName, vbValue);
         return vbValue;
       }
