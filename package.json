@@ -1,5 +1,5 @@
 {
-  "name": "vbs-engine-js",
+  "name": "@devscholar/vbs-engine-js",
   "private": true,
   "version": "0.0.1",
   "type": "module",
