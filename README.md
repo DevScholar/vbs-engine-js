@@ -12,6 +12,8 @@ npm install
 
 ## Running Examples
 
+See [quick-start.md](docs/quick-start.md) for more information.
+
 ### HTML Example (Browser)
 
 Start the development server and open the example page:
