@@ -12,6 +12,32 @@ export function isVbscriptElement(element: Element): boolean {
   return false;
 }
 
+/**
+ * Extract VBScript code from script element, handling HTML comment wrapping
+ * Supports the legacy pattern: <!-- ... //-->
+ */
+function extractVbscriptCode(script: Element): string {
+  let code = script.textContent ?? '';
+
+  // Trim whitespace
+  code = code.trim();
+
+  // Handle HTML comment wrapping: <!-- ... //-->
+  // This was used in old browsers (1998 era) to hide scripts from browsers that didn't support <script>
+  if (code.startsWith('<!--')) {
+    // Find the end of the comment
+    // Support both //--> and -->
+    const endIndex = code.indexOf('//-->');
+    if (endIndex !== -1) {
+      code = code.substring(4, endIndex).trim();
+    } else if (code.endsWith('-->')) {
+      code = code.substring(4, code.length - 3).trim();
+    }
+  }
+
+  return code;
+}
+
 export function parseScriptElement(
   engine: VbsEngine,
   script: Element,
@@ -19,7 +45,7 @@ export function parseScriptElement(
 ): void {
   if (!isVbscriptElement(script)) return;
 
-  const code = script.textContent ?? '';
+  const code = extractVbscriptCode(script);
   const forAttr = script.getAttribute('for');
   const eventAttr = script.getAttribute('event');
 
