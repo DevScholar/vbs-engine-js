@@ -6,6 +6,7 @@ export function isVbscriptElement(element: Element): boolean {
 
   if (language?.toLowerCase() === 'vbscript') return true;
   if (type?.toLowerCase() === 'text/vbscript') return true;
+  if (type?.toLowerCase() === 'text/vbs') return true;
   if (type?.toLowerCase() === 'application/x-vbscript') return true;
 
   return false;
