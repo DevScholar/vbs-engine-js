@@ -4,6 +4,7 @@
   "type": "module",
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",
+  "license": "ISC",
   "exports": {
     ".": {
       "import": "./dist/vbs-engine.js",
