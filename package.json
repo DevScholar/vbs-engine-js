@@ -5,6 +5,12 @@
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
+  "keywords": [
+    "vbs",
+    "vbscript",
+    "internetexplorer",
+    "ie"
+  ],
   "exports": {
     ".": {
       "import": "./dist/vbs-engine.js",
