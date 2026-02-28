@@ -1,6 +1,6 @@
 {
   "name": "@devscholar/vbs-engine-js",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
+    "test": "node --experimental-transform-types --experimental-vm-modules node_modules/vitest/vitest.mjs",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",

@@ -35,7 +35,7 @@ npx vite examples/index.html
 Run the Node.js demo that shows how to use VBScript with Node.js modules:
 
 ```bash
-npx tsx examples/node-demo.ts
+node --experimental-transform-types examples/node-demo.ts
 ```
 
 This example demonstrates:
@@ -115,7 +115,7 @@ const greeting = engine.eval('"Hello, " & name & "!"');
 console.log(greeting);  // "Hello, World!"
 ```
 
-Run with `npx tsx examples/node-demo.ts`.
+Run with `node --experimental-transform-types examples/node-demo.ts`.
 
 ## API Reference
 

@@ -1,6 +1,6 @@
 import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbEraseStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbOnErrorHandlerStatement, VbCallStatement, Expression, VbGotoStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, VbProperty } from '../runtime/index.ts';
+import { VbContext, VbEmpty, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, type VbProperty } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
 export class ControlFlowSignal extends Error {

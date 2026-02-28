@@ -1,4 +1,4 @@
-import { Token, TokenType, TokenLocation } from './token.ts';
+import { TokenType, type Token, type TokenLocation } from './token.ts';
 import { KEYWORDS } from './keywords.ts';
 
 export interface LexerOptions {

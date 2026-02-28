@@ -148,13 +148,10 @@ Replace the content of `package.json` with:
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "tsx index.ts"
+    "start": "node --experimental-transform-types index.ts"
   },
   "dependencies": {
     "@devscholar/vbs-engine-js": "file:../../vbs-engine-js"
-  },
-  "devDependencies": {
-    "tsx": "^4.0.0"
   }
 }
 ```
