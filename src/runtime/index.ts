@@ -6,6 +6,9 @@ export * from './vb-array.ts';
 export * from './errors.ts';
 export * from './context.ts';
 
+// VBArray wrapper for JavaScript compatibility (legacy IE compatibility)
+export * from './vbarray-wrapper.ts';
+
 // Performance optimization modules - these provide optimized alternatives
 // Use them directly by importing from their specific modules
 export * from './string-interner.ts';

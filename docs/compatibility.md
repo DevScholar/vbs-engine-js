@@ -297,6 +297,26 @@ This document tracks the compatibility between this VBScript engine implementati
 | Property procedures | ✔️ | |
 | Methods | ✔️ | |
 
+### VBArray Object (JavaScript-side)
+
+VBArray is a JavaScript-side object for accessing VBScript arrays from JavaScript.
+It provides backward compatibility with early Internet Explorer, which required
+wrapping VBScript arrays before accessing them from JavaScript.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| VBArray constructor | ✔️ | Wraps internal VbArray for JS access |
+| dimensions() | ✔️ | Returns number of dimensions |
+| lbound() | ✔️ | Returns lower bound of a dimension |
+| ubound() | ✔️ | Returns upper bound of a dimension |
+| getItem() | ✔️ | Gets value at specified indices |
+| toArray() | ✔️ | Converts to JavaScript array |
+
+**Configuration:** The `injectVBArrayToGlobalThis` option (default: `true`) controls
+whether VBArray is available as `globalThis.VBArray`. When enabled, legacy code
+using `new VBArray(vbArray)` will work. Modern code can access VBScript arrays
+directly without wrapping.
+
 ---
 
 ## Statements

@@ -10,6 +10,7 @@ import { createObject, getObject } from './activex.ts';
 import { autoRunScripts } from './script-parser.ts';
 import { setupInlineEventHandlers, setupNamedEventHandlers, cleanupNamedEventHandlers, type BoundNamedHandler } from './event-handlers.ts';
 import { startObserver, stopObserver, type ObserverContext } from './dom-observer.ts';
+import { VBArray } from '../runtime/vbarray-wrapper.ts';
 
 /**
  * Initializes the browser mode for a VbsEngine instance.
@@ -28,12 +29,19 @@ export function initializeBrowserEngine(
   let protocolState: ProtocolHandlerResult = { navigateHandler: null, clickHandler: null };
   let observerContext: ObserverContext | null = null;
   const boundNamedHandlers: Map<string, BoundNamedHandler> = new Map();
+  let originalVBArray: unknown = undefined;
 
   // Register browser-specific functions
   engine._registerFunction('MsgBox', createBrowserMsgBox());
   engine._registerFunction('InputBox', createBrowserInputBox());
   engine._registerFunction('CreateObject', createObject);
   engine._registerFunction('GetObject', getObject);
+
+  // Inject VBArray into globalThis for legacy compatibility
+  if (options.injectVBArrayToGlobalThis && typeof globalThis !== 'undefined') {
+    originalVBArray = (globalThis as Record<string, unknown>).VBArray;
+    (globalThis as Record<string, unknown>).VBArray = VBArray;
+  }
 
   // Override JS functions if requested
   if (options.overrideJsEvalFunctions) {
@@ -88,6 +96,14 @@ export function initializeBrowserEngine(
     if (options.overrideJsEvalFunctions) {
       restoreTimers(timerState);
       restoreEval(evalState);
+    }
+    // Restore original VBArray
+    if (options.injectVBArrayToGlobalThis && typeof globalThis !== 'undefined') {
+      if (originalVBArray === undefined) {
+        delete (globalThis as Record<string, unknown>).VBArray;
+      } else {
+        (globalThis as Record<string, unknown>).VBArray = originalVBArray;
+      }
     }
   };
 }

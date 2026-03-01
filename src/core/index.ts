@@ -4,8 +4,10 @@ import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
 import { initializeBrowserEngine } from '../browser/index.ts';
+import { VBArray } from '../runtime/vbarray-wrapper.ts';
 
 export { jsToVb, vbToJs } from './conversion.ts';
+export { VBArray } from '../runtime/vbarray-wrapper.ts';
 
 function vbToJsAuto(value: VbValue): unknown {
   switch (value.type) {
@@ -68,6 +70,14 @@ export interface BrowserEngineOptions {
    * @default true
    */
   parseVbsProtocol?: boolean;
+  /**
+   * Inject the VBArray class into globalThis for compatibility with legacy code.
+   * When true, `new VBArray(vbScriptArray)` can be used from JavaScript to wrap
+   * VBScript arrays. This is primarily for backward compatibility with early IE.
+   * Modern code can access VBScript arrays directly without wrapping.
+   * @default true
+   */
+  injectVBArrayToGlobalThis?: boolean;
 }
 
 /**
@@ -164,6 +174,7 @@ export class VbsEngine {
       parseEventSubNames: options.parseEventSubNames ?? true,
       overrideJsEvalFunctions: options.overrideJsEvalFunctions ?? true,
       parseVbsProtocol: options.parseVbsProtocol ?? true,
+      injectVBArrayToGlobalThis: options.injectVBArrayToGlobalThis ?? true,
     };
 
     this.interpreter = new Interpreter();
@@ -173,6 +184,11 @@ export class VbsEngine {
 
     if (this.options.maxExecutionTime > 0) {
       this.setMaxExecutionTime(this.options.maxExecutionTime);
+    }
+
+    // Inject VBArray into globalThis for legacy compatibility (in all modes)
+    if (this.options.injectVBArrayToGlobalThis && typeof globalThis !== 'undefined') {
+      (globalThis as Record<string, unknown>).VBArray = VBArray;
     }
 
     if (this.options.mode === 'browser' && typeof window !== 'undefined') {
