@@ -1,6 +1,6 @@
 {
   "name": "@devscholar/vbs-engine-js",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",
@@ -36,6 +36,7 @@
     "eslint": "^9.18.0",
     "globals": "^15.14.0",
     "prettier": "^3.4.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.20.0",
     "vite": "^7.3.1",
