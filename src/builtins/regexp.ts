@@ -41,6 +41,7 @@ function createMatchObject(match: VbMatch): VbValue {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function createSubMatchesObject(subMatches: string[]): VbValue {
   return {
     type: 'Object',

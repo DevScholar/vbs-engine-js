@@ -32,6 +32,7 @@ export const arrayFunctions = {
   },
 
   Filter: (inputStrings: VbValue, value: VbValue, include?: VbValue, _compare?: VbValue): VbValue => {
+    void _compare; // Intentionally unused - matches VBScript signature
     if (inputStrings.type !== 'Array') {
       throw new Error('Type mismatch: Filter');
     }

@@ -8,6 +8,7 @@ import type {
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
 import { createLocation } from './location.ts';
+import { TokenType } from '../lexer/token.ts';
 
 export class StatementsParser {
   constructor(
@@ -22,8 +23,8 @@ export class StatementsParser {
     this.state.skipNewlines();
     const body = this.parseWithBody();
 
-    this.state.expect('End' as any);
-    this.state.expect('With' as any);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.With);
 
     return {
       type: 'VbWithStatement',
@@ -61,7 +62,7 @@ export class StatementsParser {
 
   parseOptionStatement(): VbOptionExplicitStatement {
     const optionToken = this.state.advance();
-    this.state.expect('Explicit' as any);
+    this.state.expect(TokenType.Explicit);
 
     return {
       type: 'VbOptionExplicitStatement',
@@ -74,11 +75,11 @@ export class StatementsParser {
     const callee = this.exprParser.parseMemberExpression();
 
     let args: Expression[] = [];
-    if (this.state.check('LParen' as any)) {
+    if (this.state.check(TokenType.LParen)) {
       this.state.advance();
       args = this.parseCallArguments();
-      this.state.expect('RParen' as any);
-    } else if (!this.state.checkAny('Newline' as any, 'Colon' as any, 'EOF' as any)) {
+      this.state.expect(TokenType.RParen);
+    } else if (!this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
       args = this.parseCallArgumentsNoParens();
     }
 
@@ -93,7 +94,7 @@ export class StatementsParser {
   parseSetStatement(): Statement {
     const setToken = this.state.advance();
     const left = this.exprParser.parseCallExpression();
-    this.state.expect('Eq' as any);
+    this.state.expect(TokenType.Eq);
     const right = this.exprParser.parseExpression();
 
     const assignment = {
@@ -114,10 +115,10 @@ export class StatementsParser {
 
   parseOnStatement(): Statement {
     const onToken = this.state.advance();
-    this.state.expect('Error' as any);
+    this.state.expect(TokenType.Error);
 
-    if (this.state.match('Resume' as any)) {
-      this.state.expect('Next' as any);
+    if (this.state.match(TokenType.Resume)) {
+      this.state.expect(TokenType.Next);
       return {
         type: 'VbOnErrorHandlerStatement',
         action: 'resume_next',
@@ -125,8 +126,8 @@ export class StatementsParser {
       };
     }
 
-    if (this.state.match('Goto' as any)) {
-      if (this.state.check('NumberLiteral' as any)) {
+    if (this.state.match(TokenType.Goto)) {
+      if (this.state.check(TokenType.NumberLiteral)) {
         const numToken = this.state.advance();
         if (String(numToken.value) === '0') {
           return {
@@ -151,7 +152,7 @@ export class StatementsParser {
   parseResumeStatement(): Statement {
     const resumeToken = this.state.advance();
 
-    if (this.state.match('Next' as any)) {
+    if (this.state.match(TokenType.Next)) {
       return {
         type: 'VbResumeStatement',
         target: 'next',
@@ -182,7 +183,7 @@ export class StatementsParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('End' as any) && this.state.peek(1).type === 'With' as any) {
+      if (this.state.check(TokenType.End) && this.state.peek(1).type === TokenType.With) {
         break;
       }
 
@@ -201,16 +202,16 @@ export class StatementsParser {
   private parseCallArguments(): Expression[] {
     const args: Expression[] = [];
 
-    if (!this.state.check('RParen' as any)) {
+    if (!this.state.check(TokenType.RParen)) {
       while (true) {
         this.state.skipOptionalNewlines();
         
-        if (this.state.check('RParen' as any)) {
+        if (this.state.check(TokenType.RParen)) {
           break;
         }
         
         // Handle empty arguments (consecutive commas)
-        if (this.state.check('Comma' as any)) {
+        if (this.state.check(TokenType.Comma)) {
           args.push({
             type: 'VbEmptyLiteral',
             value: undefined,
@@ -223,7 +224,7 @@ export class StatementsParser {
         
         this.state.skipOptionalNewlines();
         
-        if (this.state.check('Comma' as any)) {
+        if (this.state.check(TokenType.Comma)) {
           this.state.advance();
         } else {
           break;
@@ -237,9 +238,9 @@ export class StatementsParser {
   private parseCallArgumentsNoParens(): Expression[] {
     const args: Expression[] = [];
 
-    while (!this.state.checkAny('Newline' as any, 'Colon' as any, 'EOF' as any)) {
+    while (!this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
       args.push(this.exprParser.parseExpression());
-      if (!this.state.match('Comma' as any)) {
+      if (!this.state.match(TokenType.Comma)) {
         break;
       }
     }

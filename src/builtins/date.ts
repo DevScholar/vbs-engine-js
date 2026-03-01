@@ -98,6 +98,8 @@ export const dateFunctions = {
   },
 
   DateDiff: (interval: VbValue, date1: VbValue, date2: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
+    void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
+    void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
     const intv = toString(interval).toLowerCase();
     const d1 = date1.type === 'Date' ? (date1.value as Date) : serialToDate(toNumber(date1));
     const d2 = date2.type === 'Date' ? (date2.value as Date) : serialToDate(toNumber(date2));
@@ -141,6 +143,8 @@ export const dateFunctions = {
   },
 
   DatePart: (interval: VbValue, date: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
+    void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
+    void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
     const intv = toString(interval).toLowerCase();
     const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
     
@@ -155,20 +159,22 @@ export const dateFunctions = {
       case 'm':
         result = d.getMonth() + 1;
         break;
-      case 'y':
+      case 'y': {
         const startOfYear = new Date(d.getFullYear(), 0, 1);
         result = Math.floor((d.getTime() - startOfYear.getTime()) / 86400000) + 1;
         break;
+      }
       case 'd':
         result = d.getDate();
         break;
       case 'w':
         result = d.getDay() + 1;
         break;
-      case 'ww':
+      case 'ww': {
         const startOfYear2 = new Date(d.getFullYear(), 0, 1);
         result = Math.floor((d.getTime() - startOfYear2.getTime()) / (86400000 * 7)) + 1;
         break;
+      }
       case 'h':
         result = d.getHours();
         break;
@@ -225,6 +231,7 @@ export const dateFunctions = {
   },
 
   WeekdayName: (weekday: VbValue, abbreviate?: VbValue, _firstDayOfWeek?: VbValue): VbValue => {
+    void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     const w = Math.floor(toNumber(weekday));
     const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const abbrev = abbreviate ? toNumber(abbreviate) !== 0 : false;

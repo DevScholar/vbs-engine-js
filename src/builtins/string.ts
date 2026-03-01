@@ -128,13 +128,13 @@ function formatNumber(value: number, format: string): string {
 }
 
 function formatNumberInternal(value: number, format: string): string {
-  let hasPercent = format.includes('%');
+  const hasPercent = format.includes('%');
   if (hasPercent) {
     value *= 100;
   }
-  
+
   const formatLower = format.toLowerCase();
-  let decimalPos = formatLower.indexOf('.');
+  const decimalPos = formatLower.indexOf('.');
   let decimalDigits = 0;
   
   if (decimalPos !== -1) {
@@ -363,6 +363,7 @@ export const stringFunctions = {
   },
 
   Split: (str: VbValue, delimiter?: VbValue, count?: VbValue, _compare?: VbValue): VbValue => {
+    void _compare; // Intentionally unused - matches VBScript signature
     const s = toString(str);
     const delim = delimiter ? toString(delimiter) : ' ';
     const maxCount = count ? Math.floor(toNumber(count)) : -1;

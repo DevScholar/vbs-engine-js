@@ -17,6 +17,10 @@ export function createInputBox(options?: InputBoxOptions) {
     _helpFile?: VbValue,
     _contextVal?: VbValue
   ): VbValue {
+    void _xPos; // Intentionally unused - matches VBScript signature
+    void _yPos; // Intentionally unused - matches VBScript signature
+    void _helpFile; // Intentionally unused - matches VBScript signature
+    void _contextVal; // Intentionally unused - matches VBScript signature
     const message = String(promptVal.value ?? promptVal);
     const titleStr = title ? String(title.value ?? title) : 'Input';
     const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';
@@ -55,6 +59,10 @@ export function createBrowserInputBox() {
     _helpFile?: VbValue,
     _contextVal?: VbValue
   ): VbValue {
+    void _xPos; // Intentionally unused - matches VBScript signature
+    void _yPos; // Intentionally unused - matches VBScript signature
+    void _helpFile; // Intentionally unused - matches VBScript signature
+    void _contextVal; // Intentionally unused - matches VBScript signature
     const message = String(prompt.value ?? prompt);
     const titleStr = title ? String(title.value ?? title) : 'Input';
     const def = defaultVal ? String(defaultVal.value ?? defaultVal) : '';
@@ -65,6 +73,10 @@ export function createBrowserInputBox() {
 
 export function registerInputBox(context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } }): void {
   context.functionRegistry.register('InputBox', (promptVal: VbValue, title?: VbValue, defaultText?: VbValue, _xPos?: VbValue, _yPos?: VbValue, _helpFile?: VbValue, _contextVal?: VbValue): VbValue => {
+    void _xPos; // Intentionally unused - matches VBScript signature
+    void _yPos; // Intentionally unused - matches VBScript signature
+    void _helpFile; // Intentionally unused - matches VBScript signature
+    void _contextVal; // Intentionally unused - matches VBScript signature
     const message = String(promptVal.value ?? promptVal);
     const titleStr = title ? String(title.value ?? title) : 'Input';
     const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';

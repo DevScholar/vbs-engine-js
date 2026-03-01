@@ -71,10 +71,12 @@ export const mathFunctions = {
   },
 
   Rnd: (_number?: VbValue): VbValue => {
+    void _number; // Intentionally unused - matches VBScript signature
     return { type: 'Single', value: Math.random() };
   },
 
   Randomize: (_number?: VbValue): VbValue => {
+    void _number; // Intentionally unused - matches VBScript signature
     return VbEmpty;
   },
 

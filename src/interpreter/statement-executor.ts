@@ -421,12 +421,14 @@ export class StatementExecutor {
   }
 
   private executeOptionExplicitStatement(_node: VbOptionExplicitStatement): VbValue {
+    void _node; // Intentionally unused
     this.context.optionExplicit = true;
     return VbEmpty;
   }
 
   private executeSubStatement(node: VbSubStatement): VbValue {
     const subName = node.name.name;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     
     const subFunc = function(args: VbValue[]): VbValue {
@@ -467,6 +469,7 @@ export class StatementExecutor {
 
   private executeFunctionStatement(node: VbFunctionStatement): VbValue {
     const funcName = node.name.name;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     
     const func = function(args: VbValue[]): VbValue {
@@ -560,6 +563,7 @@ export class StatementExecutor {
   private executeClassStatement(node: VbClassStatement): VbValue {
     const className = node.name.name;
     const cls = new VbClass(className);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     let initializeFunc: VbProperty | undefined;
     let terminateFunc: VbProperty | undefined;
@@ -739,6 +743,7 @@ export class StatementExecutor {
   }
 
   private executePropertyStatement(_node: Statement): VbValue {
+    void _node; // Intentionally unused
     return VbEmpty;
   }
 

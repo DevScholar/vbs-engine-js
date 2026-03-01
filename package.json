@@ -1,6 +1,6 @@
 {
   "name": "@devscholar/vbs-engine-js",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",

@@ -197,14 +197,18 @@ export function registerBuiltins(context: VbContext): void {
   });
 
   context.functionRegistry.register('Erase', (_arrayname: VbValue): VbValue => {
+    void _arrayname; // Intentionally unused - matches VBScript signature
     return { type: 'Empty', value: undefined };
   }, { isSub: true });
 
   context.functionRegistry.register('GetObject', (_pathname?: VbValue, _cls?: VbValue): VbValue => {
+    void _pathname; // Intentionally unused - matches VBScript signature
+    void _cls; // Intentionally unused - matches VBScript signature
     return { type: 'Object', value: null };
   });
 
   context.functionRegistry.register('CreateObject', (cls: VbValue, _servername?: VbValue): VbValue => {
+    void _servername; // Intentionally unused - matches VBScript signature
     const className = String(cls.value ?? cls);
     return { type: 'Object', value: { className, properties: new Map() } };
   });

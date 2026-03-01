@@ -9,6 +9,7 @@ import { VBArray } from '../runtime/vbarray-wrapper.ts';
 export { jsToVb, vbToJs } from './conversion.ts';
 export { VBArray } from '../runtime/vbarray-wrapper.ts';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function vbToJsAuto(value: VbValue): unknown {
   switch (value.type) {
     case 'Empty':

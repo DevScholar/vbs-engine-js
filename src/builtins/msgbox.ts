@@ -145,7 +145,8 @@ function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): 
   return options;
 }
 
-function _getInputPrompt(buttonType: MsgBoxButtonType, _defaultButton: number): string {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _getInputPrompt(buttonType: MsgBoxButtonType): string {
   let prompt = '';
   switch (buttonType) {
     case 'OK':
@@ -170,13 +171,18 @@ function _getInputPrompt(buttonType: MsgBoxButtonType, _defaultButton: number): 
   return prompt;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _readFromConsole(): Promise<string | null> {
   return new Promise((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - Node.js specific
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const readline = require('readline');
     const rl = readline.createInterface({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - Node.js specific
       input: process.stdin,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - Node.js specific
       output: process.stdout
     });
@@ -187,17 +193,23 @@ function _readFromConsole(): Promise<string | null> {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _syncReadFromConsole(): string | null {
   try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - Node.js specific
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const readline = require('readline');
     const rl = readline.createInterface({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - Node.js specific
       input: process.stdin,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - Node.js specific
       output: process.stdout
     });
     rl.question('', () => {});
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return null;
   }
@@ -239,6 +251,7 @@ export function createMsgBox(options?: MsgBoxOptions) {
       if (isYesNoType) {
         const confirmResult = options.confirm(finalPrompt);
         if (confirmResult === undefined) {
+          // User cancelled - continue to readline
         } else if (confirmResult) {
           return { type: 'Integer', value: buttonType === 'OKCancel' ? MsgBoxConstants.vbOK : MsgBoxConstants.vbYes };
         } else {

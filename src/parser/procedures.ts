@@ -10,10 +10,10 @@ import type {
   VbPropertyLetStatement,
   VbPropertySetStatement,
 } from '../ast/index.ts';
-import type { Token } from '../lexer/index.ts';
+import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
-import { createLocation } from './location.ts';
+import { createLocation, createLocationFromNodeAndToken } from './location.ts';
 
 function isVbClassElement(stmt: Statement): stmt is VbClassElement {
   const elementTypes = [
@@ -37,13 +37,13 @@ export class ProcedureParser {
 
   parseSubStatement(visibility?: string): VbSubStatement {
     const startToken = this.state.current;
-    this.state.expect('Sub' as any);
+    this.state.expect(TokenType.Sub);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
-    const body = this.parseBlock('End');
-    this.state.expect('End' as any);
-    this.state.expect('Sub' as any);
+    const body = this.parseBlock(TokenType.End);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Sub);
 
     return {
       type: 'VbSubStatement',
@@ -57,13 +57,13 @@ export class ProcedureParser {
 
   parseFunctionStatement(visibility?: string): VbFunctionStatement {
     const startToken = this.state.current;
-    this.state.expect('Function' as any);
+    this.state.expect(TokenType.Function);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
-    const body = this.parseBlock('End');
-    this.state.expect('End' as any);
-    this.state.expect('Function' as any);
+    const body = this.parseBlock(TokenType.End);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Function);
 
     return {
       type: 'VbFunctionStatement',
@@ -82,8 +82,8 @@ export class ProcedureParser {
 
     const body = this.parseClassBody();
 
-    this.state.expect('End' as any);
-    this.state.expect('Class' as any);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Class);
 
     return {
       type: 'VbClassStatement',
@@ -94,16 +94,16 @@ export class ProcedureParser {
   }
 
   parsePropertyStatement(visibility?: string): Statement {
-    this.state.expect('Property' as any);
+    this.state.expect(TokenType.Property);
     const propVisibility = visibility ?? 'public';
 
-    if (this.state.check('Get' as any)) {
+    if (this.state.check(TokenType.Get)) {
       return this.parsePropertyGet(propVisibility);
     }
-    if (this.state.check('Let' as any)) {
+    if (this.state.check(TokenType.Let)) {
       return this.parsePropertyLet(propVisibility);
     }
-    if (this.state.check('Set' as any)) {
+    if (this.state.check(TokenType.Set)) {
       return this.parsePropertySet(propVisibility);
     }
 
@@ -111,13 +111,13 @@ export class ProcedureParser {
   }
 
   private parsePropertyGet(visibility: string): VbPropertyGetStatement {
-    this.state.expect('Get' as any);
+    this.state.expect(TokenType.Get);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
-    const body = this.parseBlock('End');
-    this.state.expect('End' as any);
-    this.state.expect('Property' as any);
+    const body = this.parseBlock(TokenType.End);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Property);
 
     return {
       type: 'VbPropertyGetStatement',
@@ -130,13 +130,13 @@ export class ProcedureParser {
   }
 
   private parsePropertyLet(visibility: string): VbPropertyLetStatement {
-    this.state.expect('Let' as any);
+    this.state.expect(TokenType.Let);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
-    const body = this.parseBlock('End');
-    this.state.expect('End' as any);
-    this.state.expect('Property' as any);
+    const body = this.parseBlock(TokenType.End);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Property);
 
     return {
       type: 'VbPropertyLetStatement',
@@ -149,13 +149,13 @@ export class ProcedureParser {
   }
 
   private parsePropertySet(visibility: string): VbPropertySetStatement {
-    this.state.expect('Set' as any);
+    this.state.expect(TokenType.Set);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
-    const body = this.parseBlock('End');
-    this.state.expect('End' as any);
-    this.state.expect('Property' as any);
+    const body = this.parseBlock(TokenType.End);
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Property);
 
     return {
       type: 'VbPropertySetStatement',
@@ -170,22 +170,22 @@ export class ProcedureParser {
   parseParameters(): VbParameter[] {
     const params: VbParameter[] = [];
 
-    if (!this.state.check('LParen' as any)) {
+    if (!this.state.check(TokenType.LParen)) {
       return params;
     }
 
     this.state.advance();
 
-    if (!this.state.check('RParen' as any)) {
+    if (!this.state.check(TokenType.RParen)) {
       do {
         this.state.skipOptionalNewlines();
         const param = this.parseParameter();
         params.push(param);
         this.state.skipOptionalNewlines();
-      } while (this.state.match('Comma' as any));
+      } while (this.state.match(TokenType.Comma));
     }
 
-    this.state.expect('RParen' as any);
+    this.state.expect(TokenType.RParen);
     return params;
   }
 
@@ -194,35 +194,35 @@ export class ProcedureParser {
     let isOptional = false;
     let isParamArray = false;
 
-    if (this.state.check('Optional' as any)) {
+    if (this.state.check(TokenType.Optional)) {
       this.state.advance();
       isOptional = true;
     }
 
-    if (this.state.check('ParamArray' as any)) {
+    if (this.state.check(TokenType.ParamArray)) {
       this.state.advance();
       isParamArray = true;
     }
 
-    if (this.state.check('ByRef' as any)) {
+    if (this.state.check(TokenType.ByRef)) {
       this.state.advance();
       byRef = true;
-    } else if (this.state.check('ByVal' as any)) {
+    } else if (this.state.check(TokenType.ByVal)) {
       this.state.advance();
       byRef = false;
     }
 
     const name = this.exprParser.parseIdentifier();
     let isArray = false;
-    let defaultValue: any;
+    let defaultValue: unknown;
 
-    if (this.state.check('LParen' as any)) {
+    if (this.state.check(TokenType.LParen)) {
       this.state.advance();
       isArray = true;
-      this.state.expect('RParen' as any);
+      this.state.expect(TokenType.RParen);
     }
 
-    if (this.state.match('Eq' as any)) {
+    if (this.state.match(TokenType.Eq)) {
       defaultValue = this.exprParser.parseExpression();
     }
 
@@ -234,17 +234,17 @@ export class ProcedureParser {
       defaultValue,
       isOptional,
       isParamArray,
-      loc: createLocation({ loc: name.loc! } as Token, this.state.previous),
+      loc: createLocationFromNodeAndToken(name, this.state.previous),
     };
   }
 
-  parseBlock(endKeyword?: string): BlockStatement {
+  parseBlock(endKeyword?: TokenType): BlockStatement {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (endKeyword && this.state.check(endKeyword as any)) {
+      if (endKeyword && this.state.check(endKeyword)) {
         break;
       }
 
@@ -266,7 +266,7 @@ export class ProcedureParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('End' as any)) {
+      if (this.state.check(TokenType.End)) {
         break;
       }
 

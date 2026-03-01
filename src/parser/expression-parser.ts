@@ -10,9 +10,14 @@ import type {
   LogicalExpression,
   AssignmentExpression,
 } from '../ast/index.ts';
-import type { Token, TokenType } from '../lexer/index.ts';
+import type { Token } from '../lexer/index.ts';
+import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
-import { createLocation } from './location.ts';
+import {
+  createLocation,
+  createLocationFromNode,
+  createLocationFromNodeAndToken,
+} from './location.ts';
 
 export class ExpressionParser {
   private state: ParserState;
@@ -46,10 +51,7 @@ export class ExpressionParser {
           property,
           computed: false,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            { loc: property.loc! } as Token
-          ),
+          loc: createLocationFromNode(expr, property),
         } as MemberExpression;
       } else if (this.state.check('Bang' as TokenType)) {
         this.state.advance();
@@ -60,10 +62,7 @@ export class ExpressionParser {
           property,
           computed: true,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            { loc: property.loc! } as Token
-          ),
+          loc: createLocationFromNode(expr, property),
         } as MemberExpression;
       } else if (this.state.check('LBracket' as TokenType)) {
         this.state.advance();
@@ -75,10 +74,7 @@ export class ExpressionParser {
           property: index,
           computed: true,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            rbracket
-          ),
+          loc: createLocationFromNodeAndToken(expr, rbracket),
         } as MemberExpression;
       } else {
         break;
@@ -126,7 +122,7 @@ export class ExpressionParser {
           callee: left,
           arguments: args,
           optional: false,
-          loc: createLocation({ loc: left.loc! } as Token, this.state.previous),
+          loc: createLocationFromNodeAndToken(left, this.state.previous),
         } as CallExpression;
         return this.continueStringConcat(callExpr);
       }
@@ -146,10 +142,7 @@ export class ExpressionParser {
         operator: '&',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocationFromNode(left, right),
       } as BinaryExpression;
     }
     return left;
@@ -206,10 +199,7 @@ export class ExpressionParser {
       operator: operator as AssignmentExpression['operator'],
       left: left as AssignmentExpression['left'],
       right,
-      loc: createLocation(
-        { loc: { start: left.loc!.start, end: left.loc!.end } } as Token,
-        token
-      ),
+      loc: createLocationFromNodeAndToken(left, token),
     };
   }
 
@@ -224,10 +214,7 @@ export class ExpressionParser {
         operator: '&',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocationFromNode(left, right),
       } as BinaryExpression;
     }
 
@@ -245,10 +232,7 @@ export class ExpressionParser {
         operator: '||',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocationFromNode(left, right),
       };
     }
 

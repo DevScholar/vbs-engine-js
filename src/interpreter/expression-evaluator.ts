@@ -118,6 +118,7 @@ export class ExpressionEvaluator {
   }
 
   private evaluateMe(_node: ThisExpression): VbObjectValue {
+    void _node; // Intentionally unused
     if (this.context.currentInstance) {
       return { type: 'Object', value: this.context.currentInstance };
     }
@@ -125,6 +126,7 @@ export class ExpressionEvaluator {
   }
 
   private evaluateWithObject(_node: VbWithObjectExpression): VbValue {
+    void _node; // Intentionally unused
     const withObject = this.context.getCurrentWith();
     if (!withObject) {
       throw new Error('With object not available - must be inside a With statement');
@@ -327,12 +329,13 @@ export class ExpressionEvaluator {
         return value.value instanceof Date ? value.value : new Date(value.value);
       case 'Array':
         return value.value;
-      case 'Object':
+      case 'Object': {
         const obj = value.value as VbObjectValueData | null;
         if (obj && typeof obj === 'object' && (obj as Record<string, unknown>).type === 'vbref') {
           return (obj as Record<string, unknown>).func;
         }
         return value.value;
+      }
       default:
         return value.value;
     }

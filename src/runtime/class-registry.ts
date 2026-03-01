@@ -138,6 +138,7 @@ export class VbClassRegistry {
   }
 
   createInstance(name: string, _args: VbValue[]): VbObjectInstance {
+    void _args; // Intentionally unused - reserved for future constructor args
     const cls = this.classes.get(name.toLowerCase());
     if (!cls) {
       throw new Error(`Undefined class: ${name}`);

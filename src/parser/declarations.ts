@@ -8,10 +8,10 @@ import type {
   VbConstDeclarator,
   VbTypeAnnotation,
 } from '../ast/index.ts';
-import type { Token } from '../lexer/index.ts';
+import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
-import { createLocation } from './location.ts';
+import { createLocation, createLocationFromNodeAndToken } from './location.ts';
 
 export class DeclarationParser {
   constructor(
@@ -33,7 +33,7 @@ export class DeclarationParser {
 
   parsePublicDimStatement(): VbDimStatement {
     const visibilityToken = this.state.advance();
-    this.state.expect('Dim' as any);
+    this.state.expect(TokenType.Dim);
     const declarations = this.parseVariableDeclarations();
 
     return {
@@ -46,7 +46,7 @@ export class DeclarationParser {
 
   parsePrivateDimStatement(): VbDimStatement {
     const visibilityToken = this.state.advance();
-    this.state.expect('Dim' as any);
+    this.state.expect(TokenType.Dim);
     const declarations = this.parseVariableDeclarations();
 
     return {
@@ -59,7 +59,7 @@ export class DeclarationParser {
 
   parseReDimStatement(): VbReDimStatement {
     const redimToken = this.state.advance();
-    const preserve = this.state.match('Preserve' as any) !== null;
+    const preserve = this.state.match(TokenType.Preserve) !== null;
     const declarations = this.parseVariableDeclarations();
 
     return {
@@ -95,7 +95,7 @@ export class DeclarationParser {
 
   parsePublicConstStatement(): VbConstStatement {
     const visibilityToken = this.state.advance();
-    this.state.expect('Const' as any);
+    this.state.expect(TokenType.Const);
     const declarations = this.parseConstDeclarators();
 
     return {
@@ -108,7 +108,7 @@ export class DeclarationParser {
 
   parsePrivateConstStatement(): VbConstStatement {
     const visibilityToken = this.state.advance();
-    this.state.expect('Const' as any);
+    this.state.expect(TokenType.Const);
     const declarations = this.parseConstDeclarators();
 
     return {
@@ -125,7 +125,7 @@ export class DeclarationParser {
     do {
       const decl = this.parseVariableDeclarator();
       declarations.push(decl);
-    } while (this.state.match('Comma' as any));
+    } while (this.state.match(TokenType.Comma));
 
     return declarations;
   }
@@ -136,19 +136,19 @@ export class DeclarationParser {
     let isArray = false;
     let arrayBounds: Expression[] = [];
 
-    if (this.state.check('LParen' as any)) {
+    if (this.state.check(TokenType.LParen)) {
       this.state.advance();
       isArray = true;
       arrayBounds = this.parseArrayBounds();
-      this.state.expect('RParen' as any);
+      this.state.expect(TokenType.RParen);
     }
 
-    if (this.state.match('Eq' as any)) {
+    if (this.state.match(TokenType.Eq)) {
       init = this.exprParser.parseExpression();
     }
 
     let typeAnnotation: VbTypeAnnotation | undefined;
-    if (this.state.check('As' as any)) {
+    if (this.state.check(TokenType.As)) {
       typeAnnotation = this.parseTypeAnnotation();
     }
 
@@ -159,7 +159,7 @@ export class DeclarationParser {
       isArray,
       arrayBounds: arrayBounds.length > 0 ? arrayBounds : undefined,
       typeAnnotation,
-      loc: createLocation({ loc: id.loc! } as Token, this.state.previous),
+      loc: createLocationFromNodeAndToken(id, this.state.previous),
     };
   }
 
@@ -170,38 +170,38 @@ export class DeclarationParser {
       this.state.skipOptionalNewlines();
       bounds.push(this.exprParser.parseExpression());
       this.state.skipOptionalNewlines();
-    } while (this.state.match('Comma' as any));
+    } while (this.state.match(TokenType.Comma));
 
     return bounds;
   }
 
   private parseTypeAnnotation(): VbTypeAnnotation {
-    this.state.expect('As' as any);
+    this.state.expect(TokenType.As);
     const typeToken = this.state.current;
     let typeName = '';
     let isArray = false;
 
     if (this.state.checkAny(
-      'Integer' as any,
-      'Long' as any,
-      'Single' as any,
-      'Double' as any,
-      'Currency' as any,
-      'String' as any,
-      'Boolean' as any,
-      'Date' as any,
-      'Object' as any,
-      'Variant' as any,
-      'Byte' as any,
-      'Identifier' as any
+      TokenType.Integer,
+      TokenType.Long,
+      TokenType.Single,
+      TokenType.Double,
+      TokenType.Currency,
+      TokenType.String,
+      TokenType.Boolean,
+      TokenType.Date,
+      TokenType.Object,
+      TokenType.Variant,
+      TokenType.Byte,
+      TokenType.Identifier
     )) {
       typeName = this.state.advance().value;
     }
 
-    if (this.state.check('LParen' as any)) {
+    if (this.state.check(TokenType.LParen)) {
       this.state.advance();
       isArray = true;
-      this.state.expect('RParen' as any);
+      this.state.expect(TokenType.RParen);
     }
 
     return {
@@ -218,18 +218,18 @@ export class DeclarationParser {
     do {
       const decl = this.parseConstDeclarator();
       declarations.push(decl);
-    } while (this.state.match('Comma' as any));
+    } while (this.state.match(TokenType.Comma));
 
     return declarations;
   }
 
   private parseConstDeclarator(): VbConstDeclarator {
     const id = this.exprParser.parseIdentifier();
-    this.state.expect('Eq' as any);
+    this.state.expect(TokenType.Eq);
     const init = this.exprParser.parseExpression();
 
     let typeAnnotation: VbTypeAnnotation | undefined;
-    if (this.state.check('As' as any)) {
+    if (this.state.check(TokenType.As)) {
       typeAnnotation = this.parseTypeAnnotation();
     }
 
@@ -238,7 +238,7 @@ export class DeclarationParser {
       id,
       init,
       typeAnnotation,
-      loc: createLocation({ loc: id.loc! } as Token, this.state.previous),
+      loc: createLocationFromNodeAndToken(id, this.state.previous),
     };
   }
 }

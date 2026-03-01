@@ -43,6 +43,7 @@ export class Parser {
 }
 
 export function parse(source: string, _options?: ParserOptions): Program {
+  void _options; // Intentionally unused - reserved for future options
   const lexer = new Lexer(source);
   const tokens = lexer.tokenize();
   const parser = new Parser(tokens);

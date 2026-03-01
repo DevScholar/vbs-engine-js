@@ -1,4 +1,5 @@
 import type { VbsEngine } from '../core/index.ts';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { OriginalSetTimeout, OriginalSetInterval, TimerOverrideState } from './types.ts';
 
 export function overrideTimers(engine: VbsEngine): TimerOverrideState {

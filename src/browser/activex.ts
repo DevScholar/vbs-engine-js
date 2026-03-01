@@ -1,6 +1,7 @@
 import type { VbValue } from '../runtime/index.ts';
 
 export function createObject(cls: VbValue, _servername?: VbValue): VbValue {
+  void _servername; // Intentionally unused - matches VBScript signature
   const className = String(cls.value ?? cls);
 
   const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
@@ -12,7 +13,7 @@ export function createObject(cls: VbValue, _servername?: VbValue): VbValue {
         object: ax,
         className
       }};
-    } catch (e) {
+    } catch {
       throw new Error(`ActiveX component can't create object: '${className}'`);
     }
   }
@@ -35,7 +36,7 @@ export function getObject(pathname?: VbValue, cls?: VbValue): VbValue {
           className
         }};
       }
-    } catch (e) {
+    } catch {
       throw new Error(`ActiveX component can't create object: '${className || path}'`);
     }
   }

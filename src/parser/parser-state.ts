@@ -109,7 +109,9 @@ export class ParserState {
   }
 
   skipNewlines(): void {
-    while (this.match('Newline' as TokenType)) {}
+    while (this.match('Newline' as TokenType)) {
+      // Intentionally empty - consume newlines
+    }
   }
 
   skipOptionalNewlines(): void {
@@ -117,6 +119,8 @@ export class ParserState {
   }
 
   skipStatementSeparators(): void {
-    while (this.matchAny('Newline' as TokenType, 'Colon' as TokenType)) {}
+    while (this.matchAny('Newline' as TokenType, 'Colon' as TokenType)) {
+      // Intentionally empty - consume separators
+    }
   }
 }

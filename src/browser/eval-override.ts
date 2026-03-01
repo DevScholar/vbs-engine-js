@@ -1,4 +1,5 @@
 import type { VbsEngine } from '../core/index.ts';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { OriginalEval, EvalOverrideState } from './types.ts';
 
 export function overrideEval(engine: VbsEngine): EvalOverrideState {
