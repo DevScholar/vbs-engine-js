@@ -9,6 +9,7 @@
     "vbs",
     "vbscript",
     "internetexplorer",
+    "internet-explorer",
     "ie"
   ],
   "exports": {
