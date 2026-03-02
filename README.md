@@ -204,6 +204,7 @@ interface VbsEngineOptions {
 |--------|------|---------|-------------|
 | `mode` | `'general' \| 'browser'` | `'general'` | Engine mode. Use `'browser'` for web applications |
 | `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript |
+| `injectVBArrayToGlobalThis` | `boolean` | `true` | Expose VBArray as `globalThis.VBArray` for legacy code compatibility |
 | `maxExecutionTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |
 | `parseScriptElement` | `boolean` | `true` | Automatically process `<script type="text/vbscript">` tags (browser mode) |
 | `parseInlineEventAttributes` | `boolean` | `true` | Process inline event attributes like `onclick="vbscript:..."` (browser mode) |
