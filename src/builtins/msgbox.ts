@@ -108,41 +108,67 @@ function mapButtonToResult(button: string, buttonType: MsgBoxButtonType): number
   }
 }
 
-function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): string[] {
-  const options: string[] = [];
+function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): string {
+  let options = '';
+  let defaultLabel = '';
   switch (buttonType) {
     case 'OK':
-      options.push('OK');
+      options = '[O] OK';
+      defaultLabel = 'O';
       break;
     case 'OKCancel':
-      options.push(defaultButton === 256 ? 'OK (default), Cancel' : 'OK, Cancel (default)');
+      if (defaultButton === 256) {
+        options = '[O] OK / [C] Cancel';
+        defaultLabel = 'O';
+      } else {
+        options = '[O] OK / [C] Cancel';
+        defaultLabel = 'C';
+      }
       break;
     case 'YesNo':
-      options.push(defaultButton === 256 ? 'Yes (default), No' : 'Yes, No (default)');
+      if (defaultButton === 256) {
+        options = '[Y] Yes / [N] No';
+        defaultLabel = 'Y';
+      } else {
+        options = '[Y] Yes / [N] No';
+        defaultLabel = 'N';
+      }
       break;
     case 'YesNoCancel':
       if (defaultButton === 512) {
-        options.push('Yes, No, Cancel (default)');
+        options = '[Y] Yes / [N] No / [C] Cancel';
+        defaultLabel = 'C';
       } else if (defaultButton === 256) {
-        options.push('Yes (default), No, Cancel');
+        options = '[Y] Yes / [N] No / [C] Cancel';
+        defaultLabel = 'Y';
       } else {
-        options.push('Yes, No (default), Cancel');
+        options = '[Y] Yes / [N] No / [C] Cancel';
+        defaultLabel = 'N';
       }
       break;
     case 'RetryCancel':
-      options.push(defaultButton === 256 ? 'Retry (default), Cancel' : 'Retry, Cancel (default)');
+      if (defaultButton === 256) {
+        options = '[R] Retry / [C] Cancel';
+        defaultLabel = 'R';
+      } else {
+        options = '[R] Retry / [C] Cancel';
+        defaultLabel = 'C';
+      }
       break;
     case 'AbortRetryIgnore':
       if (defaultButton === 512) {
-        options.push('Abort, Retry, Ignore (default)');
+        options = '[A] Abort / [R] Retry / [I] Ignore';
+        defaultLabel = 'I';
       } else if (defaultButton === 256) {
-        options.push('Abort, Retry (default), Ignore');
+        options = '[A] Abort / [R] Retry / [I] Ignore';
+        defaultLabel = 'R';
       } else {
-        options.push('Abort (default), Retry, Ignore');
+        options = '[A] Abort / [R] Retry / [I] Ignore';
+        defaultLabel = 'A';
       }
       break;
   }
-  return options;
+  return options + ` (default is "${defaultLabel}"): `;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -239,7 +265,7 @@ export function createMsgBox(options?: MsgBoxOptions) {
     const fullPrompt = buildPrompt(titleStr, iconType, message);
     const buttonOptions = getButtonOptions(buttonType, defaultButton);
 
-    const finalPrompt = fullPrompt + '\n' + buttonOptions.join(' ');
+    const finalPrompt = fullPrompt + '\n' + buttonOptions;
 
     if (options?.alert && buttonType === 'OK') {
       options.alert(finalPrompt);
@@ -267,17 +293,75 @@ export function createMsgBox(options?: MsgBoxOptions) {
     }
 
     if (options?.readline) {
-      return options.readline().then((input: string | null) => {
-        if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      async function getInput(): Promise<VbValue> {
+        while (true) {
+          const input = await options.readline!();
+          if (input === null) {
+            return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          }
+          const trimmed = input.trim().toLowerCase();
+          if (trimmed === '') {
+            const result = getDefaultResult(buttonType, defaultButton);
+            return { type: 'Integer', value: result };
+          }
+          const result = mapButtonToResult(input, buttonType);
+          if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
+            return { type: 'Integer', value: result };
+          }
+          if (options?.console) {
+            options.console(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+          } else {
+            console.log(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+          }
         }
-        const result = mapButtonToResult(input, buttonType);
-        return { type: 'Integer', value: result };
-      }) as unknown as VbValue;
+      }
+      return getInput() as unknown as VbValue;
     }
 
     return { type: 'Integer', value: MsgBoxConstants.vbCancel };
   };
+}
+
+function getDefaultResult(buttonType: MsgBoxButtonType, defaultButton: number): number {
+  switch (buttonType) {
+    case 'OK':
+      return MsgBoxConstants.vbOK;
+    case 'OKCancel':
+      return defaultButton === 256 ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel;
+    case 'YesNo':
+      return defaultButton === 256 ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo;
+    case 'YesNoCancel':
+      if (defaultButton === 512) return MsgBoxConstants.vbCancel;
+      if (defaultButton === 256) return MsgBoxConstants.vbYes;
+      return MsgBoxConstants.vbNo;
+    case 'RetryCancel':
+      return defaultButton === 256 ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel;
+    case 'AbortRetryIgnore':
+      if (defaultButton === 512) return MsgBoxConstants.vbIgnore;
+      if (defaultButton === 256) return MsgBoxConstants.vbRetry;
+      return MsgBoxConstants.vbAbort;
+    default:
+      return MsgBoxConstants.vbCancel;
+  }
+}
+
+function isValidExplicitButton(input: string, buttonType: MsgBoxButtonType): boolean {
+  switch (buttonType) {
+    case 'OK':
+      return input === 'o' || input === 'ok';
+    case 'OKCancel':
+      return input === 'o' || input === 'ok' || input === 'c' || input === 'cancel';
+    case 'YesNo':
+      return input === 'y' || input === 'yes' || input === 'n' || input === 'no';
+    case 'YesNoCancel':
+      return input === 'y' || input === 'yes' || input === 'n' || input === 'no' || input === 'c' || input === 'cancel';
+    case 'RetryCancel':
+      return input === 'r' || input === 'retry' || input === 'c' || input === 'cancel';
+    case 'AbortRetryIgnore':
+      return input === 'a' || input === 'abort' || input === 'r' || input === 'retry' || input === 'i' || input === 'ignore';
+    default:
+      return false;
+  }
 }
 
 export function createBrowserMsgBox() {
@@ -286,8 +370,10 @@ export function createBrowserMsgBox() {
     const buttonsVal = buttons ? Number(buttons.value ?? buttons) : 0;
     const titleStr = title ? String(title.value ?? title) : 'VBScript';
 
-    const { buttonType, iconType } = parseButtons(buttonsVal);
+    const { buttonType, iconType, defaultButton } = parseButtons(buttonsVal);
     const fullPrompt = buildPrompt(titleStr, iconType, message);
+    const buttonOptions = getButtonOptions(buttonType, defaultButton);
+    const finalPrompt = fullPrompt + '\n' + buttonOptions;
 
     if (buttonType === 'OK') {
       alert(fullPrompt);
@@ -295,54 +381,78 @@ export function createBrowserMsgBox() {
     }
 
     if (buttonType === 'OKCancel') {
-      const confirmed = confirm(fullPrompt);
+      const confirmed = confirm(fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ');
       return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
     }
 
     if (buttonType === 'YesNo') {
-      const confirmed = confirm(fullPrompt + '\n[OK]=Yes / [Cancel]=No');
+      const defaultLabel = defaultButton === 256 ? 'Y' : 'N';
+      const confirmed = confirm(fullPrompt + '\n[Y] Yes / [N] No (default is "' + defaultLabel + '"): ');
       return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo };
     }
 
     if (buttonType === 'YesNoCancel') {
-      const input = window.prompt(fullPrompt + '\n\nEnter: Y (Yes) / N (No) / C (Cancel) or invalid value for cancel', '');
-      if (input === null) {
-        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      while (true) {
+        let defaultLabel = 'N';
+        if (defaultButton === 512) defaultLabel = 'C';
+        else if (defaultButton === 256) defaultLabel = 'Y';
+        
+        const input = window.prompt(fullPrompt + '\n[Y] Yes / [N] No / [C] Cancel (default is "' + defaultLabel + '"): ', '');
+        if (input === null) {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const normalized = input.trim().toLowerCase();
+        if (normalized === '') {
+          if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbYes };
+          return { type: 'Integer', value: MsgBoxConstants.vbNo };
+        }
+        if (normalized === 'y' || normalized === 'yes') {
+          return { type: 'Integer', value: MsgBoxConstants.vbYes };
+        }
+        if (normalized === 'n' || normalized === 'no') {
+          return { type: 'Integer', value: MsgBoxConstants.vbNo };
+        }
+        if (normalized === 'c' || normalized === 'cancel') {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        alert('Invalid input: ' + input + '. Please try again.');
       }
-      const normalized = input.trim().toUpperCase();
-      if (normalized === 'Y' || normalized === 'YES') {
-        return { type: 'Integer', value: MsgBoxConstants.vbYes };
-      }
-      if (normalized === 'N' || normalized === 'NO') {
-        return { type: 'Integer', value: MsgBoxConstants.vbNo };
-      }
-      if (normalized === 'C' || normalized === 'CANCEL' || normalized === '') {
-        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
-      }
-      return { type: 'Integer', value: MsgBoxConstants.vbCancel };
     }
 
     if (buttonType === 'RetryCancel') {
-      const confirmed = confirm(fullPrompt + '\n[OK]=Retry / [Cancel]=Cancel');
+      const defaultLabel = defaultButton === 256 ? 'R' : 'C';
+      const confirmed = confirm(fullPrompt + '\n[R] Retry / [C] Cancel (default is "' + defaultLabel + '"): ');
       return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel };
     }
 
     if (buttonType === 'AbortRetryIgnore') {
-      const input = window.prompt(fullPrompt + '\n\nEnter: A (Abort) / R (Retry) / I (Ignore)', '');
-      if (input === null) {
-        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      while (true) {
+        let defaultLabel = 'A';
+        if (defaultButton === 512) defaultLabel = 'I';
+        else if (defaultButton === 256) defaultLabel = 'R';
+        
+        const input = window.prompt(fullPrompt + '\n[A] Abort / [R] Retry / [I] Ignore (default is "' + defaultLabel + '"): ', '');
+        if (input === null) {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const normalized = input.trim().toLowerCase();
+        if (normalized === '') {
+          if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+          if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+        }
+        if (normalized === 'a' || normalized === 'abort') {
+          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+        }
+        if (normalized === 'r' || normalized === 'retry') {
+          return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+        }
+        if (normalized === 'i' || normalized === 'ignore') {
+          return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+        }
+        alert('Invalid input: ' + input + '. Please try again.');
       }
-      const normalized = input.trim().toUpperCase();
-      if (normalized === 'A' || normalized === 'ABORT') {
-        return { type: 'Integer', value: MsgBoxConstants.vbAbort };
-      }
-      if (normalized === 'R' || normalized === 'RETRY') {
-        return { type: 'Integer', value: MsgBoxConstants.vbRetry };
-      }
-      if (normalized === 'I' || normalized === 'IGNORE' || normalized === '') {
-        return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
-      }
-      return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
     }
 
     alert(fullPrompt);
@@ -358,6 +468,8 @@ export function registerMsgBox(context: { functionRegistry: { register: (name: s
 
     const { buttonType, iconType, defaultButton } = parseButtons(buttonsVal);
     const fullPrompt = buildPrompt(titleStr, iconType, message);
+    const buttonOptions = getButtonOptions(buttonType, defaultButton);
+    const finalPrompt = fullPrompt + '\n' + buttonOptions;
 
     if (buttonType === 'OK') {
       if (typeof alert !== 'undefined') {
@@ -370,55 +482,82 @@ export function registerMsgBox(context: { functionRegistry: { register: (name: s
 
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
       if (buttonType === 'OKCancel') {
-        const confirmed = confirm(fullPrompt);
+        const confirmed = confirm(fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ');
         return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel };
       }
 
       if (buttonType === 'YesNo') {
-        const confirmed = confirm(fullPrompt + '\n[OK]=Yes / [Cancel]=No');
+        const defaultLabel = defaultButton === 256 ? 'Y' : 'N';
+        const confirmed = confirm(fullPrompt + '\n[Y] Yes / [N] No (default is "' + defaultLabel + '"): ');
         return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo };
       }
 
       if (buttonType === 'YesNoCancel' && typeof window.prompt === 'function') {
-        const input = window.prompt(fullPrompt + '\n\nEnter: Y (Yes) / N (No) / C (Cancel) or invalid value for cancel', '');
-        if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        while (true) {
+          let defaultLabel = 'N';
+          if (defaultButton === 512) defaultLabel = 'C';
+          else if (defaultButton === 256) defaultLabel = 'Y';
+          
+          const input = window.prompt(fullPrompt + '\n[Y] Yes / [N] No / [C] Cancel (default is "' + defaultLabel + '"): ', '');
+          if (input === null) {
+            return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          }
+          const normalized = input.trim().toLowerCase();
+          if (normalized === '') {
+            if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+            if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbYes };
+            return { type: 'Integer', value: MsgBoxConstants.vbNo };
+          }
+          if (normalized === 'y' || normalized === 'yes') {
+            return { type: 'Integer', value: MsgBoxConstants.vbYes };
+          }
+          if (normalized === 'n' || normalized === 'no') {
+            return { type: 'Integer', value: MsgBoxConstants.vbNo };
+          }
+          if (normalized === 'c' || normalized === 'cancel') {
+            return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          }
+          alert('Invalid input: ' + input + '. Please try again.');
         }
-        const normalized = input.trim().toUpperCase();
-        if (normalized === 'Y' || normalized === 'YES') {
-          return { type: 'Integer', value: MsgBoxConstants.vbYes };
-        }
-        if (normalized === 'N' || normalized === 'NO') {
-          return { type: 'Integer', value: MsgBoxConstants.vbNo };
-        }
-        return { type: 'Integer', value: MsgBoxConstants.vbCancel };
       }
 
       if (buttonType === 'RetryCancel') {
-        const confirmed = confirm(fullPrompt + '\n[OK]=Retry / [Cancel]=Cancel');
+        const defaultLabel = defaultButton === 256 ? 'R' : 'C';
+        const confirmed = confirm(fullPrompt + '\n[R] Retry / [C] Cancel (default is "' + defaultLabel + '"): ');
         return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel };
       }
 
       if (buttonType === 'AbortRetryIgnore' && typeof window.prompt === 'function') {
-        const input = window.prompt(fullPrompt + '\n\nEnter: A (Abort) / R (Retry) / I (Ignore)', '');
-        if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        while (true) {
+          let defaultLabel = 'A';
+          if (defaultButton === 512) defaultLabel = 'I';
+          else if (defaultButton === 256) defaultLabel = 'R';
+          
+          const input = window.prompt(fullPrompt + '\n[A] Abort / [R] Retry / [I] Ignore (default is "' + defaultLabel + '"): ', '');
+          if (input === null) {
+            return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          }
+          const normalized = input.trim().toLowerCase();
+          if (normalized === '') {
+            if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+            if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+            return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+          }
+          if (normalized === 'a' || normalized === 'abort') {
+            return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+          }
+          if (normalized === 'r' || normalized === 'retry') {
+            return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+          }
+          if (normalized === 'i' || normalized === 'ignore') {
+            return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+          }
+          alert('Invalid input: ' + input + '. Please try again.');
         }
-        const normalized = input.trim().toUpperCase();
-        if (normalized === 'A' || normalized === 'ABORT') {
-          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
-        }
-        if (normalized === 'R' || normalized === 'RETRY') {
-          return { type: 'Integer', value: MsgBoxConstants.vbRetry };
-        }
-        if (normalized === 'I' || normalized === 'IGNORE' || normalized === '') {
-          return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
-        }
-        return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
       }
     }
 
-    console.log(fullPrompt + '\n' + getButtonOptions(buttonType, defaultButton).join(' '));
+    console.log(finalPrompt);
     return { type: 'Integer', value: MsgBoxConstants.vbCancel };
   }, { isSub: false });
 }
