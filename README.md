@@ -1,6 +1,6 @@
 # VBSEngineJS
 
-⚠️ This project is still in alpha stage. Expect breaking changes.
+This project is in Beta stage.
 
 A VBScript engine implemented in TypeScript, supporting VBScript code execution in browser and Node.js environments.
 

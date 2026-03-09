@@ -42,9 +42,10 @@ export function createInputBox(options?: InputBoxOptions) {
     }
 
     if (options?.readline) {
+      const readline = options.readline;
       async function getInput(): Promise<VbValue> {
         while (true) {
-          const input = await options.readline!();
+          const input = await readline();
           if (input === null) {
             return { type: 'String', value: '' };
           }

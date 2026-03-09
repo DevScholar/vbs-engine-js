@@ -9,6 +9,7 @@ import type {
   VbPropertyGetStatement,
   VbPropertyLetStatement,
   VbPropertySetStatement,
+  Expression,
 } from '../ast/index.ts';
 import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
@@ -214,7 +215,7 @@ export class ProcedureParser {
 
     const name = this.exprParser.parseIdentifier();
     let isArray = false;
-    let defaultValue: unknown;
+    let defaultValue: Expression | undefined;
 
     if (this.state.check(TokenType.LParen)) {
       this.state.advance();

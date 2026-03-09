@@ -293,9 +293,10 @@ export function createMsgBox(options?: MsgBoxOptions) {
     }
 
     if (options?.readline) {
+      const readline = options.readline;
       async function getInput(): Promise<VbValue> {
         while (true) {
-          const input = await options.readline!();
+          const input = await readline();
           if (input === null) {
             return { type: 'Integer', value: MsgBoxConstants.vbCancel };
           }
