@@ -107,7 +107,7 @@ interface VbsEngineOptions {
 | `parseInlineEventAttributes` | `boolean` | `true` | Process inline event attributes like `onclick="vbscript:..."` (browser mode) |
 | `parseEventSubNames` | `boolean` | `true` | Auto-bind event handlers from Sub names like `Button1_OnClick` (browser mode) |
 | `parseVbsProtocol` | `boolean` | `true` | Handle `vbscript:` protocol in links (browser mode) |
-| `overrideJsEvalFunctions` | `boolean` | `true` | Override JS eval functions to support VBScript (browser mode) |
+| `overrideJsEvalFunctions` | `boolean` | `true` | Override JS eval functions (`eval`,`setTimeout`,`setInterval`) to support VBScript (browser mode) |
 
 ### Example Usage
 
