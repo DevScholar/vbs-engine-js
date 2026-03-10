@@ -1,10 +1,50 @@
-import type { Statement, BlockStatement, ExpressionStatement, IfStatement, VbDimStatement, VbReDimStatement, VbEraseStatement, VbConstStatement, VbForToStatement, VbForEachStatement, VbDoLoopStatement, VbSelectCaseStatement, VbWithStatement, VbExitStatement, VbOptionExplicitStatement, VbSubStatement, VbFunctionStatement, VbClassStatement, VbOnErrorHandlerStatement, VbCallStatement, Expression, VbGotoStatement } from '../ast/index.ts';
+import type {
+  Statement,
+  BlockStatement,
+  ExpressionStatement,
+  IfStatement,
+  VbDimStatement,
+  VbReDimStatement,
+  VbEraseStatement,
+  VbConstStatement,
+  VbForToStatement,
+  VbForEachStatement,
+  VbDoLoopStatement,
+  VbSelectCaseStatement,
+  VbWithStatement,
+  VbExitStatement,
+  VbOptionExplicitStatement,
+  VbSubStatement,
+  VbFunctionStatement,
+  VbClassStatement,
+  VbOnErrorHandlerStatement,
+  VbCallStatement,
+  Expression,
+  VbGotoStatement,
+} from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty, createVbValue, toBoolean, toNumber, VbError, VbErrorCodes, createVbError, VbArray, createVbArray, VbObjectInstance, VbClass, type VbProperty } from '../runtime/index.ts';
+import {
+  VbContext,
+  VbEmpty,
+  createVbValue,
+  toBoolean,
+  toNumber,
+  VbError,
+  VbErrorCodes,
+  createVbError,
+  VbArray,
+  createVbArray,
+  VbObjectInstance,
+  VbClass,
+  type VbProperty,
+} from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
 export class ControlFlowSignal extends Error {
-  constructor(public type: 'exit' | 'return' | 'continue' | 'break' | 'goto', public value?: VbValue) {
+  constructor(
+    public type: 'exit' | 'return' | 'continue' | 'break' | 'goto',
+    public value?: VbValue
+  ) {
     super(type);
   }
 }
@@ -114,20 +154,20 @@ export class StatementExecutor {
 
   private executeIfStatement(node: IfStatement): VbValue {
     const test = this.exprEvaluator.evaluate(node.test);
-    
+
     if (toBoolean(test)) {
       return this.execute(node.consequent);
     } else if (node.alternate) {
       return this.execute(node.alternate);
     }
-    
+
     return VbEmpty;
   }
 
   private executeDimStatement(node: VbDimStatement): VbValue {
     for (const decl of node.declarations) {
       let value: VbValue = VbEmpty;
-      
+
       if (decl.isArray && decl.arrayBounds) {
         const bounds = decl.arrayBounds.map(b => {
           const boundValue = this.exprEvaluator.evaluate(b);
@@ -138,24 +178,24 @@ export class StatementExecutor {
       } else if (decl.init) {
         value = this.exprEvaluator.evaluate(decl.init);
       }
-      
+
       this.context.declareVariable(decl.id.name, value);
     }
-    
+
     return VbEmpty;
   }
 
   private executeReDimStatement(node: VbReDimStatement): VbValue {
     for (const decl of node.declarations) {
       if (!decl.isArray || !decl.arrayBounds) continue;
-      
+
       const bounds = decl.arrayBounds.map(b => {
         const boundValue = this.exprEvaluator.evaluate(b);
         return toNumber(boundValue);
       });
-      
+
       const existingVar = this.context.currentScope.get(decl.id.name);
-      
+
       if (existingVar && existingVar.value.type === 'Array') {
         const arr = existingVar.value.value as VbArray;
         arr.redim(bounds, node.preserve);
@@ -164,25 +204,25 @@ export class StatementExecutor {
         this.context.setVariable(decl.id.name, { type: 'Array', value: arr });
       }
     }
-    
+
     return VbEmpty;
   }
 
   private executeEraseStatement(node: VbEraseStatement): VbValue {
     const arrayName = node.arrayName.name;
     const variable = this.context.currentScope.get(arrayName);
-    
+
     if (!variable) {
       throw new Error(`Variable '${arrayName}' not defined`);
     }
-    
+
     if (variable.value.type !== 'Array') {
       throw new Error(`Type mismatch: '${arrayName}' is not an array`);
     }
-    
+
     const arr = variable.value.value as VbArray;
     arr.erase();
-    
+
     return VbEmpty;
   }
 
@@ -191,7 +231,7 @@ export class StatementExecutor {
       const value = this.exprEvaluator.evaluate(decl.init);
       this.context.currentScope.declare(decl.id.name, value, { isConst: true });
     }
-    
+
     return VbEmpty;
   }
 
@@ -199,20 +239,21 @@ export class StatementExecutor {
     const init = this.exprEvaluator.evaluate(node.init);
     const to = this.exprEvaluator.evaluate(node.to);
     const step = node.step ? this.exprEvaluator.evaluate(node.step) : createVbValue(1);
-    
+
     const startValue = toNumber(init);
     const endValue = toNumber(to);
     const stepValue = toNumber(step);
-    
+
     this.context.declareVariable(node.left.name, createVbValue(startValue));
-    
-    const shouldContinue = stepValue > 0 
-      ? () => toNumber(this.context.getVariable(node.left.name)) <= endValue
-      : () => toNumber(this.context.getVariable(node.left.name)) >= endValue;
-    
+
+    const shouldContinue =
+      stepValue > 0
+        ? () => toNumber(this.context.getVariable(node.left.name)) <= endValue
+        : () => toNumber(this.context.getVariable(node.left.name)) >= endValue;
+
     while (shouldContinue()) {
       if (this.context.checkTimeout) this.context.checkTimeout();
-      
+
       try {
         this.execute(node.body);
       } catch (signal) {
@@ -227,21 +268,25 @@ export class StatementExecutor {
         }
         throw signal;
       }
-      
+
       const currentValue = toNumber(this.context.getVariable(node.left.name));
       this.context.setVariable(node.left.name, createVbValue(currentValue + stepValue));
     }
-    
+
     return VbEmpty;
   }
 
   private executeForEachStatement(node: VbForEachStatement): VbValue {
     const collection = this.exprEvaluator.evaluate(node.right);
-    
+
     if (collection.type !== 'Array' && collection.type !== 'Object') {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: expected array or collection', 'Vbscript');
+      throw createVbError(
+        VbErrorCodes.TypeMismatch,
+        'Type mismatch: expected array or collection',
+        'Vbscript'
+      );
     }
-    
+
     let items: VbValue[];
     if (collection.type === 'Array') {
       const arr = collection.value as VbArray;
@@ -255,12 +300,12 @@ export class StatementExecutor {
         items.push(obj.getProperty(String(i)));
       }
     }
-    
+
     this.context.declareVariable(node.left.name, VbEmpty);
-    
+
     for (const item of items) {
       this.context.setVariable(node.left.name, item);
-      
+
       try {
         this.execute(node.body);
       } catch (signal) {
@@ -276,7 +321,7 @@ export class StatementExecutor {
         throw signal;
       }
     }
-    
+
     return VbEmpty;
   }
 
@@ -286,18 +331,18 @@ export class StatementExecutor {
       const testValue = this.exprEvaluator.evaluate(node.test!);
       return toBoolean(testValue);
     };
-    
+
     const isWhile = node.testPosition === 'while-do' || node.testPosition === 'do-while';
     const isPreTest = node.testPosition === 'while-do' || node.testPosition === 'until-do';
-    
+
     while (true) {
       if (this.context.checkTimeout) this.context.checkTimeout();
-      
+
       if (isPreTest) {
         const cond = isWhile ? checkCondition() : !checkCondition();
         if (!cond) break;
       }
-      
+
       try {
         this.execute(node.body);
       } catch (signal) {
@@ -312,19 +357,19 @@ export class StatementExecutor {
         }
         throw signal;
       }
-      
+
       if (!isPreTest) {
         const cond = isWhile ? checkCondition() : !checkCondition();
         if (!cond) break;
       }
     }
-    
+
     return VbEmpty;
   }
 
   private executeSelectCaseStatement(node: VbSelectCaseStatement): VbValue {
     const discriminant = this.exprEvaluator.evaluate(node.discriminant);
-    
+
     for (const caseClause of node.cases) {
       if (caseClause.isElse) {
         for (const stmt of caseClause.consequent) {
@@ -332,9 +377,9 @@ export class StatementExecutor {
         }
         return VbEmpty;
       }
-      
+
       const matches = this.matchCase(caseClause.test, discriminant);
-      
+
       if (matches) {
         for (const stmt of caseClause.consequent) {
           this.execute(stmt);
@@ -342,20 +387,25 @@ export class StatementExecutor {
         return VbEmpty;
       }
     }
-    
+
     return VbEmpty;
   }
 
   private matchCase(test: Expression | Expression[] | null, discriminant: VbValue): boolean {
     if (!test) return false;
-    
+
     const tests = Array.isArray(test) ? test : [test];
-    
+
     for (const t of tests) {
-      if (t.type === 'BinaryExpression' && 'left' in t && (t.left as Expression).type === 'Identifier' && ((t.left as Expression) as { name: string }).name === '__select_expr__') {
+      if (
+        t.type === 'BinaryExpression' &&
+        'left' in t &&
+        (t.left as Expression).type === 'Identifier' &&
+        (t.left as Expression as { name: string }).name === '__select_expr__'
+      ) {
         const right = this.exprEvaluator.evaluate(t.right as Expression);
         const operator = t.operator;
-        
+
         switch (operator) {
           case '==':
             if (toBoolean(this.equals(discriminant, right))) return true;
@@ -383,7 +433,7 @@ export class StatementExecutor {
         }
       }
     }
-    
+
     return false;
   }
 
@@ -395,8 +445,8 @@ export class StatementExecutor {
       return { type: 'Boolean', value: false };
     }
     if (left.type === 'String' || right.type === 'String') {
-      const leftStr = left.type === 'String' ? left.value as string : String(toNumber(left));
-      const rightStr = right.type === 'String' ? right.value as string : String(toNumber(right));
+      const leftStr = left.type === 'String' ? (left.value as string) : String(toNumber(left));
+      const rightStr = right.type === 'String' ? (right.value as string) : String(toNumber(right));
       return { type: 'Boolean', value: leftStr.toLowerCase() === rightStr.toLowerCase() };
     }
     return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
@@ -405,18 +455,20 @@ export class StatementExecutor {
   private executeWithStatement(node: VbWithStatement): VbValue {
     const object = this.exprEvaluator.evaluate(node.object);
     this.context.pushWith(object);
-    
+
     try {
       this.execute(node.body);
     } finally {
       this.context.popWith();
     }
-    
+
     return VbEmpty;
   }
 
   private executeExitStatement(node: VbExitStatement): VbValue {
-    this.context.setExitFlag(node.target.toLowerCase() as 'sub' | 'function' | 'property' | 'do' | 'for' | 'select');
+    this.context.setExitFlag(
+      node.target.toLowerCase() as 'sub' | 'function' | 'property' | 'do' | 'for' | 'select'
+    );
     throw new ControlFlowSignal('exit');
   }
 
@@ -430,16 +482,16 @@ export class StatementExecutor {
     const subName = node.name.name;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
-    
-    const subFunc = function(args: VbValue[]): VbValue {
+
+    const subFunc = function (args: VbValue[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(subName);
-      
+
       try {
         self.bindParameters(node.params, args);
-        
+
         self.executeBlockStatement(node.body);
-        
+
         self.updateByRefArgs(node.params, args);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal && signal.type === 'return') {
@@ -451,10 +503,10 @@ export class StatementExecutor {
         self.context.popCall();
         self.context.popScope();
       }
-      
+
       return VbEmpty;
     };
-    
+
     const params = node.params.map(p => ({
       name: p.name.name,
       byRef: p.byRef,
@@ -462,8 +514,12 @@ export class StatementExecutor {
       isOptional: p.isOptional,
       isParamArray: p.isParamArray,
     }));
-    
-    this.context.functionRegistry.register(subName, subFunc, { isSub: true, params, isUserDefined: true });
+
+    this.context.functionRegistry.register(subName, subFunc, {
+      isSub: true,
+      params,
+      isUserDefined: true,
+    });
     return VbEmpty;
   }
 
@@ -471,22 +527,22 @@ export class StatementExecutor {
     const funcName = node.name.name;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
-    
-    const func = function(args: VbValue[]): VbValue {
+
+    const func = function (args: VbValue[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(funcName);
-      
+
       self.context.declareVariable(funcName, VbEmpty);
-      
+
       let result: VbValue = VbEmpty;
-      
+
       try {
         self.bindParameters(node.params, args);
-        
+
         self.executeBlockStatement(node.body);
-        
+
         self.updateByRefArgs(node.params, args);
-        
+
         result = self.context.getVariable(funcName);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal && signal.type === 'return') {
@@ -499,10 +555,10 @@ export class StatementExecutor {
         self.context.popCall();
         self.context.popScope();
       }
-      
+
       return result;
     };
-    
+
     const params = node.params.map(p => ({
       name: p.name.name,
       byRef: p.byRef,
@@ -510,14 +566,14 @@ export class StatementExecutor {
       isOptional: p.isOptional,
       isParamArray: p.isParamArray,
     }));
-    
+
     this.context.functionRegistry.register(funcName, func, { params, isUserDefined: true });
     return VbEmpty;
   }
 
   private bindParameters(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
     let argIndex = 0;
-    
+
     for (const param of params) {
       if (param.isParamArray) {
         const restArgs: VbValue[] = [];
@@ -529,7 +585,7 @@ export class StatementExecutor {
         this.context.declareVariable(param.name.name, { type: 'Array', value: arr });
       } else {
         let argValue: VbValue;
-        
+
         if (argIndex < args.length) {
           argValue = args[argIndex++]!;
         } else if (param.defaultValue) {
@@ -539,7 +595,7 @@ export class StatementExecutor {
         } else {
           argValue = VbEmpty;
         }
-        
+
         this.context.declareVariable(param.name.name, argValue);
       }
     }
@@ -547,12 +603,12 @@ export class StatementExecutor {
 
   private updateByRefArgs(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
     let argIndex = 0;
-    
+
     for (const param of params) {
       if (param.isParamArray) {
         break;
       }
-      
+
       if (argIndex < args.length && param.byRef) {
         args[argIndex] = this.context.getVariable(param.name.name);
       }
@@ -567,7 +623,7 @@ export class StatementExecutor {
     const self = this;
     let initializeFunc: VbProperty | undefined;
     let terminateFunc: VbProperty | undefined;
-    
+
     for (const member of node.body) {
       if (member.type === 'VbDimStatement') {
         for (const decl of member.declarations) {
@@ -578,11 +634,11 @@ export class StatementExecutor {
       } else if (member.type === 'VbSubStatement') {
         const memberNode = member;
         const memberName = member.name.name.toLowerCase();
-        
+
         if (memberName === 'class_initialize') {
           initializeFunc = {
             name: 'Class_Initialize',
-            get: function(this: VbObjectInstance): VbValue {
+            get: function (this: VbObjectInstance): VbValue {
               const prevInstance = self.context.currentInstance;
               self.context.currentInstance = this;
               self.context.pushScope();
@@ -597,11 +653,11 @@ export class StatementExecutor {
           };
           continue;
         }
-        
+
         if (memberName === 'class_terminate') {
           terminateFunc = {
             name: 'Class_Terminate',
-            get: function(this: VbObjectInstance): VbValue {
+            get: function (this: VbObjectInstance): VbValue {
               const prevInstance = self.context.currentInstance;
               self.context.currentInstance = this;
               self.context.pushScope();
@@ -616,10 +672,10 @@ export class StatementExecutor {
           };
           continue;
         }
-        
+
         cls.methods.set(memberName, {
           name: member.name.name,
-          func: function(this: VbObjectInstance, ...args: VbValue[]): VbValue {
+          func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
@@ -638,7 +694,7 @@ export class StatementExecutor {
         const memberNode = member;
         cls.methods.set(member.name.name.toLowerCase(), {
           name: member.name.name,
-          func: function(this: VbObjectInstance, ...args: VbValue[]): VbValue {
+          func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
@@ -666,7 +722,7 @@ export class StatementExecutor {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || { name: member.name.name };
-        existing.get = function(this: VbObjectInstance): VbValue {
+        existing.get = function (this: VbObjectInstance): VbValue {
           const prevInstance = self.context.currentInstance;
           const prevInPropertyGet = self.context.inPropertyGet;
           const prevPropertyGetName = self.context.propertyGetName;
@@ -690,7 +746,7 @@ export class StatementExecutor {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || { name: member.name.name };
-        existing.let = function(this: VbObjectInstance, value: VbValue): void {
+        existing.let = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
           self.context.currentInstance = this;
           self.context.pushScope();
@@ -711,7 +767,7 @@ export class StatementExecutor {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || { name: member.name.name };
-        existing.set = function(this: VbObjectInstance, value: VbValue): void {
+        existing.set = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
           self.context.currentInstance = this;
           self.context.pushScope();
@@ -730,14 +786,14 @@ export class StatementExecutor {
         cls.properties.set(propName, existing);
       }
     }
-    
+
     if (initializeFunc) {
       cls.properties.set('class_initialize', initializeFunc);
     }
     if (terminateFunc) {
       cls.properties.set('class_terminate', terminateFunc);
     }
-    
+
     this.context.classRegistry.register(cls);
     return VbEmpty;
   }

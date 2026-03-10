@@ -180,8 +180,10 @@ export class VbsEngine {
 
     this.interpreter = new Interpreter();
     this.interpreter.getContext().evaluate = (code: string) => this.interpreter.evaluate(code);
-    this.interpreter.getContext().execute = (code: string) => this.interpreter.executeInCurrentScope(code);
-    this.interpreter.getContext().executeGlobal = (code: string) => this.interpreter.executeInGlobalScope(code);
+    this.interpreter.getContext().execute = (code: string) =>
+      this.interpreter.executeInCurrentScope(code);
+    this.interpreter.getContext().executeGlobal = (code: string) =>
+      this.interpreter.executeInGlobalScope(code);
 
     if (this.options.maxExecutionTime > 0) {
       this.setMaxExecutionTime(this.options.maxExecutionTime);
@@ -247,7 +249,7 @@ export class VbsEngine {
     try {
       // Try to get from cache first
       let program = globalParserCache.get(code);
-      
+
       if (!program) {
         // Parse and cache
         const lexer = new Lexer(code);
@@ -256,7 +258,7 @@ export class VbsEngine {
         program = parser.parse();
         globalParserCache.set(code, program);
       }
-      
+
       this.interpreter.run(program);
       this.syncFunctionsToGlobalThis();
     } catch (err) {
@@ -280,7 +282,7 @@ export class VbsEngine {
     try {
       // Try to get from cache first
       let program = globalParserCache.get(statement);
-      
+
       if (!program) {
         // Parse and cache
         const lexer = new Lexer(statement);
@@ -289,7 +291,7 @@ export class VbsEngine {
         program = parser.parse();
         globalParserCache.set(statement, program);
       }
-      
+
       this.interpreter.run(program);
     } catch (err) {
       this.handleError(err);
@@ -314,10 +316,10 @@ export class VbsEngine {
     try {
       const context = this.interpreter.getContext();
       const funcRegistry = context.functionRegistry;
-      
+
       const vbArgs = args.map(arg => jsToVb(arg));
       const result = funcRegistry.call(procedureName, vbArgs);
-      
+
       return vbToJs(result);
     } catch (err) {
       this.handleError(err);
@@ -354,7 +356,7 @@ export class VbsEngine {
     try {
       const vbValue = jsToVb(object);
       this.interpreter.setVariable(name, vbValue);
-      
+
       if (addMembers && typeof object === 'object' && object !== null) {
         const obj = object as Record<string, unknown>;
         for (const key of Object.keys(obj)) {

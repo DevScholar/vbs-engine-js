@@ -61,10 +61,10 @@ export class Interpreter {
       if (iterations++ > maxIterations) {
         throw new Error('Possible infinite loop detected (too many goto jumps)');
       }
-      
+
       this.checkTimeout();
       const stmt = statements[i]!;
-      
+
       try {
         result = this.executor.execute(stmt);
         i++;
@@ -126,10 +126,10 @@ export class Interpreter {
       if (iterations++ > maxIterations) {
         throw new Error('Possible infinite loop detected (too many goto jumps)');
       }
-      
+
       this.checkTimeout();
       const stmt = statements[i]!;
-      
+
       try {
         result = this.executor.execute(stmt);
         i++;

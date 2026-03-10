@@ -10,7 +10,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
   const originalSetTimeout = window.setTimeout;
   const originalSetInterval = window.setInterval;
 
-  (window as unknown as Record<string, unknown>).setTimeout = function(
+  (window as unknown as Record<string, unknown>).setTimeout = function (
     handler: unknown,
     delay?: unknown,
     languageOrArg?: unknown,
@@ -21,30 +21,43 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
       const actualDelay = typeof delay === 'number' ? delay : 0;
 
       if (language === 'vbscript' || language === 'vbs') {
-        return originalSetTimeout.call(window, () => {
+        return originalSetTimeout.call(
+          window,
+          () => {
+            const funcRegistry = engine._getContext()?.functionRegistry;
+            if (funcRegistry?.has(handler)) {
+              engine.run(handler);
+            } else {
+              engine.executeStatement(handler);
+            }
+          },
+          actualDelay
+        );
+      }
+
+      return originalSetTimeout.call(
+        window,
+        () => {
           const funcRegistry = engine._getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
             engine.run(handler);
           } else {
             engine.executeStatement(handler);
           }
-        }, actualDelay);
-      }
-
-      return originalSetTimeout.call(window, () => {
-        const funcRegistry = engine._getContext()?.functionRegistry;
-        if (funcRegistry?.has(handler)) {
-          engine.run(handler);
-        } else {
-          engine.executeStatement(handler);
-        }
-      }, actualDelay);
+        },
+        actualDelay
+      );
     }
 
-    return originalSetTimeout.call(window, handler as TimerHandler, delay as number | undefined, ...[languageOrArg, ...args].filter(a => a !== undefined));
+    return originalSetTimeout.call(
+      window,
+      handler as TimerHandler,
+      delay as number | undefined,
+      ...[languageOrArg, ...args].filter(a => a !== undefined)
+    );
   };
 
-  (window as unknown as Record<string, unknown>).setInterval = function(
+  (window as unknown as Record<string, unknown>).setInterval = function (
     handler: unknown,
     delay?: unknown,
     languageOrArg?: unknown,
@@ -55,27 +68,40 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
       const actualDelay = typeof delay === 'number' ? delay : 0;
 
       if (language === 'vbscript' || language === 'vbs') {
-        return originalSetInterval.call(window, () => {
+        return originalSetInterval.call(
+          window,
+          () => {
+            const funcRegistry = engine._getContext()?.functionRegistry;
+            if (funcRegistry?.has(handler)) {
+              engine.run(handler);
+            } else {
+              engine.executeStatement(handler);
+            }
+          },
+          actualDelay
+        );
+      }
+
+      return originalSetInterval.call(
+        window,
+        () => {
           const funcRegistry = engine._getContext()?.functionRegistry;
           if (funcRegistry?.has(handler)) {
             engine.run(handler);
           } else {
             engine.executeStatement(handler);
           }
-        }, actualDelay);
-      }
-
-      return originalSetInterval.call(window, () => {
-        const funcRegistry = engine._getContext()?.functionRegistry;
-        if (funcRegistry?.has(handler)) {
-          engine.run(handler);
-        } else {
-          engine.executeStatement(handler);
-        }
-      }, actualDelay);
+        },
+        actualDelay
+      );
     }
 
-    return originalSetInterval.call(window, handler as TimerHandler, delay as number | undefined, ...[languageOrArg, ...args].filter(a => a !== undefined));
+    return originalSetInterval.call(
+      window,
+      handler as TimerHandler,
+      delay as number | undefined,
+      ...[languageOrArg, ...args].filter(a => a !== undefined)
+    );
   };
 
   return { originalSetTimeout, originalSetInterval };

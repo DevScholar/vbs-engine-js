@@ -66,7 +66,7 @@ export {
   type VbsError,
   jsToVb,
   vbToJs,
-  VBArray
+  VBArray,
 } from './core/index.ts';
 
 // Browser-specific exports

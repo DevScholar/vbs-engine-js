@@ -16,7 +16,10 @@ describe('Parser', () => {
     it('should parse string concatenation', () => {
       const ast = parse('x = "hello" & " world"');
       expect(ast.body[0].type).toBe('ExpressionStatement');
-      const stmt = ast.body[0] as { type: string; expression: { type: string; right: { type: string; operator: string } } };
+      const stmt = ast.body[0] as {
+        type: string;
+        expression: { type: string; right: { type: string; operator: string } };
+      };
       expect(stmt.expression.type).toBe('AssignmentExpression');
       expect(stmt.expression.right.type).toBe('BinaryExpression');
       expect(stmt.expression.right.operator).toBe('&');

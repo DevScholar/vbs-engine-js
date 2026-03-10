@@ -102,7 +102,7 @@ export const constants: Record<string, VbValue> = {
   vbVerticalTab: { type: 'String', value: '\v' },
   vbNullString: { type: 'String', value: '' },
   vbObjectError: { type: 'Long', value: -2147221504 },
-  
+
   vbSunday: { type: 'Integer', value: 1 },
   vbMonday: { type: 'Integer', value: 2 },
   vbTuesday: { type: 'Integer', value: 3 },
@@ -110,22 +110,22 @@ export const constants: Record<string, VbValue> = {
   vbThursday: { type: 'Integer', value: 5 },
   vbFriday: { type: 'Integer', value: 6 },
   vbSaturday: { type: 'Integer', value: 7 },
-  
+
   vbUseSystemDayOfWeek: { type: 'Integer', value: 0 },
   vbFirstJan1: { type: 'Integer', value: 1 },
   vbFirstFourDays: { type: 'Integer', value: 2 },
   vbFirstFullWeek: { type: 'Integer', value: 3 },
-  
+
   vbBinaryCompare: { type: 'Integer', value: 0 },
   vbTextCompare: { type: 'Integer', value: 1 },
   vbDatabaseCompare: { type: 'Integer', value: 2 },
-  
+
   vbGeneralDate: { type: 'Integer', value: 0 },
   vbLongDate: { type: 'Integer', value: 1 },
   vbShortDate: { type: 'Integer', value: 2 },
   vbLongTime: { type: 'Integer', value: 3 },
   vbShortTime: { type: 'Integer', value: 4 },
-  
+
   vbEmpty: { type: 'Integer', value: 0 },
   vbNull: { type: 'Integer', value: 1 },
   vbInteger: { type: 'Integer', value: 2 },

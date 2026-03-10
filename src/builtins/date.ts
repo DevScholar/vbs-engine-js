@@ -18,7 +18,10 @@ export const dateFunctions = {
 
   Time: (): VbValue => {
     const now = new Date();
-    return { type: 'Date', value: new Date(0, 0, 0, now.getHours(), now.getMinutes(), now.getSeconds()) };
+    return {
+      type: 'Date',
+      value: new Date(0, 0, 0, now.getHours(), now.getMinutes(), now.getSeconds()),
+    };
   },
 
   Year: (date: VbValue): VbValue => {
@@ -64,7 +67,7 @@ export const dateFunctions = {
     const intv = toString(interval).toLowerCase();
     const num = toNumber(number);
     const d = date.type === 'Date' ? new Date(date.value as Date) : serialToDate(toNumber(date));
-    
+
     switch (intv) {
       case 'yyyy':
         d.setFullYear(d.getFullYear() + num);
@@ -93,25 +96,33 @@ export const dateFunctions = {
         d.setSeconds(d.getSeconds() + num);
         break;
     }
-    
+
     return { type: 'Date', value: d };
   },
 
-  DateDiff: (interval: VbValue, date1: VbValue, date2: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
+  DateDiff: (
+    interval: VbValue,
+    date1: VbValue,
+    date2: VbValue,
+    _firstDayOfWeek?: VbValue,
+    _firstWeekOfYear?: VbValue
+  ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
     const intv = toString(interval).toLowerCase();
     const d1 = date1.type === 'Date' ? (date1.value as Date) : serialToDate(toNumber(date1));
     const d2 = date2.type === 'Date' ? (date2.value as Date) : serialToDate(toNumber(date2));
     const diff = d2.getTime() - d1.getTime();
-    
+
     let result: number;
     switch (intv) {
       case 'yyyy':
         result = d2.getFullYear() - d1.getFullYear();
         break;
       case 'q':
-        result = Math.floor((d2.getFullYear() - d1.getFullYear()) * 4 + (d2.getMonth() - d1.getMonth()) / 3);
+        result = Math.floor(
+          (d2.getFullYear() - d1.getFullYear()) * 4 + (d2.getMonth() - d1.getMonth()) / 3
+        );
         break;
       case 'm':
         result = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
@@ -138,16 +149,21 @@ export const dateFunctions = {
       default:
         result = 0;
     }
-    
+
     return { type: 'Long', value: result };
   },
 
-  DatePart: (interval: VbValue, date: VbValue, _firstDayOfWeek?: VbValue, _firstWeekOfYear?: VbValue): VbValue => {
+  DatePart: (
+    interval: VbValue,
+    date: VbValue,
+    _firstDayOfWeek?: VbValue,
+    _firstWeekOfYear?: VbValue
+  ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
     const intv = toString(interval).toLowerCase();
     const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
-    
+
     let result: number;
     switch (intv) {
       case 'yyyy':
@@ -187,7 +203,7 @@ export const dateFunctions = {
       default:
         result = 0;
     }
-    
+
     return { type: 'Integer', value: result };
   },
 
@@ -223,8 +239,20 @@ export const dateFunctions = {
 
   MonthName: (month: VbValue, abbreviate?: VbValue): VbValue => {
     const m = Math.floor(toNumber(month));
-    const names = ['January', 'February', 'March', 'April', 'May', 'June', 
-                   'July', 'August', 'September', 'October', 'November', 'December'];
+    const names = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     const abbrev = abbreviate ? toNumber(abbreviate) !== 0 : false;
     const name = names[m - 1] || '';
     return { type: 'String', value: abbrev ? name.substring(0, 3) : name };
@@ -241,6 +269,13 @@ export const dateFunctions = {
 
   Timer: (): VbValue => {
     const now = new Date();
-    return { type: 'Single', value: now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() / 1000 };
+    return {
+      type: 'Single',
+      value:
+        now.getHours() * 3600 +
+        now.getMinutes() * 60 +
+        now.getSeconds() +
+        now.getMilliseconds() / 1000,
+    };
   },
 };

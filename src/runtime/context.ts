@@ -21,7 +21,14 @@ function jsToVb(value: unknown, thisArg?: unknown): VbValue {
     return { type: 'Array', value };
   }
   if (typeof value === 'function') {
-    return { type: 'Object', value: { type: 'jsfunction', func: value as (...args: unknown[]) => unknown, thisArg: thisArg ?? null } };
+    return {
+      type: 'Object',
+      value: {
+        type: 'jsfunction',
+        func: value as (...args: unknown[]) => unknown,
+        thisArg: thisArg ?? null,
+      },
+    };
   }
   if (typeof value === 'object') {
     return { type: 'Object', value: value as VbObjectValueData };
@@ -133,7 +140,7 @@ export class VbContext {
         return this.currentInstance.getProperty(name);
       }
     }
-    
+
     const variable = this.currentScope.get(name);
     if (variable) {
       return variable.value;
@@ -147,14 +154,26 @@ export class VbContext {
       }
     }
 
-    const globalKeys = ['eval', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape', 'unescape'];
+    const globalKeys = [
+      'eval',
+      'parseInt',
+      'parseFloat',
+      'isNaN',
+      'isFinite',
+      'decodeURI',
+      'decodeURIComponent',
+      'encodeURI',
+      'encodeURIComponent',
+      'escape',
+      'unescape',
+    ];
     for (const key of globalKeys) {
       if (key.toLowerCase() === lowerName && key in globalThis) {
         const value = (globalThis as Record<string, unknown>)[key];
         return jsToVb(value, globalThis);
       }
     }
-    
+
     if (this.optionExplicit) {
       throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
     }
@@ -166,19 +185,19 @@ export class VbContext {
       this.currentScope.set(name, value);
       return;
     }
-    
+
     if (this.currentInstance && this.currentInstance.hasProperty(name)) {
       this.currentInstance.setProperty(name, value);
       return;
     }
-    
+
     if (this.optionExplicit && !this.currentScope.has(name)) {
       const lowerName = name.toLowerCase();
       if (!(lowerName in globalThis)) {
         throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
       }
     }
-    
+
     this.currentScope.set(name, value);
   }
 

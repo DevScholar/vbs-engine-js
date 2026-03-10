@@ -283,11 +283,11 @@ export function getCurrentCurrency(): string {
   const locale = getBrowserLocale();
   const currency = localeToCurrency.get(locale);
   if (currency) return currency;
-  
+
   const baseLocale = locale.split('-')[0] ?? 'en';
   const baseCurrency = localeToCurrency.get(baseLocale);
   if (baseCurrency) return baseCurrency;
-  
+
   return 'USD';
 }
 

@@ -29,7 +29,7 @@ export class ControlFlowParser {
 
     const hasNewlineAfterThen = this.state.checkNewline();
     this.state.skipOptionalNewlines();
-    
+
     if (hasNewlineAfterThen) {
       return this.parseMultiLineIf(ifToken, test);
     }
@@ -171,7 +171,7 @@ export class ControlFlowParser {
       if (this.state.checkNewline()) {
         break;
       }
-      
+
       if (this.state.check('Else' as any) || this.state.check('ElseIf' as any)) {
         break;
       }
@@ -475,12 +475,12 @@ export class ControlFlowParser {
 
   private getComparisonOperator(token: Token): string {
     const opMap: Record<string, string> = {
-      'Eq': '==',
-      'Lt': '<',
-      'Gt': '>',
-      'Le': '<=',
-      'Ge': '>=',
-      'Ne': '!=',
+      Eq: '==',
+      Lt: '<',
+      Gt: '>',
+      Le: '<=',
+      Ge: '>=',
+      Ne: '!=',
     };
     return opMap[token.type] ?? '==';
   }

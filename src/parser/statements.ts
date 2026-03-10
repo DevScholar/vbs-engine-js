@@ -38,12 +38,12 @@ export class StatementsParser {
     const exitToken = this.state.advance();
 
     const targetTypes: Record<string, VbExitStatement['target']> = {
-      'Sub': 'Sub',
-      'Function': 'Function',
-      'Property': 'Property',
-      'Do': 'Do',
-      'For': 'For',
-      'Select': 'Select',
+      Sub: 'Sub',
+      Function: 'Function',
+      Property: 'Property',
+      Do: 'Do',
+      For: 'For',
+      Select: 'Select',
     };
 
     const targetToken = this.state.current;
@@ -205,11 +205,11 @@ export class StatementsParser {
     if (!this.state.check(TokenType.RParen)) {
       while (true) {
         this.state.skipOptionalNewlines();
-        
+
         if (this.state.check(TokenType.RParen)) {
           break;
         }
-        
+
         // Handle empty arguments (consecutive commas)
         if (this.state.check(TokenType.Comma)) {
           args.push({
@@ -221,9 +221,9 @@ export class StatementsParser {
         } else {
           args.push(this.exprParser.parseExpression());
         }
-        
+
         this.state.skipOptionalNewlines();
-        
+
         if (this.state.check(TokenType.Comma)) {
           this.state.advance();
         } else {

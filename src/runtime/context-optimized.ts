@@ -1,6 +1,6 @@
 /**
  * Optimized VbContext with Performance Improvements
- * 
+ *
  * Uses optimized scope and function registry with:
  * 1. String interning for variable names
  * 2. Scope pooling to reduce GC pressure
@@ -19,11 +19,33 @@ import { createCachedVbValue } from './value-pool.ts';
 
 // Pre-intern common global keys for fast lookup
 const GLOBAL_KEYS = [
-  'eval', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
-  'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent',
-  'escape', 'unescape', 'console', 'Math', 'Date', 'Array', 'Object',
-  'String', 'Number', 'Boolean', 'JSON', 'RegExp', 'Error',
-  'window', 'document', 'navigator', 'location', 'history',
+  'eval',
+  'parseInt',
+  'parseFloat',
+  'isNaN',
+  'isFinite',
+  'decodeURI',
+  'decodeURIComponent',
+  'encodeURI',
+  'encodeURIComponent',
+  'escape',
+  'unescape',
+  'console',
+  'Math',
+  'Date',
+  'Array',
+  'Object',
+  'String',
+  'Number',
+  'Boolean',
+  'JSON',
+  'RegExp',
+  'Error',
+  'window',
+  'document',
+  'navigator',
+  'location',
+  'history',
 ];
 
 // Build a fast lookup set for global keys
@@ -60,7 +82,7 @@ export class VbContextOptimized {
   private withStack: VbValue[] = [];
   private callStack: string[] = [];
   private exitFlag: 'none' | 'sub' | 'function' | 'property' | 'do' | 'for' | 'select' = 'none';
-  
+
   // Track pooled scopes for cleanup
   private pooledScopes: Vbscope[] = [];
 
@@ -88,13 +110,13 @@ export class VbContextOptimized {
     if (this.currentScope.parent) {
       const scopeToRelease = this.currentScope;
       this.currentScope = this.currentScope.parent;
-      
+
       // Remove from tracked scopes
       const index = this.pooledScopes.indexOf(scopeToRelease);
       if (index > -1) {
         this.pooledScopes.splice(index, 1);
       }
-      
+
       // Return to pool
       globalScopePool.release(scopeToRelease);
     }
@@ -159,14 +181,14 @@ export class VbContextOptimized {
    */
   getVariable(name: string): VbValue {
     const internedName = globalStringInterner.intern(name);
-    
+
     // Check current instance first
     if (this.currentInstance) {
       if (this.currentInstance.hasProperty(name)) {
         return this.currentInstance.getProperty(name);
       }
     }
-    
+
     // Check current scope
     const variable = this.currentScope.get(name);
     if (variable) {
@@ -200,7 +222,7 @@ export class VbContextOptimized {
         return vbValue;
       }
     }
-    
+
     if (this.optionExplicit) {
       throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
     }
@@ -212,23 +234,23 @@ export class VbContextOptimized {
    */
   setVariable(name: string, value: VbValue): void {
     const internedName = globalStringInterner.intern(name);
-    
+
     if (this.inPropertyGet && internedName === globalStringInterner.intern(this.propertyGetName)) {
       this.currentScope.set(name, value);
       return;
     }
-    
+
     if (this.currentInstance && this.currentInstance.hasProperty(name)) {
       this.currentInstance.setProperty(name, value);
       return;
     }
-    
+
     if (this.optionExplicit && !this.currentScope.has(name)) {
       if (!globalKeySet.has(internedName)) {
         throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
       }
     }
-    
+
     this.currentScope.set(name, value);
   }
 

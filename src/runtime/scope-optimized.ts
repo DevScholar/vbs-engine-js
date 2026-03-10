@@ -1,6 +1,6 @@
 /**
  * Optimized Scope Implementation with String Interning and Variable Index Caching
- * 
+ *
  * Performance improvements:
  * 1. String interning - all variable names are interned to avoid repeated toLowerCase()
  * 2. Variable index cache - maintains a flat index for O(1) variable access
@@ -12,8 +12,8 @@ import { globalStringInterner } from './string-interner.ts';
 
 export class VbVariable {
   constructor(
-    public name: string,  // Already interned (lowercased)
-    public originalName: string,  // Original casing for error messages
+    public name: string, // Already interned (lowercased)
+    public originalName: string, // Original casing for error messages
     public value: VbValue,
     public isByRef: boolean = false,
     public isArray: boolean = false,
@@ -27,7 +27,7 @@ export class VbVariable {
 export class Vbscope {
   private variables: Map<string, VbVariable> = new Map();
   public parent: Vbscope | null;
-  
+
   // Cache for frequently accessed variables (local fast path)
   private fastAccessCache: Map<string, VbVariable> | null = null;
   private readonly FAST_ACCESS_THRESHOLD = 10;
@@ -41,21 +41,25 @@ export class Vbscope {
    * Declare a variable in this scope.
    * The name will be interned for fast comparison.
    */
-  declare(name: string, value: VbValue, options: Partial<Omit<VbVariable, 'name' | 'originalName' | 'value'>> = {}): VbVariable {
+  declare(
+    name: string,
+    value: VbValue,
+    options: Partial<Omit<VbVariable, 'name' | 'originalName' | 'value'>> = {}
+  ): VbVariable {
     const internedName = globalStringInterner.intern(name);
     const variable = new VbVariable(
       internedName,
-      name,  // Keep original for error messages
+      name, // Keep original for error messages
       value,
       options.isByRef ?? false,
       options.isArray ?? false,
       options.isConst ?? false
     );
     this.variables.set(internedName, variable);
-    
+
     // Invalidate fast access cache when new variable declared
     this.fastAccessCache = null;
-    
+
     return variable;
   }
 
@@ -65,16 +69,16 @@ export class Vbscope {
    */
   get(name: string): VbVariable | undefined {
     const internedName = globalStringInterner.intern(name);
-    
+
     // Track access for fast path optimization
     const count = (this.accessCount.get(internedName) ?? 0) + 1;
     this.accessCount.set(internedName, count);
-    
+
     // Build fast access cache for hot variables
     if (this.fastAccessCache === null && this.variables.size > 0) {
       this.rebuildFastAccessCache();
     }
-    
+
     // Try fast access cache first
     if (this.fastAccessCache !== null) {
       const fastVar = this.fastAccessCache.get(internedName);
@@ -82,7 +86,7 @@ export class Vbscope {
         return fastVar;
       }
     }
-    
+
     // Standard Map lookup
     const variable = this.variables.get(internedName);
     if (variable) {
@@ -92,12 +96,12 @@ export class Vbscope {
       }
       return variable;
     }
-    
+
     // Traverse parent scope chain
     if (this.parent) {
       return this.parent.get(name);
     }
-    
+
     return undefined;
   }
 
@@ -106,7 +110,7 @@ export class Vbscope {
    */
   set(name: string, value: VbValue): void {
     const internedName = globalStringInterner.intern(name);
-    
+
     const variable = this.variables.get(internedName);
     if (variable) {
       if (variable.isConst) {
@@ -115,12 +119,12 @@ export class Vbscope {
       variable.value = value;
       return;
     }
-    
+
     if (this.parent) {
       this.parent.set(name, value);
       return;
     }
-    
+
     // Auto-declare in current scope if not found
     this.declare(name, value);
   }
@@ -130,7 +134,7 @@ export class Vbscope {
    */
   has(name: string): boolean {
     const internedName = globalStringInterner.intern(name);
-    
+
     if (this.variables.has(internedName)) return true;
     if (this.parent) return this.parent.has(name);
     return false;
@@ -186,7 +190,7 @@ export class Vbscope {
    */
   private rebuildFastAccessCache(): void {
     this.fastAccessCache = new Map();
-    
+
     // Add frequently accessed variables to fast cache
     for (const [name, count] of this.accessCount) {
       if (count >= this.FAST_ACCESS_THRESHOLD) {

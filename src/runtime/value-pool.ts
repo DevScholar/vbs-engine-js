@@ -1,6 +1,6 @@
 /**
  * Value Pool - Flyweight Pattern for Common VBScript Values
- * 
+ *
  * Caches frequently used VbValue objects to avoid repeated allocations.
  * This significantly reduces GC pressure for common values like:
  * - Small integers (-128 to 127)
@@ -58,20 +58,20 @@ export function getCachedString(value: string): VbStringValue {
   if (value === '') {
     return VbEmptyString;
   }
-  
+
   // Check common string cache
   const cached = commonStringCache.get(value);
   if (cached) {
     return cached;
   }
-  
+
   // For short strings (likely identifiers), cache them
   if (value.length <= 32) {
     const newValue: VbStringValue = { type: 'String', value };
     commonStringCache.set(value, newValue);
     return newValue;
   }
-  
+
   return { type: 'String', value };
 }
 
@@ -118,23 +118,85 @@ export function createCachedVbValue(value: unknown): VbValue {
 
 // Pre-cache common VBScript keywords and identifiers
 const COMMON_VBSCRIPT_STRINGS = [
-  'true', 'false', 'empty', 'null', 'nothing',
-  'dim', 'redim', 'const', 'public', 'private',
-  'sub', 'function', 'class', 'end', 'exit',
-  'if', 'then', 'else', 'elseif',
-  'for', 'next', 'to', 'step', 'each', 'in',
-  'do', 'loop', 'while', 'until', 'wend',
-  'select', 'case', 'default',
-  'and', 'or', 'not', 'xor', 'eqv', 'imp',
-  'new', 'set', 'call', 'byval', 'byref',
-  'option', 'explicit', 'on', 'error', 'resume',
-  'with', 'property', 'get', 'let',
-  'msgbox', 'inputbox',
-  'i', 'j', 'k', 'n', 'x', 'y', 'z',
-  'count', 'index', 'item', 'key', 'value',
-  'name', 'text', 'data', 'result',
-  'obj', 'arr', 'str', 'num', 'val',
-  'document', 'window', 'console',
+  'true',
+  'false',
+  'empty',
+  'null',
+  'nothing',
+  'dim',
+  'redim',
+  'const',
+  'public',
+  'private',
+  'sub',
+  'function',
+  'class',
+  'end',
+  'exit',
+  'if',
+  'then',
+  'else',
+  'elseif',
+  'for',
+  'next',
+  'to',
+  'step',
+  'each',
+  'in',
+  'do',
+  'loop',
+  'while',
+  'until',
+  'wend',
+  'select',
+  'case',
+  'default',
+  'and',
+  'or',
+  'not',
+  'xor',
+  'eqv',
+  'imp',
+  'new',
+  'set',
+  'call',
+  'byval',
+  'byref',
+  'option',
+  'explicit',
+  'on',
+  'error',
+  'resume',
+  'with',
+  'property',
+  'get',
+  'let',
+  'msgbox',
+  'inputbox',
+  'i',
+  'j',
+  'k',
+  'n',
+  'x',
+  'y',
+  'z',
+  'count',
+  'index',
+  'item',
+  'key',
+  'value',
+  'name',
+  'text',
+  'data',
+  'result',
+  'obj',
+  'arr',
+  'str',
+  'num',
+  'val',
+  'document',
+  'window',
+  'console',
 ];
 
 // Initialize common strings cache

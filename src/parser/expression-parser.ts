@@ -101,11 +101,11 @@ export class ExpressionParser {
     if (this.state.check('Identifier' as TokenType) || this.state.check('Dot' as TokenType)) {
       const savedState = this.state.save();
       const left = this.parseCall();
-      
+
       if (left.type === 'CallExpression') {
         return this.continueStringConcat(left);
       }
-      
+
       if (this.state.check('Eq' as TokenType)) {
         if (left.type === 'Identifier' || left.type === 'MemberExpression') {
           const op = this.state.advance();
@@ -113,9 +113,11 @@ export class ExpressionParser {
           return this.createAssignmentExpression(left, '=', right, op);
         }
       }
-      
-      if ((left.type === 'Identifier' || left.type === 'MemberExpression') &&
-          this.isStatementCallArgumentStart()) {
+
+      if (
+        (left.type === 'Identifier' || left.type === 'MemberExpression') &&
+        this.isStatementCallArgumentStart()
+      ) {
         const args = this.parseStatementCallArguments();
         const callExpr: CallExpression = {
           type: 'CallExpression',
@@ -126,7 +128,7 @@ export class ExpressionParser {
         } as CallExpression;
         return this.continueStringConcat(callExpr);
       }
-      
+
       this.state.restore(savedState);
     }
 
@@ -159,7 +161,7 @@ export class ExpressionParser {
       'EmptyLiteral' as TokenType,
       'Identifier' as TokenType,
       'LParen' as TokenType,
-      'New' as TokenType,
+      'New' as TokenType
     );
   }
 
@@ -250,10 +252,7 @@ export class ExpressionParser {
         operator: '&&',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -266,17 +265,14 @@ export class ExpressionParser {
     while (this.state.checkAny('Xor' as TokenType, 'Eqv' as TokenType, 'Imp' as TokenType)) {
       const op = this.state.advance();
       const right = this.parseComparison();
-      const operator = op.value.toLowerCase() === 'xor' ? 'xor' : 
-                      op.value.toLowerCase() === 'eqv' ? 'eqv' : 'imp';
+      const operator =
+        op.value.toLowerCase() === 'xor' ? 'xor' : op.value.toLowerCase() === 'eqv' ? 'eqv' : 'imp';
       left = {
         type: 'LogicalExpression',
         operator: operator as LogicalExpression['operator'],
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -304,10 +300,7 @@ export class ExpressionParser {
         operator,
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -344,10 +337,7 @@ export class ExpressionParser {
         operator: 'Is',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       } as BinaryExpression;
     }
 
@@ -369,10 +359,7 @@ export class ExpressionParser {
         operator: op.type === 'Plus' ? '+' : '-',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -382,9 +369,7 @@ export class ExpressionParser {
   private parseMultiplicative(): Expression {
     let left = this.parseIntegerDivision();
 
-    while (
-      this.state.checkAny('Asterisk' as TokenType, 'Slash' as TokenType)
-    ) {
+    while (this.state.checkAny('Asterisk' as TokenType, 'Slash' as TokenType)) {
       const op = this.state.advance();
       const right = this.parseIntegerDivision();
       left = {
@@ -392,10 +377,7 @@ export class ExpressionParser {
         operator: op.type === 'Asterisk' ? '*' : '/',
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -413,10 +395,7 @@ export class ExpressionParser {
         operator: '\\' as BinaryExpression['operator'],
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -434,10 +413,7 @@ export class ExpressionParser {
         operator: '%' as BinaryExpression['operator'],
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -455,10 +431,7 @@ export class ExpressionParser {
         operator: '**' as BinaryExpression['operator'],
         left,
         right,
-        loc: createLocation(
-          { loc: left.loc! } as Token,
-          { loc: right.loc! } as Token
-        ),
+        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
       };
     }
 
@@ -522,10 +495,7 @@ export class ExpressionParser {
           property,
           computed: false,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            { loc: property.loc! } as Token
-          ),
+          loc: createLocation({ loc: expr.loc! } as Token, { loc: property.loc! } as Token),
         } as MemberExpression;
       } else if (this.state.check('Bang' as TokenType)) {
         this.state.advance();
@@ -536,10 +506,7 @@ export class ExpressionParser {
           property,
           computed: true,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            { loc: property.loc! } as Token
-          ),
+          loc: createLocation({ loc: expr.loc! } as Token, { loc: property.loc! } as Token),
         } as MemberExpression;
       } else if (this.state.check('LParen' as TokenType)) {
         this.state.advance();
@@ -550,10 +517,7 @@ export class ExpressionParser {
           callee: expr,
           arguments: args,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            rparen
-          ),
+          loc: createLocation({ loc: expr.loc! } as Token, rparen),
         } as CallExpression;
       } else if (this.state.check('LBracket' as TokenType)) {
         this.state.advance();
@@ -565,10 +529,7 @@ export class ExpressionParser {
           property: index,
           computed: true,
           optional: false,
-          loc: createLocation(
-            { loc: expr.loc! } as Token,
-            rbracket
-          ),
+          loc: createLocation({ loc: expr.loc! } as Token, rbracket),
         } as MemberExpression;
       } else {
         break;
@@ -584,11 +545,11 @@ export class ExpressionParser {
     if (!this.state.check('RParen' as TokenType)) {
       while (true) {
         this.state.skipOptionalNewlines();
-        
+
         if (this.state.check('RParen' as TokenType)) {
           break;
         }
-        
+
         // Handle empty arguments (consecutive commas)
         if (this.state.check('Comma' as TokenType)) {
           // Empty argument - push Empty literal
@@ -601,9 +562,9 @@ export class ExpressionParser {
         } else {
           args.push(this.parseExpression());
         }
-        
+
         this.state.skipOptionalNewlines();
-        
+
         if (this.state.check('Comma' as TokenType)) {
           this.state.advance();
         } else {
@@ -697,9 +658,10 @@ export class ExpressionParser {
 
   private parseNumberLiteral(): Literal {
     const token = this.state.advance();
-    const value = token.value.includes('.') || token.value.includes('e') || token.value.includes('E')
-      ? parseFloat(token.value)
-      : parseInt(token.value, 10);
+    const value =
+      token.value.includes('.') || token.value.includes('e') || token.value.includes('E')
+        ? parseFloat(token.value)
+        : parseInt(token.value, 10);
     return {
       type: 'Literal',
       value,
@@ -807,13 +769,15 @@ export class ExpressionParser {
 
   private parsePropertyName(): Identifier {
     const token = this.state.current;
-    if (token.type === 'Identifier' as TokenType || 
-        (token.type !== 'EOF' as TokenType && 
-         token.type !== 'Newline' as TokenType && 
-         token.type !== 'LParen' as TokenType &&
-         token.type !== 'RParen' as TokenType &&
-         token.type !== 'Comma' as TokenType &&
-         token.type !== 'Colon' as TokenType)) {
+    if (
+      token.type === ('Identifier' as TokenType) ||
+      (token.type !== ('EOF' as TokenType) &&
+        token.type !== ('Newline' as TokenType) &&
+        token.type !== ('LParen' as TokenType) &&
+        token.type !== ('RParen' as TokenType) &&
+        token.type !== ('Comma' as TokenType) &&
+        token.type !== ('Colon' as TokenType))
+    ) {
       this.state.advance();
       return {
         type: 'Identifier',

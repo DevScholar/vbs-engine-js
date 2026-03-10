@@ -71,7 +71,7 @@ export class Lexer {
       while (this.current === ' ' || this.current === '\t' || this.current === '\r') {
         this.advance();
       }
-      
+
       if (this.current === '_' && (this.peek === '\n' || this.peek === '\r')) {
         this.advance();
         if (this.peek === '\r') {
@@ -85,7 +85,7 @@ export class Lexer {
         }
         continue;
       }
-      
+
       break;
     }
   }
@@ -93,7 +93,7 @@ export class Lexer {
   private readString(quote: string): Token {
     const start = this.getLoc();
     this.advance();
-    
+
     let value = '';
     while (!this.isEOF) {
       if (this.current === quote) {
@@ -110,11 +110,11 @@ export class Lexer {
         value += this.advance();
       }
     }
-    
+
     if (this.current === quote) {
       this.advance();
     }
-    
+
     return this.createToken(TokenType.StringLiteral, value, start, quote + value + quote);
   }
 
@@ -123,7 +123,7 @@ export class Lexer {
     let value = '';
     let isFloat = false;
     let isExponent = false;
-    
+
     if (this.current === '&' && (this.peek === 'h' || this.peek === 'H')) {
       this.advance();
       this.advance();
@@ -131,9 +131,14 @@ export class Lexer {
         value += this.advance();
       }
       const num = parseInt(value, 16);
-      return this.createToken(TokenType.NumberLiteral, String(num), start, '&' + (this.source[start.offset + 1] === 'H' ? 'H' : 'h') + value);
+      return this.createToken(
+        TokenType.NumberLiteral,
+        String(num),
+        start,
+        '&' + (this.source[start.offset + 1] === 'H' ? 'H' : 'h') + value
+      );
     }
-    
+
     if (this.current === '&' && (this.peek === 'o' || this.peek === 'O')) {
       this.advance();
       this.advance();
@@ -141,13 +146,18 @@ export class Lexer {
         value += this.advance();
       }
       const num = parseInt(value, 8);
-      return this.createToken(TokenType.NumberLiteral, String(num), start, '&' + (this.source[start.offset + 1] === 'O' ? 'O' : 'o') + value);
+      return this.createToken(
+        TokenType.NumberLiteral,
+        String(num),
+        start,
+        '&' + (this.source[start.offset + 1] === 'O' ? 'O' : 'o') + value
+      );
     }
-    
+
     while (/[0-9]/.test(this.current)) {
       value += this.advance();
     }
-    
+
     if (this.current === '.' && /[0-9]/.test(this.peek)) {
       isFloat = true;
       value += this.advance();
@@ -155,7 +165,7 @@ export class Lexer {
         value += this.advance();
       }
     }
-    
+
     const currentChar = this.current;
     if (currentChar === 'e' || currentChar === 'E') {
       isExponent = true;
@@ -168,11 +178,11 @@ export class Lexer {
         value += this.advance();
       }
     }
-    
+
     if (this.current === '#' && !isFloat && !isExponent) {
       return this.readDate(start, value);
     }
-    
+
     return this.createToken(TokenType.NumberLiteral, value, start, value);
   }
 
@@ -181,30 +191,30 @@ export class Lexer {
     if (this.current === '#') {
       this.advance();
     }
-    
+
     while (!this.isEOF && this.current !== '#') {
       if (this.current === '\n') break;
       value += this.advance();
     }
-    
+
     if (this.current === '#') {
       this.advance();
     }
-    
+
     return this.createToken(TokenType.DateLiteral, value.trim(), start, '#' + value + '#');
   }
 
   private readIdentifier(): Token {
     const start = this.getLoc();
     let value = '';
-    
+
     while (/[a-zA-Z0-9_]/.test(this.current)) {
       value += this.advance();
     }
-    
+
     const upperValue = value.toLowerCase();
     const keywordType = KEYWORDS[upperValue];
-    
+
     if (keywordType) {
       if (keywordType === TokenType.BooleanLiteral) {
         return this.createToken(TokenType.BooleanLiteral, upperValue, start, value);
@@ -220,18 +230,18 @@ export class Lexer {
       }
       return this.createToken(keywordType, upperValue, start, value);
     }
-    
+
     return this.createToken(TokenType.Identifier, value, start, value);
   }
 
   private readRemComment(): Token {
     const start = this.getLoc();
     let value = '';
-    
+
     while (!this.isEOF && this.current !== '\n') {
       value += this.advance();
     }
-    
+
     return this.createToken(TokenType.Rem, value, start, value);
   }
 
@@ -246,11 +256,11 @@ export class Lexer {
       if (this.options.skipWhitespace) {
         this.skipWhitespaceAndLineContinuation();
       }
-      
+
       if (this.isEOF) {
         return this.createToken(TokenType.EOF, '', this.getLoc());
       }
-      
+
       if (this.current === '\n') {
         const start = this.getLoc();
         this.advance();
@@ -259,33 +269,36 @@ export class Lexer {
         }
         return this.createToken(TokenType.Newline, '\n', start, '\n');
       }
-      
+
       if (this.current === "'" && this.options.skipWhitespace) {
         this.readSingleLineComment();
         continue;
       }
-      
+
       if (this.current === '"' || this.current === "'") {
         return this.readString(this.current);
       }
-      
+
       if (this.current === '#') {
         const start = this.getLoc();
         return this.readDate(start);
       }
-      
-      if (this.current === '&' && (this.peek === 'h' || this.peek === 'H' || this.peek === 'o' || this.peek === 'O')) {
+
+      if (
+        this.current === '&' &&
+        (this.peek === 'h' || this.peek === 'H' || this.peek === 'o' || this.peek === 'O')
+      ) {
         return this.readNumber();
       }
-      
+
       if (/[0-9]/.test(this.current)) {
         return this.readNumber();
       }
-      
+
       if (this.current === '.' && /[0-9]/.test(this.peek)) {
         return this.readNumber();
       }
-      
+
       if (/[a-zA-Z_]/.test(this.current)) {
         const token = this.readIdentifier();
         if (token.type === TokenType.Rem) {
@@ -297,10 +310,10 @@ export class Lexer {
         }
         return token;
       }
-      
+
       const start = this.getLoc();
       const char = this.current;
-      
+
       switch (char) {
         case '+':
           this.advance();
@@ -379,22 +392,22 @@ export class Lexer {
           return this.createToken(TokenType.Unknown, char, start);
       }
     }
-    
+
     return this.createToken(TokenType.EOF, '', this.getLoc());
   }
 
   tokenize(): Token[] {
     const tokens: Token[] = [];
-    
+
     while (true) {
       const token = this.nextToken();
       tokens.push(token);
-      
+
       if (token.type === TokenType.EOF) {
         break;
       }
     }
-    
+
     return tokens;
   }
 }

@@ -7,8 +7,10 @@ export interface InputBoxOptions {
 }
 
 export function createInputBox(options?: InputBoxOptions) {
-  return function(
-    _context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } },
+  return function (
+    _context: {
+      functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void };
+    },
     promptVal: VbValue,
     title?: VbValue,
     defaultText?: VbValue,
@@ -31,8 +33,9 @@ export function createInputBox(options?: InputBoxOptions) {
       return { type: 'String', value: result ?? '' };
     }
 
-    const promptText = `[${titleStr}]\n${message}\n` + 
-      (hasDefault ? `Default: ${defaultVal}\n` : '') + 
+    const promptText =
+      `[${titleStr}]\n${message}\n` +
+      (hasDefault ? `Default: ${defaultVal}\n` : '') +
       `[Enter] Confirm / [Esc] Cancel (default is "${defaultVal || '(empty)'}")`;
 
     if (options?.console) {
@@ -71,7 +74,7 @@ export function createInputBox(options?: InputBoxOptions) {
 }
 
 export function createBrowserInputBox() {
-  return function(
+  return function (
     prompt: VbValue,
     title?: VbValue,
     defaultVal?: VbValue,
@@ -104,34 +107,47 @@ export function createBrowserInputBox() {
   };
 }
 
-export function registerInputBox(context: { functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void } }): void {
-  context.functionRegistry.register('InputBox', (promptVal: VbValue, title?: VbValue, defaultText?: VbValue, _xPos?: VbValue, _yPos?: VbValue, _helpFile?: VbValue, _contextVal?: VbValue): VbValue => {
-    void _xPos;
-    void _yPos;
-    void _helpFile;
-    void _contextVal;
-    const message = String(promptVal.value ?? promptVal);
-    const titleStr = title ? String(title.value ?? title) : 'Input';
-    const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';
+export function registerInputBox(context: {
+  functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void };
+}): void {
+  context.functionRegistry.register(
+    'InputBox',
+    (
+      promptVal: VbValue,
+      title?: VbValue,
+      defaultText?: VbValue,
+      _xPos?: VbValue,
+      _yPos?: VbValue,
+      _helpFile?: VbValue,
+      _contextVal?: VbValue
+    ): VbValue => {
+      void _xPos;
+      void _yPos;
+      void _helpFile;
+      void _contextVal;
+      const message = String(promptVal.value ?? promptVal);
+      const titleStr = title ? String(title.value ?? title) : 'Input';
+      const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';
 
-    if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
-      while (true) {
-        const result = window.prompt(`[${titleStr}]\n${message}`, defaultVal);
-        if (result === null) {
-          return { type: 'String', value: '' };
+      if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+        while (true) {
+          const result = window.prompt(`[${titleStr}]\n${message}`, defaultVal);
+          if (result === null) {
+            return { type: 'String', value: '' };
+          }
+          if (result === '' && defaultVal !== '') {
+            return { type: 'String', value: defaultVal };
+          }
+          if (result === '' && defaultVal === '') {
+            alert('Input cannot be empty. Please try again.');
+            continue;
+          }
+          return { type: 'String', value: result };
         }
-        if (result === '' && defaultVal !== '') {
-          return { type: 'String', value: defaultVal };
-        }
-        if (result === '' && defaultVal === '') {
-          alert('Input cannot be empty. Please try again.');
-          continue;
-        }
-        return { type: 'String', value: result };
       }
-    }
 
-    console.log(`[${titleStr}]\n${message}\nDefault: ${defaultVal || '(empty)'}`);
-    return { type: 'String', value: '' };
-  });
+      console.log(`[${titleStr}]\n${message}\nDefault: ${defaultVal || '(empty)'}`);
+      return { type: 'String', value: '' };
+    }
+  );
 }

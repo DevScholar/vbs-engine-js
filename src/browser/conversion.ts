@@ -42,7 +42,14 @@ export function jsToVb(value: unknown, thisArg?: unknown): VbValue {
     return { type: 'Array', value };
   }
   if (typeof value === 'function') {
-    return { type: 'Object', value: { type: 'jsfunction', func: value as (...args: unknown[]) => unknown, thisArg: thisArg ?? null } };
+    return {
+      type: 'Object',
+      value: {
+        type: 'jsfunction',
+        func: value as (...args: unknown[]) => unknown,
+        thisArg: thisArg ?? null,
+      },
+    };
   }
   if (typeof value === 'object') {
     return { type: 'Object', value };

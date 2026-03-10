@@ -68,22 +68,34 @@ export function registerBuiltins(context: VbContext): void {
     return result ?? { type: 'Empty', value: undefined };
   });
 
-  context.functionRegistry.register('Execute', (expression: VbValue): VbValue => {
-    const code = String(expression.value ?? expression);
-    const result = context.execute?.(code);
-    return result ?? { type: 'Empty', value: undefined };
-  }, { isSub: true });
+  context.functionRegistry.register(
+    'Execute',
+    (expression: VbValue): VbValue => {
+      const code = String(expression.value ?? expression);
+      const result = context.execute?.(code);
+      return result ?? { type: 'Empty', value: undefined };
+    },
+    { isSub: true }
+  );
 
-  context.functionRegistry.register('ExecuteGlobal', (expression: VbValue): VbValue => {
-    const code = String(expression.value ?? expression);
-    const result = context.executeGlobal?.(code);
-    return result ?? { type: 'Empty', value: undefined };
-  }, { isSub: true });
+  context.functionRegistry.register(
+    'ExecuteGlobal',
+    (expression: VbValue): VbValue => {
+      const code = String(expression.value ?? expression);
+      const result = context.executeGlobal?.(code);
+      return result ?? { type: 'Empty', value: undefined };
+    },
+    { isSub: true }
+  );
 
-  context.functionRegistry.register('Print', (...args: VbValue[]): VbValue => {
-    console.log(...args.map(a => a.value ?? a));
-    return { type: 'Empty', value: undefined };
-  }, { isSub: true });
+  context.functionRegistry.register(
+    'Print',
+    (...args: VbValue[]): VbValue => {
+      console.log(...args.map(a => a.value ?? a));
+      return { type: 'Empty', value: undefined };
+    },
+    { isSub: true }
+  );
 
   context.functionRegistry.register('GetRef', (procname: VbValue): VbValue => {
     const name = String(procname.value ?? procname);
@@ -117,42 +129,42 @@ export function registerBuiltins(context: VbContext): void {
       }
     }
     const typeNames: Record<string, string> = {
-      'Empty': 'Empty',
-      'Null': 'Null',
-      'Integer': 'Integer',
-      'Long': 'Long',
-      'Single': 'Single',
-      'Double': 'Double',
-      'Currency': 'Currency',
-      'Date': 'Date',
-      'String': 'String',
-      'Object': 'Object',
-      'Error': 'Error',
-      'Boolean': 'Boolean',
-      'Variant': 'Variant',
-      'Byte': 'Byte',
-      'Array': 'Variant()',
+      Empty: 'Empty',
+      Null: 'Null',
+      Integer: 'Integer',
+      Long: 'Long',
+      Single: 'Single',
+      Double: 'Double',
+      Currency: 'Currency',
+      Date: 'Date',
+      String: 'String',
+      Object: 'Object',
+      Error: 'Error',
+      Boolean: 'Boolean',
+      Variant: 'Variant',
+      Byte: 'Byte',
+      Array: 'Variant()',
     };
     return { type: 'String', value: typeNames[expression.type] ?? 'Variant' };
   });
 
   context.functionRegistry.register('VarType', (expression: VbValue): VbValue => {
     const typeMap: Record<string, number> = {
-      'Empty': 0,
-      'Null': 1,
-      'Integer': 2,
-      'Long': 3,
-      'Single': 4,
-      'Double': 5,
-      'Currency': 6,
-      'Date': 7,
-      'String': 8,
-      'Object': 9,
-      'Error': 10,
-      'Boolean': 11,
-      'Variant': 12,
-      'Byte': 17,
-      'Array': 8192,
+      Empty: 0,
+      Null: 1,
+      Integer: 2,
+      Long: 3,
+      Single: 4,
+      Double: 5,
+      Currency: 6,
+      Date: 7,
+      String: 8,
+      Object: 9,
+      Error: 10,
+      Boolean: 11,
+      Variant: 12,
+      Byte: 17,
+      Array: 8192,
     };
     return { type: 'Integer', value: typeMap[expression.type] ?? 12 };
   });
@@ -196,10 +208,14 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Boolean', value: expression.type === 'Array' };
   });
 
-  context.functionRegistry.register('Erase', (_arrayname: VbValue): VbValue => {
-    void _arrayname; // Intentionally unused - matches VBScript signature
-    return { type: 'Empty', value: undefined };
-  }, { isSub: true });
+  context.functionRegistry.register(
+    'Erase',
+    (_arrayname: VbValue): VbValue => {
+      void _arrayname; // Intentionally unused - matches VBScript signature
+      return { type: 'Empty', value: undefined };
+    },
+    { isSub: true }
+  );
 
   context.functionRegistry.register('GetObject', (_pathname?: VbValue, _cls?: VbValue): VbValue => {
     void _pathname; // Intentionally unused - matches VBScript signature
@@ -207,11 +223,14 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Object', value: null };
   });
 
-  context.functionRegistry.register('CreateObject', (cls: VbValue, _servername?: VbValue): VbValue => {
-    void _servername; // Intentionally unused - matches VBScript signature
-    const className = String(cls.value ?? cls);
-    return { type: 'Object', value: { className, properties: new Map() } };
-  });
+  context.functionRegistry.register(
+    'CreateObject',
+    (cls: VbValue, _servername?: VbValue): VbValue => {
+      void _servername; // Intentionally unused - matches VBScript signature
+      const className = String(cls.value ?? cls);
+      return { type: 'Object', value: { className, properties: new Map() } };
+    }
+  );
 
   context.functionRegistry.register('LoadPicture', (picturename: VbValue): VbValue => {
     const path = String(picturename.value ?? picturename);
@@ -242,21 +261,22 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Object', value: imageObj };
   });
 
-  context.functionRegistry.register('RGB', (red: VbValue, green: VbValue, blue: VbValue): VbValue => {
-    const r = Math.max(0, Math.min(255, Math.floor(Number(red.value ?? 0))));
-    const g = Math.max(0, Math.min(255, Math.floor(Number(green.value ?? 0))));
-    const b = Math.max(0, Math.min(255, Math.floor(Number(blue.value ?? 0))));
-    const rgbValue = r + (g * 256) + (b * 65536);
-    return { type: 'Long', value: rgbValue };
-  });
+  context.functionRegistry.register(
+    'RGB',
+    (red: VbValue, green: VbValue, blue: VbValue): VbValue => {
+      const r = Math.max(0, Math.min(255, Math.floor(Number(red.value ?? 0))));
+      const g = Math.max(0, Math.min(255, Math.floor(Number(green.value ?? 0))));
+      const b = Math.max(0, Math.min(255, Math.floor(Number(blue.value ?? 0))));
+      const rgbValue = r + g * 256 + b * 65536;
+      return { type: 'Long', value: rgbValue };
+    }
+  );
 
   context.functionRegistry.register('QBColor', (color: VbValue): VbValue => {
     const colorIndex = Math.floor(Number(color.value ?? 0));
     const colors = [
-      0x000000, 0x800000, 0x008000, 0x808000,
-      0x000080, 0x800080, 0x008080, 0xC0C0C0,
-      0x808080, 0xFF0000, 0x00FF00, 0xFFFF00,
-      0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF
+      0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080, 0x008080, 0xc0c0c0, 0x808080,
+      0xff0000, 0x00ff00, 0xffff00, 0x0000ff, 0xff00ff, 0x00ffff, 0xffffff,
     ];
     const rgbValue = colors[colorIndex] ?? 0;
     return { type: 'Long', value: rgbValue };
@@ -296,7 +316,7 @@ export function registerBuiltins(context: VbContext): void {
           func: (): VbValue => {
             context.clearError();
             return { type: 'Empty', value: undefined };
-          }
+          },
         };
       }
       if (lowerName === 'raise') {
@@ -306,13 +326,13 @@ export function registerBuiltins(context: VbContext): void {
             context.err.source = source ? String(source.value ?? '') : '';
             context.err.description = description ? String(description.value ?? '') : '';
             return { type: 'Empty', value: undefined };
-          }
+          },
         };
       }
       throw new Error(`Unknown Err method: ${name}`);
-    }
+    },
   };
-  
+
   context.globalScope.declare('Err', { type: 'Object', value: errObject });
 }
 

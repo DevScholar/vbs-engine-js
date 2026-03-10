@@ -34,7 +34,7 @@ export class ParserState {
   }
 
   get isEOF(): boolean {
-    return this.current.type === 'EOF' as TokenType;
+    return this.current.type === ('EOF' as TokenType);
   }
 
   save(): number {
@@ -61,7 +61,7 @@ export class ParserState {
   }
 
   checkIdentifier(): boolean {
-    return this.current.type === 'Identifier' as TokenType;
+    return this.current.type === ('Identifier' as TokenType);
   }
 
   checkAny(...types: TokenType[]): boolean {
@@ -69,7 +69,7 @@ export class ParserState {
   }
 
   checkNewline(): boolean {
-    return this.current.type === 'Newline' as TokenType;
+    return this.current.type === ('Newline' as TokenType);
   }
 
   match(type: TokenType): Token | null {

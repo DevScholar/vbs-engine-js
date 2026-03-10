@@ -1,4 +1,12 @@
-export type { Position, SourceLocation, BaseNode, BaseExpression, BaseStatement, BaseDeclaration, BasePattern } from './base.ts';
+export type {
+  Position,
+  SourceLocation,
+  BaseNode,
+  BaseExpression,
+  BaseStatement,
+  BaseDeclaration,
+  BasePattern,
+} from './base.ts';
 export * from './types.ts';
 
 import type { Expression, Statement } from './types.ts';

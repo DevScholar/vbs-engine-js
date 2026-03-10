@@ -22,11 +22,22 @@ import type {
   VbLongValue,
 } from '../runtime/index.ts';
 import { VbContext, VbObjectInstance } from '../runtime/index.ts';
-import { createVbValue, VbEmpty, VbNull, toBoolean, toNumber, toString, createVbError, VbErrorCodes } from '../runtime/index.ts';
+import {
+  createVbValue,
+  VbEmpty,
+  VbNull,
+  toBoolean,
+  toNumber,
+  toString,
+  createVbError,
+  VbErrorCodes,
+} from '../runtime/index.ts';
 
 interface VbMethodObject {
   type: 'method';
-  object: VbObjectValueData & { getMethod: (name: string) => { func: (...args: VbValue[]) => VbValue } };
+  object: VbObjectValueData & {
+    getMethod: (name: string) => { func: (...args: VbValue[]) => VbValue };
+  };
   method: string;
 }
 
@@ -40,7 +51,9 @@ function isVbMethodObject(obj: VbObjectValueData): obj is VbObjectValueData & Vb
   return obj.type === 'method' && 'object' in obj && 'method' in obj;
 }
 
-function isVbJsFunctionObject(obj: VbObjectValueData): obj is VbObjectValueData & VbJsFunctionObject {
+function isVbJsFunctionObject(
+  obj: VbObjectValueData
+): obj is VbObjectValueData & VbJsFunctionObject {
   return obj.type === 'jsfunction' && 'func' in obj;
 }
 
@@ -185,7 +198,14 @@ export class ExpressionEvaluator {
       return { type: 'Empty', value: undefined };
     }
     if (typeof jsValue === 'function') {
-      return { type: 'Object', value: { type: 'jsfunction', func: jsValue as (...args: unknown[]) => unknown, thisArg: obj } };
+      return {
+        type: 'Object',
+        value: {
+          type: 'jsfunction',
+          func: jsValue as (...args: unknown[]) => unknown,
+          thisArg: obj,
+        },
+      };
     }
     return this.jsToVb(jsValue);
   }
@@ -218,7 +238,7 @@ export class ExpressionEvaluator {
       if (this.context.functionRegistry.has(name)) {
         const funcInfo = this.context.functionRegistry.get(name)!;
         const hasByRefParams = funcInfo.params.some(p => p.byRef);
-        
+
         if (hasByRefParams) {
           const argRefs = callArgs.map(arg => {
             if (arg.type === 'Identifier') {
@@ -233,14 +253,14 @@ export class ExpressionEvaluator {
                   } else {
                     this.context.setVariable(varName, val);
                   }
-                }
+                },
               };
             }
             return { value: this.evaluate(arg) };
           });
           return this.context.functionRegistry.callWithRefs(name, argRefs);
         }
-        
+
         const args = callArgs.map(arg => this.evaluate(arg));
         return this.context.functionRegistry.call(name, args);
       }
@@ -379,7 +399,10 @@ export class ExpressionEvaluator {
       case '&':
         return { type: 'String', value: toString(left) + toString(right) };
       case 'Is':
-        return { type: 'Boolean', value: left.type === 'Object' && right.type === 'Object' && left.value === right.value };
+        return {
+          type: 'Boolean',
+          value: left.type === 'Object' && right.type === 'Object' && left.value === right.value,
+        };
       default:
         return VbEmpty;
     }
@@ -471,7 +494,10 @@ export class ExpressionEvaluator {
       return { type: 'Boolean', value: left.value === right.value };
     }
     if (left.type === 'String' || right.type === 'String') {
-      return { type: 'Boolean', value: toString(left).toLowerCase() === toString(right).toLowerCase() };
+      return {
+        type: 'Boolean',
+        value: toString(left).toLowerCase() === toString(right).toLowerCase(),
+      };
     }
     return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
   }

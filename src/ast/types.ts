@@ -1,4 +1,10 @@
-import type { BaseExpression, BaseNode, BasePattern, BaseStatement, BaseDeclaration } from './base.ts';
+import type {
+  BaseExpression,
+  BaseNode,
+  BasePattern,
+  BaseStatement,
+  BaseDeclaration,
+} from './base.ts';
 
 export interface Identifier extends BaseNode {
   type: 'Identifier';
@@ -638,6 +644,22 @@ export type Statement =
   | VbGotoStatement
   | VbLabelStatement;
 
-export type Declaration = VariableDeclaration | VbSubStatement | VbFunctionStatement | VbClassStatement;
+export type Declaration =
+  | VariableDeclaration
+  | VbSubStatement
+  | VbFunctionStatement
+  | VbClassStatement;
 
-export type VbNode = Expression | Statement | VbParameter | VbVariableDeclarator | VbConstDeclarator | VbTypeAnnotation | VbCaseClause | Property | VariableDeclarator | SwitchCase | CatchClause | Pattern;
+export type VbNode =
+  | Expression
+  | Statement
+  | VbParameter
+  | VbVariableDeclarator
+  | VbConstDeclarator
+  | VbTypeAnnotation
+  | VbCaseClause
+  | Property
+  | VariableDeclarator
+  | SwitchCase
+  | CatchClause
+  | Pattern;

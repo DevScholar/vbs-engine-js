@@ -5,14 +5,14 @@ import { getCurrentBCP47Locale } from './locale.ts';
 function formatDate(value: Date, format: string): string {
   const result: string[] = [];
   let i = 0;
-  
+
   while (i < format.length) {
     const char = format[i]!.toLowerCase();
     let count = 1;
     while (i + count < format.length && format[i + count]!.toLowerCase() === char) {
       count++;
     }
-    
+
     switch (char) {
       case 'y':
         if (count >= 4) {
@@ -27,10 +27,36 @@ function formatDate(value: Date, format: string): string {
         break;
       case 'm':
         if (count >= 4) {
-          const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          const months: string[] = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+          ];
           result.push(months[value.getMonth()]!);
         } else if (count === 3) {
-          const months: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const months: string[] = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ];
           result.push(months[value.getMonth()]!);
         } else if (count === 2) {
           result.push((value.getMonth() + 1).toString().padStart(2, '0'));
@@ -40,7 +66,15 @@ function formatDate(value: Date, format: string): string {
         break;
       case 'd':
         if (count >= 4) {
-          const days: string[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const days: string[] = [
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+          ];
           result.push(days[value.getDay()]!);
         } else if (count === 3) {
           const days: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -90,7 +124,7 @@ function formatDate(value: Date, format: string): string {
     }
     i += count;
   }
-  
+
   return result.join('');
 }
 
@@ -98,7 +132,7 @@ function formatNumber(value: number, format: string): string {
   let positiveFormat = format;
   let negativeFormat = '';
   let zeroFormat = '';
-  
+
   const semicolonIndex = format.indexOf(';');
   if (semicolonIndex !== -1) {
     positiveFormat = format.substring(0, semicolonIndex);
@@ -111,19 +145,19 @@ function formatNumber(value: number, format: string): string {
       negativeFormat = remaining;
     }
   }
-  
+
   if (value === 0 && zeroFormat) {
     return formatNumberInternal(0, zeroFormat);
   }
-  
+
   if (value < 0 && negativeFormat) {
     return formatNumberInternal(Math.abs(value), negativeFormat);
   }
-  
+
   if (value < 0) {
     return '-' + formatNumberInternal(Math.abs(value), positiveFormat);
   }
-  
+
   return formatNumberInternal(value, positiveFormat);
 }
 
@@ -136,7 +170,7 @@ function formatNumberInternal(value: number, format: string): string {
   const formatLower = format.toLowerCase();
   const decimalPos = formatLower.indexOf('.');
   let decimalDigits = 0;
-  
+
   if (decimalPos !== -1) {
     let i = decimalPos + 1;
     while (i < format.length && (format[i] === '0' || format[i] === '#')) {
@@ -144,33 +178,34 @@ function formatNumberInternal(value: number, format: string): string {
       i++;
     }
   }
-  
+
   let intPart = Math.floor(Math.abs(value));
-  let decPart = decimalDigits > 0 ? Math.round((Math.abs(value) - intPart) * Math.pow(10, decimalDigits)) : 0;
-  
+  let decPart =
+    decimalDigits > 0 ? Math.round((Math.abs(value) - intPart) * Math.pow(10, decimalDigits)) : 0;
+
   if (decPart >= Math.pow(10, decimalDigits)) {
     intPart++;
     decPart = 0;
   }
-  
+
   let intStr = intPart.toString();
-  
+
   const commaPos = formatLower.indexOf(',');
   if (commaPos !== -1) {
     intStr = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
-  
+
   let result = intStr;
-  
+
   if (decimalDigits > 0) {
     const decStr = decPart.toString().padStart(decimalDigits, '0');
     result += '.' + decStr;
   }
-  
+
   if (hasPercent) {
     result += '%';
   }
-  
+
   return result;
 }
 
@@ -212,12 +247,17 @@ export const stringFunctions = {
     return { type: 'String', value: s.substring(startPos) };
   },
 
-  InStr: (startOrStr: VbValue, str1OrStr2?: VbValue, str2OrCompare?: VbValue, compare?: VbValue): VbValue => {
+  InStr: (
+    startOrStr: VbValue,
+    str1OrStr2?: VbValue,
+    str2OrCompare?: VbValue,
+    compare?: VbValue
+  ): VbValue => {
     let start = 1;
     let str1: string;
     let str2: string;
     let compareMode = 0;
-    
+
     if (str1OrStr2 === undefined) {
       str1 = '';
       str2 = toString(startOrStr);
@@ -232,7 +272,7 @@ export const stringFunctions = {
         compareMode = Math.floor(toNumber(compare));
       }
     }
-    
+
     let index: number;
     if (compareMode === 0) {
       index = str1.indexOf(str2, start - 1);
@@ -247,7 +287,7 @@ export const stringFunctions = {
     const s2 = toString(str2);
     const startPos = start ? Math.floor(toNumber(start)) : s1.length;
     const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
-    
+
     let index: number;
     if (compareMode === 0) {
       index = s1.lastIndexOf(s2, startPos - 1);
@@ -277,20 +317,27 @@ export const stringFunctions = {
     return { type: 'String', value: toString(str).trim() };
   },
 
-  Replace: (str: VbValue, find: VbValue, replace: VbValue, start?: VbValue, count?: VbValue, compare?: VbValue): VbValue => {
+  Replace: (
+    str: VbValue,
+    find: VbValue,
+    replace: VbValue,
+    start?: VbValue,
+    count?: VbValue,
+    compare?: VbValue
+  ): VbValue => {
     const s = toString(str);
     const findStr = toString(find);
     const replaceStr = toString(replace);
     const startPos = start ? Math.max(1, Math.floor(toNumber(start))) - 1 : 0;
     const maxCount = count ? Math.floor(toNumber(count)) : -1;
     const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
-    
+
     let result = '';
     let replaced = 0;
     let i = startPos;
     const searchStr = compareMode === 0 ? s : s.toLowerCase();
     const searchFind = compareMode === 0 ? findStr : findStr.toLowerCase();
-    
+
     while (i < s.length) {
       if (maxCount !== -1 && replaced >= maxCount) {
         result += s.substring(i);
@@ -305,7 +352,7 @@ export const stringFunctions = {
         i++;
       }
     }
-    
+
     return { type: 'String', value: result };
   },
 
@@ -349,7 +396,7 @@ export const stringFunctions = {
     const s1 = toString(str1);
     const s2 = toString(str2);
     const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
-    
+
     let result: number;
     if (compareMode === 1) {
       result = s1.toLowerCase().localeCompare(s2.toLowerCase());
@@ -367,7 +414,7 @@ export const stringFunctions = {
     const s = toString(str);
     const delim = delimiter ? toString(delimiter) : ' ';
     const maxCount = count ? Math.floor(toNumber(count)) : -1;
-    
+
     const parts = s.split(delim);
     let resultParts: string[];
     if (maxCount > 0 && parts.length > maxCount) {
@@ -376,8 +423,10 @@ export const stringFunctions = {
     } else {
       resultParts = parts;
     }
-    
-    const vbArray = createVbArrayFromValues(resultParts.map(p => ({ type: 'String', value: p } as VbValue)));
+
+    const vbArray = createVbArrayFromValues(
+      resultParts.map(p => ({ type: 'String', value: p }) as VbValue)
+    );
     return { type: 'Array', value: vbArray };
   },
 
@@ -387,7 +436,13 @@ export const stringFunctions = {
       const arr = list.value;
       if (typeof arr === 'object' && arr !== null && 'toArray' in arr) {
         const vbArray = arr as { toArray: () => VbValue[] };
-        return { type: 'String', value: vbArray.toArray().map(v => toString(v)).join(delim) };
+        return {
+          type: 'String',
+          value: vbArray
+            .toArray()
+            .map(v => toString(v))
+            .join(delim),
+        };
       }
       const plainArr = arr as VbValue[];
       return { type: 'String', value: plainArr.map(v => toString(v)).join(delim) };
@@ -399,51 +454,51 @@ export const stringFunctions = {
     if (expression.type === 'Empty' || expression.type === 'Null') {
       return { type: 'String', value: '' };
     }
-    
+
     const formatStr = format ? toString(format) : '';
-    
+
     if (!formatStr) {
       return { type: 'String', value: toString(expression) };
     }
-    
+
     if (expression.type === 'Date' && expression.value instanceof Date) {
       return { type: 'String', value: formatDate(expression.value, formatStr) };
     }
-    
+
     if (expression.type === 'Boolean') {
       return { type: 'String', value: expression.value ? 'True' : 'False' };
     }
-    
+
     if (['Integer', 'Long', 'Single', 'Double', 'Currency', 'Byte'].includes(expression.type)) {
       return { type: 'String', value: formatNumber(toNumber(expression), formatStr) };
     }
-    
+
     if (expression.type === 'String') {
       return { type: 'String', value: formatString(toString(expression), formatStr) };
     }
-    
+
     return { type: 'String', value: toString(expression) };
   },
 
   LSet: (string: VbValue, length: VbValue): VbValue => {
     const str = toString(string);
     const len = Math.max(0, Math.floor(toNumber(length)));
-    
+
     if (str.length >= len) {
       return { type: 'String', value: str.substring(0, len) };
     }
-    
+
     return { type: 'String', value: str.padEnd(len, ' ') };
   },
 
   RSet: (string: VbValue, length: VbValue): VbValue => {
     const str = toString(string);
     const len = Math.max(0, Math.floor(toNumber(length)));
-    
+
     if (str.length >= len) {
       return { type: 'String', value: str.substring(0, len) };
     }
-    
+
     return { type: 'String', value: str.padStart(len, ' ') };
   },
 };

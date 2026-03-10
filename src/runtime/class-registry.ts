@@ -89,9 +89,10 @@ export class VbObjectInstance {
 
   hasProperty(name: string): boolean {
     const lowerName = name.toLowerCase();
-    const has = this.properties.has(lowerName) || 
-           this.propertyAccessors.has(lowerName) ||
-           (this.prototype?.hasProperty(name) ?? false);
+    const has =
+      this.properties.has(lowerName) ||
+      this.propertyAccessors.has(lowerName) ||
+      (this.prototype?.hasProperty(name) ?? false);
     return has;
   }
 

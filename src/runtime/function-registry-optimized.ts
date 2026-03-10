@@ -1,6 +1,6 @@
 /**
  * Optimized Function Registry with String Interning and Fast Path
- * 
+ *
  * Performance improvements:
  * 1. String interning for function names
  * 2. Direct function reference cache for hot functions
@@ -47,18 +47,22 @@ interface HotFunctionEntry {
 
 export class VbFunctionRegistry {
   private functions: Map<string, VbFunctionInfo> = new Map();
-  
+
   // Hot function cache for frequently called functions
   private hotFunctions: Map<string, HotFunctionEntry> = new Map();
   private readonly HOT_FUNCTION_THRESHOLD = 5;
-  
+
   // Fast path for common built-in functions
   private fastPathFunctions: Map<string, VbFunction> = new Map();
 
   /**
    * Register a function with string interning for the name.
    */
-  register(name: string, func: VbFunction | VbSub | VbUserFunction, options: Partial<VbFunctionInfo> = {}): void {
+  register(
+    name: string,
+    func: VbFunction | VbSub | VbUserFunction,
+    options: Partial<VbFunctionInfo> = {}
+  ): void {
     const internedName = globalStringInterner.intern(name);
     const funcInfo: VbFunctionInfo = {
       name,
@@ -69,9 +73,9 @@ export class VbFunctionRegistry {
       params: options.params ?? [],
       isUserDefined: options.isUserDefined ?? false,
     };
-    
+
     this.functions.set(internedName, funcInfo);
-    
+
     // Add to fast path if it's a simple built-in function
     if (!funcInfo.isUserDefined && !funcInfo.isSub && funcInfo.minArgs === funcInfo.maxArgs) {
       this.fastPathFunctions.set(internedName, func as VbFunction);
@@ -99,20 +103,20 @@ export class VbFunctionRegistry {
    */
   call(name: string, args: VbValue[]): VbValue {
     const internedName = globalStringInterner.intern(name);
-    
+
     // Try fast path for simple built-in functions
     const fastFunc = this.fastPathFunctions.get(internedName);
     if (fastFunc !== undefined) {
       return fastFunc(...args) ?? VbEmpty;
     }
-    
+
     // Check hot function cache
     const hotEntry = this.hotFunctions.get(internedName);
     if (hotEntry !== undefined) {
       hotEntry.callCount++;
       return this.executeFunction(hotEntry.info, args);
     }
-    
+
     // Standard lookup
     const info = this.functions.get(internedName);
     if (!info) {
@@ -145,7 +149,7 @@ export class VbFunctionRegistry {
     } else {
       result = (info.func as VbFunction)(...args);
     }
-    
+
     if (info.isSub) {
       return VbEmpty;
     }
@@ -158,7 +162,7 @@ export class VbFunctionRegistry {
    */
   callWithRefs(name: string, args: VbArgumentRef[]): VbValue {
     const internedName = globalStringInterner.intern(name);
-    
+
     const info = this.functions.get(internedName);
     if (!info) {
       throw new Error(`Undefined function or sub: ${name}`);
@@ -173,7 +177,7 @@ export class VbFunctionRegistry {
     }
 
     const values = args.map(arg => arg.value);
-    
+
     let result: VbValue;
     if (info.isUserDefined) {
       result = (info.func as VbUserFunction)(values);
@@ -188,7 +192,7 @@ export class VbFunctionRegistry {
         arg.setValue(values[i]!);
       }
     }
-    
+
     if (info.isSub) {
       return VbEmpty;
     }

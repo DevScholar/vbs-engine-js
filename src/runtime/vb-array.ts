@@ -9,14 +9,16 @@ export class VbArray {
   constructor(dimensions: number[], lowerBounds?: number[]) {
     this.dimensions = dimensions;
     this.lowerBounds = lowerBounds ?? dimensions.map(() => 0);
-    
+
     const totalSize = dimensions.reduce((a, b) => a * b, 1);
     this.data = new Array(totalSize).fill(VbEmpty);
   }
 
   private getIndex(indices: number[]): number {
     if (indices.length !== this.dimensions.length) {
-      throw new Error(`Array has ${this.dimensions.length} dimension(s), but ${indices.length} index(es) provided`);
+      throw new Error(
+        `Array has ${this.dimensions.length} dimension(s), but ${indices.length} index(es) provided`
+      );
     }
 
     let index = 0;
@@ -63,7 +65,7 @@ export class VbArray {
 
   redim(dimensions: number[], preserve: boolean): void {
     const newData = new Array(dimensions.reduce((a, b) => a * b, 1)).fill(VbEmpty);
-    
+
     if (preserve) {
       const minSize = Math.min(this.data.length, newData.length);
       for (let i = 0; i < minSize; i++) {

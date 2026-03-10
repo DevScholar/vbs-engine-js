@@ -181,20 +181,22 @@ export class DeclarationParser {
     let typeName = '';
     let isArray = false;
 
-    if (this.state.checkAny(
-      TokenType.Integer,
-      TokenType.Long,
-      TokenType.Single,
-      TokenType.Double,
-      TokenType.Currency,
-      TokenType.String,
-      TokenType.Boolean,
-      TokenType.Date,
-      TokenType.Object,
-      TokenType.Variant,
-      TokenType.Byte,
-      TokenType.Identifier
-    )) {
+    if (
+      this.state.checkAny(
+        TokenType.Integer,
+        TokenType.Long,
+        TokenType.Single,
+        TokenType.Double,
+        TokenType.Currency,
+        TokenType.String,
+        TokenType.Boolean,
+        TokenType.Date,
+        TokenType.Object,
+        TokenType.Variant,
+        TokenType.Byte,
+        TokenType.Identifier
+      )
+    ) {
       typeName = this.state.advance().value;
     }
 

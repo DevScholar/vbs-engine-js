@@ -82,34 +82,46 @@ export const conversionFunctions = {
     return { type: 'String', value: str };
   },
 
-  FormatNumber: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatNumber: (
+    expression: VbValue,
+    numDigitsAfterDecimal?: VbValue,
+    includeLeadingDigit?: VbValue,
+    _useParensForNegativeNumbers?: VbValue,
+    groupDigits?: VbValue
+  ): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const grouping = groupDigits ? toNumber(groupDigits) : -2;
-    
+
     const options: Intl.NumberFormatOptions = {
       minimumFractionDigits: decimals >= 0 ? decimals : undefined,
       maximumFractionDigits: decimals >= 0 ? decimals : undefined,
       useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    
+
     if (leadingDigit === -1) {
       options.minimumIntegerDigits = 1;
     } else if (leadingDigit === 0) {
       options.minimumIntegerDigits = 2;
     }
-    
+
     const locale = getCurrentBCP47Locale();
     return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
-  FormatCurrency: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatCurrency: (
+    expression: VbValue,
+    numDigitsAfterDecimal?: VbValue,
+    includeLeadingDigit?: VbValue,
+    _useParensForNegativeNumbers?: VbValue,
+    groupDigits?: VbValue
+  ): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const grouping = groupDigits ? toNumber(groupDigits) : -2;
-    
+
     const options: Intl.NumberFormatOptions = {
       style: 'currency',
       currency: getCurrentCurrency(),
@@ -117,36 +129,42 @@ export const conversionFunctions = {
       maximumFractionDigits: decimals >= 0 ? decimals : 2,
       useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    
+
     if (leadingDigit === -1) {
       options.minimumIntegerDigits = 1;
     } else if (leadingDigit === 0) {
       options.minimumIntegerDigits = 2;
     }
-    
+
     const locale = getCurrentBCP47Locale();
     return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
-  FormatPercent: (expression: VbValue, numDigitsAfterDecimal?: VbValue, includeLeadingDigit?: VbValue, _useParensForNegativeNumbers?: VbValue, groupDigits?: VbValue): VbValue => {
+  FormatPercent: (
+    expression: VbValue,
+    numDigitsAfterDecimal?: VbValue,
+    includeLeadingDigit?: VbValue,
+    _useParensForNegativeNumbers?: VbValue,
+    groupDigits?: VbValue
+  ): VbValue => {
     const num = toNumber(expression);
     const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const grouping = groupDigits ? toNumber(groupDigits) : -2;
-    
+
     const options: Intl.NumberFormatOptions = {
       style: 'percent',
       minimumFractionDigits: decimals >= 0 ? decimals : undefined,
       maximumFractionDigits: decimals >= 0 ? decimals : undefined,
       useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
     };
-    
+
     if (leadingDigit === -1) {
       options.minimumIntegerDigits = 1;
     } else if (leadingDigit === 0) {
       options.minimumIntegerDigits = 2;
     }
-    
+
     const locale = getCurrentBCP47Locale();
     return { type: 'String', value: num.toLocaleString(locale, options) };
   },
@@ -155,14 +173,19 @@ export const conversionFunctions = {
     const d = date.type === 'Date' ? (date.value as Date) : new Date(toString(date));
     const format = namedFormat ? Math.floor(toNumber(namedFormat)) : 0;
     const locale = getCurrentBCP47Locale();
-    
+
     let result: string;
     switch (format) {
       case 0:
         result = d.toLocaleString(locale);
         break;
       case 1:
-        result = d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        result = d.toLocaleDateString(locale, {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
         break;
       case 2:
         result = d.toLocaleDateString(locale);
@@ -176,7 +199,7 @@ export const conversionFunctions = {
       default:
         result = d.toLocaleString();
     }
-    
+
     return { type: 'String', value: result };
   },
 
@@ -225,42 +248,42 @@ export const inspectionFunctions = {
 
   VarType: (expression: VbValue): VbValue => {
     const typeMap: Record<string, number> = {
-      'Empty': 0,
-      'Null': 1,
-      'Integer': 2,
-      'Long': 3,
-      'Single': 4,
-      'Double': 5,
-      'Currency': 6,
-      'Date': 7,
-      'String': 8,
-      'Object': 9,
-      'Error': 10,
-      'Boolean': 11,
-      'Variant': 12,
-      'Byte': 17,
-      'Array': 8192,
+      Empty: 0,
+      Null: 1,
+      Integer: 2,
+      Long: 3,
+      Single: 4,
+      Double: 5,
+      Currency: 6,
+      Date: 7,
+      String: 8,
+      Object: 9,
+      Error: 10,
+      Boolean: 11,
+      Variant: 12,
+      Byte: 17,
+      Array: 8192,
     };
     return { type: 'Integer', value: typeMap[expression.type] ?? 12 };
   },
 
   TypeName: (expression: VbValue): VbValue => {
     const typeNames: Record<string, string> = {
-      'Empty': 'Empty',
-      'Null': 'Null',
-      'Integer': 'Integer',
-      'Long': 'Long',
-      'Single': 'Single',
-      'Double': 'Double',
-      'Currency': 'Currency',
-      'Date': 'Date',
-      'String': 'String',
-      'Object': 'Object',
-      'Error': 'Error',
-      'Boolean': 'Boolean',
-      'Variant': 'Variant',
-      'Byte': 'Byte',
-      'Array': 'Variant()',
+      Empty: 'Empty',
+      Null: 'Null',
+      Integer: 'Integer',
+      Long: 'Long',
+      Single: 'Single',
+      Double: 'Double',
+      Currency: 'Currency',
+      Date: 'Date',
+      String: 'String',
+      Object: 'Object',
+      Error: 'Error',
+      Boolean: 'Boolean',
+      Variant: 'Variant',
+      Byte: 'Byte',
+      Array: 'Variant()',
     };
     return { type: 'String', value: typeNames[expression.type] ?? 'Variant' };
   },

@@ -4,25 +4,32 @@ export function createObject(cls: VbValue, _servername?: VbValue): VbValue {
   void _servername; // Intentionally unused - matches VBScript signature
   const className = String(cls.value ?? cls);
 
-  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown })
+    .ActiveXObject;
   if (axConstructor) {
     try {
       const ax = new axConstructor(className);
-      return { type: 'Object', value: {
-        type: 'activex',
-        object: ax,
-        className
-      }};
+      return {
+        type: 'Object',
+        value: {
+          type: 'activex',
+          object: ax,
+          className,
+        },
+      };
     } catch {
       throw new Error(`ActiveX component can't create object: '${className}'`);
     }
   }
 
-  throw new Error(`ActiveXObject is not supported in this browser environment. Cannot create: '${className}'`);
+  throw new Error(
+    `ActiveXObject is not supported in this browser environment. Cannot create: '${className}'`
+  );
 }
 
 export function getObject(pathname?: VbValue, cls?: VbValue): VbValue {
-  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+  const axConstructor = (window as unknown as { ActiveXObject?: new (cls: string) => unknown })
+    .ActiveXObject;
   if (axConstructor) {
     const path = pathname ? String(pathname.value ?? pathname) : '';
     const className = cls ? String(cls.value ?? cls) : '';
@@ -30,11 +37,14 @@ export function getObject(pathname?: VbValue, cls?: VbValue): VbValue {
     try {
       if (path) {
         const ax = new axConstructor(className || 'Scripting.FileSystemObject');
-        return { type: 'Object', value: {
-          type: 'activex',
-          object: ax,
-          className
-        }};
+        return {
+          type: 'Object',
+          value: {
+            type: 'activex',
+            object: ax,
+            className,
+          },
+        };
       }
     } catch {
       throw new Error(`ActiveX component can't create object: '${className || path}'`);
@@ -42,5 +52,7 @@ export function getObject(pathname?: VbValue, cls?: VbValue): VbValue {
   }
 
   const className = cls ? String(cls.value ?? cls) : '';
-  throw new Error(`ActiveXObject is not supported in this browser environment. Cannot get: '${className}'`);
+  throw new Error(
+    `ActiveXObject is not supported in this browser environment. Cannot get: '${className}'`
+  );
 }

@@ -73,7 +73,7 @@ function createSubMatchesObject(subMatches: string[]): VbValue {
 
 function createMatchesCollection(matches: VbMatch[]): VbValue {
   const matchObjects = matches.map(createMatchObject);
-  
+
   return {
     type: 'Object',
     value: {
@@ -157,7 +157,7 @@ function createRegExpObject(state: VbRegExpState): VbValue {
       },
       getMethod: (name: string): { func: (...args: VbValue[]) => VbValue } => {
         const lowerName = name.toLowerCase();
-        
+
         if (lowerName === 'test') {
           return {
             func: (sourceString: VbValue): VbValue => {
@@ -176,7 +176,7 @@ function createRegExpObject(state: VbRegExpState): VbValue {
             },
           };
         }
-        
+
         if (lowerName === 'execute') {
           return {
             func: (sourceString: VbValue): VbValue => {
@@ -185,11 +185,14 @@ function createRegExpObject(state: VbRegExpState): VbValue {
                 return createMatchesCollection([]);
               }
               try {
-                const flags = (state.ignoreCase ? 'i' : '') + (state.multiline ? 'm' : '') + (state.global ? 'g' : '');
+                const flags =
+                  (state.ignoreCase ? 'i' : '') +
+                  (state.multiline ? 'm' : '') +
+                  (state.global ? 'g' : '');
                 const regex = new RegExp(state.pattern, flags);
                 const matches: VbMatch[] = [];
                 let match;
-                
+
                 while ((match = regex.exec(source)) !== null) {
                   matches.push({
                     firstIndex: match.index,
@@ -197,12 +200,12 @@ function createRegExpObject(state: VbRegExpState): VbValue {
                     value: match[0],
                     subMatches: match.slice(1).map(m => m ?? ''),
                   });
-                  
+
                   if (!state.global) {
                     break;
                   }
                 }
-                
+
                 return createMatchesCollection(matches);
               } catch {
                 return createMatchesCollection([]);
@@ -210,7 +213,7 @@ function createRegExpObject(state: VbRegExpState): VbValue {
             },
           };
         }
-        
+
         if (lowerName === 'replace') {
           return {
             func: (sourceString: VbValue, replaceString: VbValue): VbValue => {
@@ -220,7 +223,10 @@ function createRegExpObject(state: VbRegExpState): VbValue {
                 return { type: 'String', value: source };
               }
               try {
-                const flags = (state.ignoreCase ? 'i' : '') + (state.multiline ? 'm' : '') + (state.global ? 'g' : '');
+                const flags =
+                  (state.ignoreCase ? 'i' : '') +
+                  (state.multiline ? 'm' : '') +
+                  (state.global ? 'g' : '');
                 const regex = new RegExp(state.pattern, flags);
                 const result = source.replace(regex, replace);
                 return { type: 'String', value: result };
@@ -230,14 +236,14 @@ function createRegExpObject(state: VbRegExpState): VbValue {
             },
           };
         }
-        
+
         throw new Error(`Unknown RegExp method: ${name}`);
       },
     },
   };
 }
 
-export function registerRegExp(context: { 
+export function registerRegExp(context: {
   functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void };
   classRegistry: { registerClass: (name: string, creator: () => VbValue) => void };
 }): void {
@@ -249,7 +255,7 @@ export function registerRegExp(context: {
       multiline: false,
     });
   });
-  
+
   context.functionRegistry.register('RegExp', (): VbValue => {
     return createRegExpObject({
       pattern: '',

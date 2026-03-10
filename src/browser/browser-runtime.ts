@@ -8,7 +8,12 @@ import { overrideEval, restoreEval } from './eval-override.ts';
 import { setupVbscriptProtocol, cleanupVbscriptProtocol } from './protocol-handler.ts';
 import { createObject, getObject } from './activex.ts';
 import { autoRunScripts } from './script-parser.ts';
-import { setupInlineEventHandlers, setupNamedEventHandlers, cleanupNamedEventHandlers, type BoundNamedHandler } from './event-handlers.ts';
+import {
+  setupInlineEventHandlers,
+  setupNamedEventHandlers,
+  cleanupNamedEventHandlers,
+  type BoundNamedHandler,
+} from './event-handlers.ts';
 import { startObserver, stopObserver, type ObserverContext } from './dom-observer.ts';
 import { VBArray } from '../runtime/vbarray-wrapper.ts';
 

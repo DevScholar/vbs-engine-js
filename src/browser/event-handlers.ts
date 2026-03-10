@@ -115,7 +115,9 @@ export function setupNamedEventHandlers(
   }
 }
 
-export function cleanupNamedEventHandlers(boundNamedHandlers: Map<string, BoundNamedHandler>): void {
+export function cleanupNamedEventHandlers(
+  boundNamedHandlers: Map<string, BoundNamedHandler>
+): void {
   boundNamedHandlers.forEach(({ target, handler }, funcName) => {
     const onIndex = funcName.toLowerCase().indexOf('_on');
     if (onIndex > 0) {

@@ -1,6 +1,6 @@
 /**
  * String Interning Pool for VBScript
- * 
+ *
  * VBScript is case-insensitive, so we need to normalize strings.
  * This module provides a string interning pool to:
  * 1. Avoid repeated toLowerCase() calls

@@ -573,10 +573,10 @@ result = arr(0)
       const engine = new VbsEngine();
       engine.executeStatement('Dim arr(5)');
       engine.executeStatement('arr(0) = 100');
-      
+
       // Erase the array
       engine.executeStatement('Erase arr');
-      
+
       // After Erase, value should be cleared
       engine.executeStatement('result = arr(0)');
       const result = engine._getVariable('result');
@@ -909,7 +909,7 @@ result = obj.Value
       const engine = new VbsEngine();
       const myObj = {
         getValue: () => 100,
-        name: 'test'
+        name: 'test',
       };
       engine.addObject('myObj', myObj, true);
       engine.executeStatement('result = myObj.getValue()');

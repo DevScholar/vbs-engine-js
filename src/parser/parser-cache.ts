@@ -1,6 +1,6 @@
 /**
  * Parser Cache - LRU Cache for Parsed AST
- * 
+ *
  * Performance improvements:
  * 1. Avoid re-parsing the same code multiple times
  * 2. LRU eviction policy to limit memory usage
@@ -32,7 +32,7 @@ export class ParserCache {
   private hashSource(source: string): string {
     let hash = 5381;
     for (let i = 0; i < source.length; i++) {
-      hash = ((hash << 5) + hash) + source.charCodeAt(i)!;
+      hash = (hash << 5) + hash + source.charCodeAt(i)!;
     }
     return hash.toString(36);
   }
@@ -44,7 +44,7 @@ export class ParserCache {
   get(source: string): Program | undefined {
     const key = this.hashSource(source);
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return undefined;
     }
@@ -59,7 +59,7 @@ export class ParserCache {
     // Update access stats
     entry.lastAccessed = now;
     entry.accessCount++;
-    
+
     return entry.ast;
   }
 
@@ -74,7 +74,7 @@ export class ParserCache {
 
     const key = this.hashSource(source);
     const now = Date.now();
-    
+
     this.cache.set(key, {
       ast,
       lastAccessed: now,
@@ -88,7 +88,7 @@ export class ParserCache {
   has(source: string): boolean {
     const key = this.hashSource(source);
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return false;
     }
@@ -176,10 +176,7 @@ export const globalParserCache = new ParserCache();
  * Cached parse function that wraps the original parser.
  * Use this instead of the original parse() for better performance.
  */
-export function parseWithCache(
-  source: string,
-  parseFn: (source: string) => Program
-): Program {
+export function parseWithCache(source: string, parseFn: (source: string) => Program): Program {
   // Try to get from cache
   const cached = globalParserCache.get(source);
   if (cached) {

@@ -19,11 +19,15 @@ export class StatementParser {
   constructor(state: ParserState) {
     this.state = state;
     this.exprParser = new ExpressionParser(state);
-    
+
     this.declarationParser = new DeclarationParser(state, this.exprParser);
     this.procedureParser = new ProcedureParser(state, this.exprParser, () => this.parseStatement());
-    this.controlFlowParser = new ControlFlowParser(state, this.exprParser, () => this.parseStatement());
-    this.statementsParser = new StatementsParser(state, this.exprParser, () => this.parseStatement());
+    this.controlFlowParser = new ControlFlowParser(state, this.exprParser, () =>
+      this.parseStatement()
+    );
+    this.statementsParser = new StatementsParser(state, this.exprParser, () =>
+      this.parseStatement()
+    );
   }
 
   parseStatement(): Statement {
@@ -82,7 +86,7 @@ export class StatementParser {
         this.state.advance();
         return this.parseStatement();
       default:
-        if (this.state.checkIdentifier() && this.state.peek(1).type === 'Colon' as TokenType) {
+        if (this.state.checkIdentifier() && this.state.peek(1).type === ('Colon' as TokenType)) {
           return this.parseLabelStatement();
         }
         return this.statementsParser.parseExpressionStatement();
@@ -92,7 +96,7 @@ export class StatementParser {
   private parseGotoStatement(): VbGotoStatement {
     const gotoToken = this.state.advance();
     const label = this.exprParser.parseIdentifier();
-    
+
     return {
       type: 'VbGotoStatement',
       label,
@@ -103,7 +107,7 @@ export class StatementParser {
   private parseLabelStatement(): VbLabelStatement {
     const labelToken = this.state.advance();
     this.state.expect('Colon' as TokenType);
-    
+
     return {
       type: 'VbLabelStatement',
       label: {
@@ -124,7 +128,7 @@ export class StatementParser {
     }
 
     if (this.state.check('Const' as TokenType)) {
-      return visibility === 'public' 
+      return visibility === 'public'
         ? this.declarationParser.parsePublicConstStatement()
         : this.declarationParser.parsePrivateConstStatement();
     }

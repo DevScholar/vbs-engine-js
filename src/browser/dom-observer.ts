@@ -13,13 +13,17 @@ export function startObserver(
   options: Required<BrowserRuntimeOptions>,
   boundNamedHandlers: Map<string, BoundNamedHandler>
 ): ObserverContext {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      mutation.addedNodes.forEach((node) => {
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element;
 
-          if (options.parseScriptElement && element.tagName.toLowerCase() === 'script' && isVbscriptElement(element)) {
+          if (
+            options.parseScriptElement &&
+            element.tagName.toLowerCase() === 'script' &&
+            isVbscriptElement(element)
+          ) {
             const code = element.textContent ?? '';
             const forAttr = element.getAttribute('for');
             const eventAttr = element.getAttribute('event');
