@@ -37,9 +37,9 @@ Create `index.html`:
   <div id="output"></div>
 
   <script type="module">
-    import { VBSInterpreter } from '@devscholar/vbs-engine-js';
+    import { VbsEngine } from '@devscholar/vbs-engine-js';
 
-    const interpreter = new VBSInterpreter();
+    const interpreter = new VbsEngine();
     
     const vbsCode = `
       Dim message
@@ -95,9 +95,9 @@ npm install @devscholar/vbs-engine-js
 Create `demo.js`:
 
 ```javascript
-import { VBSInterpreter } from '@devscholar/vbs-engine-js';
+import { VbsEngine } from '@devscholar/vbs-engine-js';
 
-const interpreter = new VBSInterpreter();
+const interpreter = new VbsEngine();
 
 const vbsCode = `
   Dim x, y, result

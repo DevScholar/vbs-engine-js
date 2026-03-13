@@ -80,6 +80,18 @@ if (engine.error) {
 }
 ```
 
+## Security Warning
+
+⚠️ **Important Security Considerations**
+
+The VBScript engine executes arbitrary code provided by users or external sources. This presents significant security risks:
+
+- **Code Injection**: Malicious VBScript code can access and modify JavaScript objects exposed via `addObject()`
+- **Infinite Loops**: VBScript code can contain infinite loops that can hang the browser/Node.js process
+- **Resource Exhaustion**: Poorly written scripts can consume excessive memory or CPU
+- **DOM Manipulation**: In browser mode, scripts can access and modify the DOM
+
+
 ## Engine Options
 
 ```typescript
