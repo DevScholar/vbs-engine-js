@@ -38,8 +38,9 @@ function vbToJsAuto(value: VbValue): unknown {
  * The mode of operation for the VbsEngine.
  * - 'general': Standard mode for Node.js or custom environments
  * - 'browser': Browser mode with automatic DOM integration, event handling, etc.
+ * - 'auto': Automatically detect environment (browser or general)
  */
-export type VbsEngineMode = 'general' | 'browser';
+export type VbsEngineMode = 'general' | 'browser' | 'auto';
 
 /**
  * Browser-specific options for VbsEngine.
@@ -116,9 +117,12 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
   injectGlobalThis?: boolean;
   /**
    * The mode of operation for the engine.
-   * - 'general': Standard mode for Node.js or custom environments (default)
+   * - 'general': Standard mode for Node.js or custom environments
    * - 'browser': Browser mode with automatic DOM integration
-   * @default 'general'
+   * When not specified, automatically detects environment:
+   * - 'browser' if running in a browser (window is defined)
+   * - 'general' otherwise (Node.js or other environments)
+   * @default auto-detect based on environment
    */
   mode?: VbsEngineMode;
 }
@@ -159,6 +163,18 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
  * engine.executeStatement('console.log "Hello from VBScript"');
  * ```
  */
+/**
+ * Determines the appropriate mode based on the environment.
+ * If running in a browser (window exists), returns 'browser'.
+ * Otherwise, returns 'general' for Node.js or other environments.
+ */
+function determineMode(): VbsEngineMode {
+  if (typeof window !== 'undefined') {
+    return 'browser';
+  }
+  return 'general';
+}
+
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
@@ -166,10 +182,12 @@ export class VbsEngine {
   private lastError: VbsError | null = null;
 
   constructor(options: VbsEngineOptions = {}) {
+    const resolvedMode = options.mode === undefined ? determineMode() : options.mode;
+
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
       injectGlobalThis: options.injectGlobalThis ?? true,
-      mode: options.mode ?? 'general',
+      mode: resolvedMode,
       parseScriptElement: options.parseScriptElement ?? true,
       parseInlineEventAttributes: options.parseInlineEventAttributes ?? true,
       parseEventSubNames: options.parseEventSubNames ?? true,
