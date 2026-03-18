@@ -1,7 +1,5 @@
 # VBSEngineJS
 
-This project is in Beta stage.
-
 A VBScript engine implemented in TypeScript, supporting VBScript code execution in browser and Node.js environments.
 
 ## Installation
@@ -111,7 +109,7 @@ interface VbsEngineOptions {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `mode` | `'general' \| 'browser'` | `'general'` | Engine mode. Use `'browser'` for web applications |
+| `mode` | `'general' \| 'browser'` | `'auto'` | Engine mode. Auto-detects based on environment: `'browser'` in browser, `'general'` in Node.js. Use `'browser'` for web applications |
 | `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript |
 | `injectVBArrayToGlobalThis` | `boolean` | `true` | Expose VBArray as `globalThis.VBArray` for legacy code compatibility |
 | `maxExecutionTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |

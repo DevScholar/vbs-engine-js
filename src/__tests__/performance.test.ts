@@ -232,7 +232,7 @@ describe('Performance Optimizations', () => {
 /**
  * Benchmark tests (not run by default, use --reporter=verbose to see)
  */
-describe.skip('Performance Benchmarks', () => {
+describe('Performance Benchmarks', () => {
   it('benchmark: loop performance', () => {
     const engine = new VbsEngine();
 

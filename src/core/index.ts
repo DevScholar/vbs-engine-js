@@ -122,7 +122,7 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
    * When not specified, automatically detects environment:
    * - 'browser' if running in a browser (window is defined)
    * - 'general' otherwise (Node.js or other environments)
-   * @default auto-detect based on environment
+   * @default 'auto'
    */
   mode?: VbsEngineMode;
 }
@@ -175,6 +175,13 @@ function determineMode(): VbsEngineMode {
   return 'general';
 }
 
+function resolveMode(mode: VbsEngineMode | undefined): VbsEngineMode {
+  if (mode === undefined || mode === 'auto') {
+    return determineMode();
+  }
+  return mode;
+}
+
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
@@ -182,7 +189,7 @@ export class VbsEngine {
   private lastError: VbsError | null = null;
 
   constructor(options: VbsEngineOptions = {}) {
-    const resolvedMode = options.mode === undefined ? determineMode() : options.mode;
+    const resolvedMode = resolveMode(options.mode);
 
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
