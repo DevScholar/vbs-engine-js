@@ -10,6 +10,11 @@
 
 export class StringInterner {
   private pool: Map<string, string> = new Map();
+  private readonly maxSize: number;
+
+  constructor(maxSize: number = 2000) {
+    this.maxSize = maxSize;
+  }
 
   /**
    * Intern a string - returns the canonical (lowercased) version from the pool
@@ -19,7 +24,14 @@ export class StringInterner {
     const lower = str.toLowerCase();
     const existing = this.pool.get(lower);
     if (existing !== undefined) {
+      // Refresh LRU order
+      this.pool.delete(lower);
+      this.pool.set(lower, existing);
       return existing;
+    }
+    // Evict oldest entry when at capacity
+    if (this.pool.size >= this.maxSize) {
+      this.pool.delete(this.pool.keys().next().value!);
     }
     this.pool.set(lower, lower);
     return lower;

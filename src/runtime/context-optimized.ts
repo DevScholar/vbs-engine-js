@@ -52,7 +52,15 @@ const GLOBAL_KEYS = [
 const globalKeySet = new Set(GLOBAL_KEYS.map(k => globalStringInterner.intern(k)));
 
 // Cache for globalThis properties
+const GLOBAL_THIS_CACHE_MAX = 100;
 const globalThisCache: Map<string, VbValue> = new Map();
+
+function setGlobalThisCache(key: string, value: VbValue): void {
+  if (globalThisCache.size >= GLOBAL_THIS_CACHE_MAX) {
+    globalThisCache.delete(globalThisCache.keys().next().value!);
+  }
+  globalThisCache.set(key, value);
+}
 
 function jsToVbOptimized(value: unknown): VbValue {
   return createCachedVbValue(value);
@@ -207,7 +215,7 @@ export class VbContextOptimized {
         if (globalStringInterner.intern(key) === internedName) {
           const value = (globalThis as Record<string, unknown>)[key];
           const vbValue = jsToVbOptimized(value);
-          globalThisCache.set(internedName, vbValue);
+          setGlobalThisCache(internedName, vbValue);
           return vbValue;
         }
       }

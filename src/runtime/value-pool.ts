@@ -30,6 +30,7 @@ const VbFalse: VbBooleanValue = { type: 'Boolean', value: false };
 const VbEmptyString: VbStringValue = { type: 'String', value: '' };
 
 // Common string cache (frequently used strings)
+const COMMON_STRING_CACHE_MAX = 500;
 const commonStringCache: Map<string, VbStringValue> = new Map();
 
 /**
@@ -62,11 +63,17 @@ export function getCachedString(value: string): VbStringValue {
   // Check common string cache
   const cached = commonStringCache.get(value);
   if (cached) {
+    // Refresh LRU order
+    commonStringCache.delete(value);
+    commonStringCache.set(value, cached);
     return cached;
   }
 
   // For short strings (likely identifiers), cache them
   if (value.length <= 32) {
+    if (commonStringCache.size >= COMMON_STRING_CACHE_MAX) {
+      commonStringCache.delete(commonStringCache.keys().next().value!);
+    }
     const newValue: VbStringValue = { type: 'String', value };
     commonStringCache.set(value, newValue);
     return newValue;

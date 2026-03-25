@@ -51,6 +51,7 @@ export class VbFunctionRegistry {
   // Hot function cache for frequently called functions
   private hotFunctions: Map<string, HotFunctionEntry> = new Map();
   private readonly HOT_FUNCTION_THRESHOLD = 5;
+  private readonly HOT_FUNCTION_MAX_SIZE = 200;
 
   // Fast path for common built-in functions
   private fastPathFunctions: Map<string, VbFunction> = new Map();
@@ -125,6 +126,9 @@ export class VbFunctionRegistry {
 
     // Promote to hot cache if called frequently
     if (info.isUserDefined) {
+      if (this.hotFunctions.size >= this.HOT_FUNCTION_MAX_SIZE) {
+        this.hotFunctions.delete(this.hotFunctions.keys().next().value!);
+      }
       this.hotFunctions.set(internedName, { info, callCount: 1 });
     }
 
