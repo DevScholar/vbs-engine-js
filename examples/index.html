@@ -1,50 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VBScript Engine Demo</title>
-  <script type="module">
-    import { VbsEngine } from '../src/index.ts';
-    new VbsEngine({ mode: 'browser' });
-  </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VBScript Engine Demo</title>
+    <!--[if !IE]> -->
+    <script type="module">
+        import { VbsEngine } from '../src/index.ts';
+        new VbsEngine({ mode: 'browser' });
+    </script>
+    <!-- <![endif]-->
 </head>
+
 <body>
-  <h1>VBScript Engine Demo</h1>
+    <h1>VBScript Engine Demo</h1>
 
-  <h2>Clock</h2>
-  <div id="clock" style="font-size: 2em; font-family: monospace;">--:--:--</div>
+    <h2>Clock</h2>
+    <div id="clock">
+    </div>
 
-  <h2>JS/VBS Shared Variables</h2>
-  <button id="btnSetVbs">Set from VBS</button>
-  <button id="btnReadJs">Read from JS</button>
-  <button id="btnSetJs">Set from JS</button>
-  <button id="btnReadVbs">Read from VBS</button>
-  <pre id="sharedOutput"></pre>
+    <h2>JS/VBS Shared Variables</h2>
+    <div id="result"></div>
 
-  <h2>Functions</h2>
-  <div id="output"></div>
+    <h2>Functions</h2>
+    <div id="output"></div>
 
-  <h2>MsgBox / InputBox</h2>
-  <button id="btnMsgBox">Show MsgBox (OK)</button>
-  <button id="btnMsgBoxYesNo">Show MsgBox (Yes/No)</button>
-  <button id="btnMsgBoxYesNoCancel">Show MsgBox (Yes/No/Cancel)</button>
-  <button id="btnMsgBoxAbortRetryIgnore">Show MsgBox (Abort/Retry/Ignore)</button>
-  <button id="btnInputBox">Show InputBox</button>
+    <h2>MsgBox / InputBox</h2>
+    <button id="btnMsgBox">Show MsgBox (OK)</button>
+    <button id="btnMsgBoxYesNo">Show MsgBox (Yes/No)</button>
+    <button id="btnMsgBoxYesNoCancel">Show MsgBox (Yes/No/Cancel)</button>
+    <button id="btnMsgBoxAbortRetryIgnore">Show MsgBox (Abort/Retry/Ignore)</button>
+    <button id="btnInputBox">Show InputBox</button>
 
-  <h2>Inline onclick="vbscript:..."</h2>
-  <button id="btnInline" onclick="vbscript:MsgBox &quot;Inline VBScript works!&quot;, 64, &quot;Inline Test&quot;">Test Inline VBScript</button>
+    <h2>Inline onclick="vbscript:..."</h2>
+    <button id="btnInline" onclick="vbscript:MsgBox 'Inline VBScript works!', 64, 'Inline Test'">Test Inline
+        VBScript</button>
 
-  <h2>&lt;script for="..." event="..."&gt;</h2>
-  <input type="button" id="button1" value="Click Me (for/event)">
-  <script for="button1" event="onclick" language="vbscript">
+    <h2>&lt;script for="..." event="..."&gt;</h2>
+    <input type="button" id="button1" value="Click Me (for/event)">
+    <script for="button1" event="onclick" language="vbscript">
     MsgBox "Button clicked via for/event syntax!", 64, "For/Event Test"
-  </script>
+    </script>
 
-  <h2>vbscript: Protocol</h2>
-  <a href="vbscript:MsgBox &quot;Link clicked via vbscript: protocol!&quot;, 64, &quot;Protocol Test&quot;">Click this link (vbscript: protocol)</a>
+    <h2>vbscript: Protocol</h2>
+    <a href="vbscript:MsgBox &quot;Link clicked via vbscript: protocol!&quot;, 64, &quot;Protocol Test&quot;">Click this
+        link (vbscript: protocol)</a>
 
-  <script type="text/vbscript">
+    <script type="text/vbscript">
     ' Shared variable from VBScript
     sharedMessage = "Hello from VBScript!"
     
@@ -52,26 +56,6 @@
         Add = a + b
     End Function
     
-    Sub Init()
-        Set el = document.getElementById("output")
-        el.innerHTML = "Add(10, 20) = " & Add(10, 20)
-    End Sub
-    
-    Sub UpdateClock()
-        t = Now
-        h = Hour(t)
-        m = Minute(t)
-        s = Second(t)
-        ampm = "AM"
-        If h >= 12 Then
-            ampm = "PM"
-            If h > 12 Then h = h - 12
-        End If
-        If h = 0 Then h = 12
-        timeStr = Right("0" & h, 2) & ":" & Right("0" & m, 2) & ":" & Right("0" & s, 2) & " " & ampm
-        Set clockEl = document.getElementById("clock")
-        clockEl.innerHTML = timeStr
-    End Sub
     
     Sub BtnMsgBox_OnClick()
         MsgBox "This is a VBScript MsgBox!", 64, "Demo"
@@ -132,17 +116,98 @@
         MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
     End Sub
     
-    Call Init()
-    Call UpdateClock()
-    Call setInterval("UpdateClock", 1000)
+    Sub Window_OnLoad()
+    End Sub
   </script>
 
-  <script>
-    function setFromJs() {
-      window.jsVar = "Hello from JavaScript!";
-      document.getElementById("sharedOutput").innerHTML = "JS set: jsVar = " + window.jsVar;
-    }
-    document.getElementById("btnSetJs").addEventListener("click", setFromJs);
-  </script>
+
+    <script type="text/vbscript">
+' ===== VBScript Section =====
+Dim vbsMessage
+vbsMessage = "Hello from VBS"
+
+' Function to read JS variable
+Function ReadJSMessage()
+    On Error Resume Next
+    ReadJSMessage = window.jsMessage
+    If Err.Number <> 0 Then ReadJSMessage = "Read failed"
+End Function
+
+' Display result
+Sub ShowResult()
+    Dim result, jsMsg
+    jsMsg = ReadJSMessage()
+    result = "VBS reads JS: " & jsMsg & "<br>"
+    result = result & "JS reads VBS: Waiting for JS display..." & "<br>"
+    document.getElementById("result").innerHTML = result
+End Sub
+
+' Delayed execution to ensure JS is loaded
+Sub Window_OnLoad()
+    window.setTimeout "ShowResult()", 100, "VBScript"
+    Call UpdateClock()
+    timerID = window.setInterval("UpdateClock", 1000, "VBScript")
+End Sub
+</script>
+
+    <script type="text/javascript">
+        // ===== JavaScript Section =====
+        var jsMessage = "Hello from JS";
+
+        // Function to read VBS variable
+        function readVBSMessage() {
+            try {
+                if (typeof vbsMessage !== 'undefined') {
+                    return vbsMessage;
+                }
+                return "Read failed";
+            } catch (e) {
+                return "Read failed";
+            }
+        }
+
+        // Display final result
+        function showFinalResult() {
+            var vbsMsg = readVBSMessage();
+            var resultDiv = document.getElementById("result");
+            var current = resultDiv.innerHTML;
+
+            resultDiv.innerHTML = current.replace("Waiting for JS display...", vbsMsg);
+        }
+
+        // Delayed execution to ensure VBS is running
+        window.setTimeout(showFinalResult, 200);
+    </script>
+
+    <script type="text/vbscript">
+Option Explicit
+
+Dim timerID
+
+' Main function: update clock display
+Sub UpdateClock()
+    Dim nowTime, hours, minutes, seconds, timeString
+    nowTime = Now()
+    
+    hours = FormatTimePart(Hour(nowTime))
+    minutes = FormatTimePart(Minute(nowTime))
+    seconds = FormatTimePart(Second(nowTime))
+    
+    timeString = hours & ":" & minutes & ":" & seconds
+    document.getElementById("clock").innerHTML = timeString
+End Sub
+
+' Helper function: format time part (zero-pad)
+Function FormatTimePart(timePart)
+    If Len(timePart) = 1 Then
+        FormatTimePart = "0" & CStr(timePart)
+    Else
+        FormatTimePart = CStr(timePart)
+    End If
+End Function
+
+</script>
+
 </body>
+
 </html>
