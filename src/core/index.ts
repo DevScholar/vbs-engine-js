@@ -494,10 +494,11 @@ export class VbsEngine {
 
     if (context.globalScope) {
       const allVars = context.globalScope.getAllVariables();
-      for (const [varName, vbVar] of allVars) {
+      for (const [, vbVar] of allVars) {
         if (vbVar.value && vbVar.value.type !== 'Empty') {
-          if (!(varName in (globalThis as Record<string, unknown>))) {
-            (globalThis as Record<string, unknown>)[varName] = vbToJs(vbVar.value);
+          const originalName = vbVar.name;
+          if (!(originalName in (globalThis as Record<string, unknown>))) {
+            (globalThis as Record<string, unknown>)[originalName] = vbToJs(vbVar.value);
           }
         }
       }
