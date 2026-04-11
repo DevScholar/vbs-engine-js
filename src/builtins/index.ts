@@ -9,6 +9,38 @@ import { registerInputBox } from './inputbox.ts';
 import { registerRegExp } from './regexp.ts';
 import { localeFunctions } from './locale.ts';
 
+// VbObjectValueData protocol names the VBS engine checks via typeof === 'function'.
+// Hide them so the engine falls through to obj[propertyName] → jsfunction path,
+// which auto-converts VbValue ↔ JS primitives via vbToJs / jsToVb.
+const VBS_PROTOCOL_NAMES = new Set([
+  'getProperty', 'setProperty', 'hasMethod', 'getMethod', 'hasProperty', 'call',
+]);
+
+// Wraps a node-ps1-dotnet COM proxy so the VBS engine treats it as a plain JS
+// object. Method return values that are objects/functions are recursively wrapped.
+function wrapCOMProxy(ax: unknown): Record<string, unknown> {
+  return new Proxy(Object.create(null) as Record<string, unknown>, {
+    get(_target: Record<string, unknown>, prop: string | symbol): unknown {
+      if (typeof prop === 'symbol') return undefined;
+      if (VBS_PROTOCOL_NAMES.has(prop)) return undefined;
+      const val = (ax as Record<string, unknown>)[prop];
+      if (typeof val !== 'function') return val;
+      // Wrap the method function so returned COM objects are also wrapped.
+      return (...args: unknown[]) => {
+        const result = (val as Function)(...args);
+        if (result !== null && (typeof result === 'object' || typeof result === 'function'))
+          return wrapCOMProxy(result);
+        return result;
+      };
+    },
+    set(_target: Record<string, unknown>, prop: string | symbol, value: unknown): boolean {
+      if (typeof prop === 'symbol') return false;
+      (ax as Record<string, unknown>)[prop] = value;
+      return true;
+    },
+  });
+}
+
 export function registerBuiltins(context: VbContext): void {
   Object.entries(stringFunctions).forEach(([name, func]) => {
     context.functionRegistry.register(name, func);
@@ -228,6 +260,15 @@ export function registerBuiltins(context: VbContext): void {
     (cls: VbValue, _servername?: VbValue): VbValue => {
       void _servername; // Intentionally unused - matches VBScript signature
       const className = String(cls.value ?? cls);
+      const axConstructor = (globalThis as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+      if (axConstructor) {
+        try {
+          const ax = new axConstructor(className);
+          return { type: 'Object', value: wrapCOMProxy(ax) };
+        } catch {
+          throw new Error(`ActiveX component can't create object: '${className}'`);
+        }
+      }
       return { type: 'Object', value: { className, properties: new Map() } };
     }
   );
