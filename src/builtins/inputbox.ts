@@ -1,5 +1,59 @@
 import type { VbValue } from '../runtime/index.ts';
 
+function _syncReadFromConsole(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    const chunks: Buffer[] = [];
+
+    while (true) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - Node.js specific
+      const buffer = Buffer.alloc(1024);
+      let bytesRead = 0;
+      try {
+        bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
+      } catch {
+        return null;
+      }
+      if (bytesRead === 0) {
+        break;
+      }
+      const chunk = buffer.subarray(0, bytesRead);
+      chunks.push(chunk);
+      if (chunk.includes(10)) {
+        break;
+      }
+    }
+
+    if (chunks.length === 0) {
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function _writeToConsole(text: string): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    fs.writeSync(1, text);
+  } catch {
+    console.log(text);
+  }
+}
+
 export interface InputBoxOptions {
   prompt?: (message: string, defaultValue: string) => string | null;
   console?: (message: string) => void;
@@ -146,8 +200,26 @@ export function registerInputBox(context: {
         }
       }
 
-      console.log(`[${titleStr}]\n${message}\nDefault: ${defaultVal || '(empty)'}`);
-      return { type: 'String', value: '' };
+      // Node.js interactive fallback using synchronous stdin
+      const promptText =
+        `[${titleStr}]\n${message}` +
+        (defaultVal ? ` [${defaultVal}]` : '') +
+        ': ';
+      _writeToConsole(promptText);
+      while (true) {
+        const input = _syncReadFromConsole();
+        if (input === null) {
+          _writeToConsole('\n');
+          return { type: 'String', value: '' };
+        }
+        if (input === '' && defaultVal !== '') {
+          return { type: 'String', value: defaultVal };
+        }
+        if (input !== '') {
+          return { type: 'String', value: input };
+        }
+        _writeToConsole('Input cannot be empty. Please try again.\n' + promptText);
+      }
     }
   );
 }

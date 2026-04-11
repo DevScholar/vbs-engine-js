@@ -251,27 +251,58 @@ function _readFromConsole(): Promise<string | null> {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _syncReadFromConsole(): string | null {
   try {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - Node.js specific
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const readline = require('readline');
-    const rl = readline.createInterface({
+    const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    const chunks: Buffer[] = [];
+
+    while (true) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - Node.js specific
-      input: process.stdin,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - Node.js specific
-      output: process.stdout,
-    });
-    rl.question('', () => {});
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (e) {
+      const buffer = Buffer.alloc(1024);
+      let bytesRead = 0;
+      try {
+        bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
+      } catch {
+        return null;
+      }
+      if (bytesRead === 0) {
+        break;
+      }
+      const chunk = buffer.subarray(0, bytesRead);
+      chunks.push(chunk);
+      if (chunk.includes(10)) {
+        break;
+      }
+    }
+
+    if (chunks.length === 0) {
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+  } catch {
     return null;
   }
-  return null;
+}
+
+function _writeToConsole(text: string): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Node.js specific
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    fs.writeSync(1, text);
+  } catch {
+    console.log(text);
+  }
 }
 
 export interface MsgBoxOptions {
@@ -563,7 +594,8 @@ export function registerMsgBox(context: {
         if (typeof alert !== 'undefined') {
           alert(fullPrompt);
         } else {
-          console.log(fullPrompt);
+          _writeToConsole(fullPrompt + '\n[Press Enter]');
+          _syncReadFromConsole();
         }
         return { type: 'Integer', value: MsgBoxConstants.vbOK };
       }
@@ -669,8 +701,24 @@ export function registerMsgBox(context: {
         }
       }
 
-      console.log(finalPrompt);
-      return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      // Node.js interactive fallback using synchronous stdin
+      _writeToConsole(finalPrompt);
+      while (true) {
+        const input = _syncReadFromConsole();
+        if (input === null) {
+          _writeToConsole('\n');
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const trimmed = input.trim().toLowerCase();
+        if (trimmed === '') {
+          return { type: 'Integer', value: getDefaultResult(buttonType, defaultButton) };
+        }
+        const result = mapButtonToResult(trimmed, buttonType);
+        if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
+          return { type: 'Integer', value: result };
+        }
+        _writeToConsole(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+      }
     },
     { isSub: false }
   );
