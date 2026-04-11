@@ -1,7 +1,7 @@
 {
   "name": "@devscholar/vbs-engine-js",
   "description": "A VBScript engine written in TypeScript",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "main": "dist/vbs-engine.js",
   "types": "dist/index.d.ts",
