@@ -495,9 +495,27 @@ export class VbsEngine {
     if (context.globalScope) {
       const allVars = context.globalScope.getAllVariables();
       for (const [, vbVar] of allVars) {
-        if (vbVar.value && vbVar.value.type !== 'Empty') {
-          const originalName = vbVar.name;
-          if (!(originalName in (globalThis as Record<string, unknown>))) {
+        const originalName = vbVar.name;
+        if (originalName in (globalThis as Record<string, unknown>)) continue;
+
+        try {
+          Object.defineProperty(globalThis, originalName, {
+            get() {
+              const variable = context.globalScope.get(originalName);
+              if (variable) {
+                return vbToJs(variable.value);
+              }
+              return undefined;
+            },
+            set(value: unknown) {
+              context.globalScope.set(originalName, jsToVb(value));
+            },
+            configurable: true,
+            enumerable: true,
+          });
+        } catch {
+          // Fallback: static copy for non-configurable properties
+          if (vbVar.value && vbVar.value.type !== 'Empty') {
             (globalThis as Record<string, unknown>)[originalName] = vbToJs(vbVar.value);
           }
         }

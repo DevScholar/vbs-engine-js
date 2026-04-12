@@ -275,7 +275,7 @@ export class Lexer {
         continue;
       }
 
-      if (this.current === '"' || this.current === "'") {
+      if (this.current === '"') {
         return this.readString(this.current);
       }
 

@@ -22,7 +22,7 @@
     </div>
 
     <h2>JS/VBS Shared Variables</h2>
-    <div id="result"></div>
+    <div id="demo-result"></div>
 
     <h2>Functions</h2>
     <div id="output"></div>
@@ -35,7 +35,7 @@
     <button id="btnInputBox">Show InputBox</button>
 
     <h2>Inline onclick="vbscript:..."</h2>
-    <button id="btnInline" onclick="vbscript:MsgBox 'Inline VBScript works!', 64, 'Inline Test'">Test Inline
+    <button id="btnInline" onclick="vbscript:MsgBox &quot;Inline VBScript works!&quot;, 64, &quot;Inline Test&quot;">Test Inline
         VBScript</button>
 
     <h2>&lt;script for="..." event="..."&gt;</h2>
@@ -45,77 +45,84 @@
     </script>
 
     <h2>vbscript: Protocol</h2>
-    <a href="vbscript:MsgBox &quot;Link clicked via vbscript: protocol!&quot;, 64, &quot;Protocol Test&quot;">Click this
-        link (vbscript: protocol)</a>
+    <a href="vbscript:MsgBox(1234)">Click this link (vbscript: protocol)</a>
 
     <script type="text/vbscript">
     ' Shared variable from VBScript
     sharedMessage = "Hello from VBScript!"
-    
+
     Function Add(a, b)
         Add = a + b
     End Function
-    
-    
+
+
     Sub BtnMsgBox_OnClick()
         MsgBox "This is a VBScript MsgBox!", 64, "Demo"
     End Sub
-    
+
+    Sub ProtocolTest()
+        MsgBox "Link clicked via vbscript: protocol!", 64, "Protocol Test"
+    End Sub
+
     Sub BtnMsgBoxYesNo_OnClick()
-        result = MsgBox("Do you like VBScript?", 4 + 32, "Yes/No Test")
-        If result = 6 Then
+        Dim res
+        res = MsgBox("Do you like VBScript?", 4 + 32, "Yes/No Test")
+        If res = 6 Then
             MsgBox "You clicked Yes!", 64, "Result"
-        ElseIf result = 7 Then
+        ElseIf res = 7 Then
             MsgBox "You clicked No!", 64, "Result"
         End If
     End Sub
-    
+
     Sub BtnMsgBoxYesNoCancel_OnClick()
-        result = MsgBox("Save changes before closing?", 3 + 48, "Yes/No/Cancel Test")
-        If result = 6 Then
+        Dim res
+        res = MsgBox("Save changes before closing?", 3 + 48, "Yes/No/Cancel Test")
+        If res = 6 Then
             MsgBox "You clicked Yes - Saving!", 64, "Result"
-        ElseIf result = 7 Then
+        ElseIf res = 7 Then
             MsgBox "You clicked No - Discarding!", 64, "Result"
-        ElseIf result = 2 Then
+        ElseIf res = 2 Then
             MsgBox "You clicked Cancel!", 64, "Result"
         End If
     End Sub
-    
+
     Sub BtnMsgBoxAbortRetryIgnore_OnClick()
-        result = MsgBox("File operation failed!", 2 + 16, "Abort/Retry/Ignore Test")
-        If result = 3 Then
+        Dim res
+        res = MsgBox("File operation failed!", 2 + 16, "Abort/Retry/Ignore Test")
+        If res = 3 Then
             MsgBox "You clicked Abort!", 64, "Result"
-        ElseIf result = 4 Then
+        ElseIf res = 4 Then
             MsgBox "You clicked Retry!", 64, "Result"
-        ElseIf result = 5 Then
+        ElseIf res = 5 Then
             MsgBox "You clicked Ignore!", 64, "Result"
         End If
     End Sub
-    
+
     Sub BtnInputBox_OnClick()
+        Dim name
         name = InputBox("Enter your name:", "Input", "User")
         If name <> "" Then
             MsgBox "Hello, " & name & "!", 64, "Welcome"
         End If
     End Sub
-    
+
     Sub BtnSetVbs_OnClick()
         sharedMessage = "Updated from VBScript!"
         document.getElementById("sharedOutput").innerHTML = "VBS set: sharedMessage = " & sharedMessage
     End Sub
-    
+
     Sub BtnReadJs_OnClick()
         MsgBox "JS variable: " & jsVar, 64, "From JS"
     End Sub
-    
+
     Sub BtnSetJs_OnClick()
         document.getElementById("sharedOutput").innerHTML = "JS variable is: " & jsVar
     End Sub
-    
+
     Sub BtnReadVbs_OnClick()
         MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
     End Sub
-    
+
     Sub Window_OnLoad()
     End Sub
   </script>
@@ -135,11 +142,11 @@ End Function
 
 ' Display result
 Sub ShowResult()
-    Dim result, jsMsg
+    Dim displayResult, jsMsg
     jsMsg = ReadJSMessage()
-    result = "VBS reads JS: " & jsMsg & "<br>"
-    result = result & "JS reads VBS: Waiting for JS display..." & "<br>"
-    document.getElementById("result").innerHTML = result
+    displayResult = "VBS reads JS: " & jsMsg & "<br>"
+    displayResult = displayResult & "JS reads VBS: Waiting for JS display..." & "<br>"
+    document.getElementById("demo-result").innerHTML = displayResult
 End Sub
 
 ' Delayed execution to ensure JS is loaded
@@ -166,17 +173,20 @@ End Sub
             }
         }
 
-        // Display final result
+        // Display final result - poll until ShowResult has set the innerHTML
         function showFinalResult() {
-            var vbsMsg = readVBSMessage();
-            var resultDiv = document.getElementById("result");
+            var resultDiv = document.getElementById("demo-result");
             var current = resultDiv.innerHTML;
 
-            resultDiv.innerHTML = current.replace("Waiting for JS display...", vbsMsg);
+            if (current.indexOf("Waiting for JS display...") >= 0) {
+                var vbsMsg = readVBSMessage();
+                resultDiv.innerHTML = current.replace("Waiting for JS display...", vbsMsg);
+                clearInterval(pollTimer);
+            }
         }
 
-        // Delayed execution to ensure VBS is running
-        window.setTimeout(showFinalResult, 200);
+        // Poll every 100ms until VBS ShowResult has run and set the content
+        var pollTimer = setInterval(showFinalResult, 100);
     </script>
 
     <script type="text/vbscript">
@@ -188,11 +198,11 @@ Dim timerID
 Sub UpdateClock()
     Dim nowTime, hours, minutes, seconds, timeString
     nowTime = Now()
-    
+
     hours = FormatTimePart(Hour(nowTime))
     minutes = FormatTimePart(Minute(nowTime))
     seconds = FormatTimePart(Second(nowTime))
-    
+
     timeString = hours & ":" & minutes & ":" & seconds
     document.getElementById("clock").innerHTML = timeString
 End Sub
