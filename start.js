@@ -27,8 +27,11 @@ for (let i = 0; i < args.length; i++) {
 
 if (!tsFile) {
     console.error('Usage: node start.js <ts-file> [--runtime=node|bun|deno] [args...]');
-    console.error('Example: node start.js examples/node-demo.ts');
-    console.error('Example: node start.js app.ts --runtime=deno');
+    console.error('');
+    console.error('Examples:');
+    console.error('  node start.js examples/node-demo.ts          # Node.js globals exposed to VBScript');
+    console.error('  node start.js examples/node-com.ts           # COM objects via node-ps1-dotnet');
+    console.error('  npm run dev                                   # examples/index.html (browser demo, Vite)');
     process.exit(1);
 }
 
