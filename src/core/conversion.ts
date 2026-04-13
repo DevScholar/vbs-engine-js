@@ -29,8 +29,17 @@ export function vbToJs(value: VbValue): unknown {
       const arr = value.value as { toArray(): VbValue[] };
       return arr.toArray().map(vbToJs);
     }
-    case 'Object':
+    case 'Object': {
+      const obj = value.value as Record<string, unknown> | null;
+      if (obj && typeof obj === 'object' && obj['type'] === 'vbref' && typeof obj['call'] === 'function') {
+        const callFn = obj['call'] as (...args: unknown[]) => unknown;
+        return (...jsArgs: unknown[]): unknown => {
+          const vbArgs = jsArgs.map((a) => jsToVb(a));
+          return vbToJs(callFn(...vbArgs) as import('../runtime/index.ts').VbValue);
+        };
+      }
       return value.value;
+    }
     default:
       return value.value;
   }

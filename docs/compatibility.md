@@ -469,7 +469,64 @@ These functions rely on the JavaScript environment's native `ActiveXObject` supp
 
 ---
 
-## Keywords
+## Non-Standard Extensions
+
+These features are not part of the VBScript specification and do not exist in
+Internet Explorer's VBScript engine. They are specific to this implementation
+and are intended for Node.js/JavaScript interoperability.
+
+### `New` with JavaScript Constructors
+
+Standard VBScript's `New` keyword is restricted to user-defined VBScript classes
+(`Class...End Class`). This engine extends `New` to also accept dotted names that
+resolve to JavaScript constructors on `globalThis`:
+
+```vbscript
+' Requires globalThis.Forms = System.Windows.Forms
+Set form   = New Forms.Form
+Set label  = New Forms.Label
+Set font   = New Drawing.Font("Arial", 12)
+Set pt     = New Drawing.Point(10, 20)
+```
+
+Resolution order:
+1. VBScript class registry (existing behavior — backward-compatible)
+2. `globalThis[Name]` for a simple name, or `globalThis[A][B][…]` for a dotted
+   path — calls `Reflect.construct(ctor, args)` on the resolved constructor
+
+This mirrors VB6/VBA early-binding behavior where `New` can instantiate any
+registered COM class.
+
+### `GetRef` Callbacks to JavaScript
+
+Standard VBScript's `GetRef` returns a procedure reference usable only within
+VBScript. This engine additionally wraps the reference into a real JavaScript
+callable, so it can be passed to JavaScript APIs that expect a callback:
+
+```vbscript
+button.add_Click GetRef("OnButtonClick")
+
+Sub OnButtonClick(sender, e)
+  ' ...
+End Sub
+```
+
+### Property Access and Assignment on JavaScript Proxies
+
+Standard VBScript COM objects implement a fixed interface for property
+get/set. This engine allows VBScript to access and assign properties on any
+JavaScript `Proxy` object (including node-ps1-dotnet .NET proxies) using
+natural dot-notation syntax:
+
+```vbscript
+form.Text = "Hello"       ' sets property via Proxy set trap
+x = form.Width            ' reads property via Proxy get trap
+```
+
+VBScript-engine protocol methods (`getProperty`, `setProperty`, etc.) are
+only used when they exist as **own properties** of the object, so arbitrary
+Proxy objects are treated as plain objects instead.
+
 
 | Keyword | Status | Notes |
 |---------|--------|-------|

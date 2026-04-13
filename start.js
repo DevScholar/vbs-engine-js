@@ -31,6 +31,7 @@ if (!tsFile) {
     console.error('Examples:');
     console.error('  node start.js examples/node-demo.ts          # Node.js globals exposed to VBScript');
     console.error('  node start.js examples/node-com.ts           # COM objects via node-ps1-dotnet');
+    console.error('  node start.js examples/winforms-counter.ts   # WinForms counter driven by VBScript');
     console.error('  npm run dev                                   # examples/index.html (browser demo, Vite)');
     process.exit(1);
 }

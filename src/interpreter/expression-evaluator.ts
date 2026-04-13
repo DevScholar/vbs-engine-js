@@ -124,10 +124,50 @@ export class ExpressionEvaluator {
   }
 
   private evaluateNew(node: VbNewExpression): VbObjectValue {
-    const className = node.callee.name;
-    const args = node.arguments.map(arg => this.evaluate(arg));
-    const instance = this.context.classRegistry.createInstance(className, args);
-    return { type: 'Object', value: instance };
+    // Simple identifier: try VBScript class registry first, then globalThis fallback.
+    if (node.callee.type === 'Identifier') {
+      const className = node.callee.name;
+      const ctorArgs = node.arguments.map(arg => this.evaluate(arg));
+      try {
+        const instance = this.context.classRegistry.createInstance(className, ctorArgs);
+        return { type: 'Object', value: instance };
+      } catch {
+        // Not a VBScript class — fall through to globalThis lookup below.
+      }
+      const ctor = (globalThis as Record<string, unknown>)[className];
+      if (typeof ctor === 'function') {
+        const args = ctorArgs.map(v => this.vbToJs(v));
+        return { type: 'Object', value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args) };
+      }
+      throw createVbError(VbErrorCodes.InvalidProcedureCall, `Unknown class: ${className}`, 'Vbscript');
+    }
+
+    // Dotted path (e.g. New Forms.Form, New NS.Sub.Class): evaluate the
+    // member expression to obtain the JS constructor, then call it with new.
+    const ctorValue = this.evaluate(node.callee);
+    let ctor: ((...args: unknown[]) => unknown) | undefined;
+
+    if (ctorValue.type === 'Object') {
+      const obj = ctorValue.value as Record<string, unknown> | null;
+      if (obj && obj.type === 'jsfunction') {
+        ctor = (obj as { func: (...args: unknown[]) => unknown }).func;
+      } else if (typeof obj === 'function') {
+        ctor = obj as (...args: unknown[]) => unknown;
+      } else if (typeof obj === 'object' && obj !== null) {
+        // Raw JS Proxy (e.g. node-ps1-dotnet namespace constructor)
+        ctor = obj as unknown as (...args: unknown[]) => unknown;
+      }
+    }
+
+    if (typeof ctor !== 'function' && !(ctor && typeof ctor === 'object')) {
+      throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Not a constructor', 'Vbscript');
+    }
+
+    const args = node.arguments.map(arg => this.vbToJs(this.evaluate(arg)));
+    return {
+      type: 'Object',
+      value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args),
+    };
   }
 
   private evaluateMe(_node: ThisExpression): VbObjectValue {
@@ -186,7 +226,33 @@ export class ExpressionEvaluator {
       throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
     }
 
-    if (typeof obj.getProperty === 'function') {
+    // If this is a JS function wrapper produced by a previous property access,
+    // allow further member access to flow through to the underlying JS function/
+    // Proxy object. This is required for chains like form.Controls.Add(...), where
+    // `Controls` may itself be represented by a callable function-proxy.
+    if (isVbJsFunctionObject(obj) && !['type', 'func', 'thisArg'].includes(propertyName)) {
+      const jsValue = ((obj.func as unknown) as Record<string, unknown>)[propertyName];
+      if (jsValue === undefined) {
+        return { type: 'Empty', value: undefined };
+      }
+      if (typeof jsValue === 'function') {
+        return {
+          type: 'Object',
+          value: {
+            type: 'jsfunction',
+            func: jsValue as (...args: unknown[]) => unknown,
+            thisArg: obj.func,
+          },
+        };
+      }
+      return this.jsToVb(jsValue);
+    }
+
+    if (
+      (Object.prototype.hasOwnProperty.call(obj, 'getProperty') ||
+        Object.prototype.hasOwnProperty.call(obj, 'classInfo')) &&
+      typeof obj.getProperty === 'function'
+    ) {
       if (obj.hasMethod?.(propertyName)) {
         return { type: 'Object', value: { type: 'method', object: obj, method: propertyName } };
       }
@@ -352,7 +418,13 @@ export class ExpressionEvaluator {
       case 'Object': {
         const obj = value.value as VbObjectValueData | null;
         if (obj && typeof obj === 'object' && (obj as Record<string, unknown>).type === 'vbref') {
-          return (obj as Record<string, unknown>).func;
+          const callFn = (obj as Record<string, unknown>).call as ((...args: VbValue[]) => VbValue) | undefined;
+          if (typeof callFn === 'function') {
+            return (...jsArgs: unknown[]): unknown => {
+              const vbArgs = jsArgs.map((a) => this.jsToVb(a));
+              return this.vbToJs(callFn(...vbArgs));
+            };
+          }
         }
         return value.value;
       }
@@ -639,11 +711,15 @@ export class ExpressionEvaluator {
       arr.set([Math.floor(index)], value);
     } else if (object.type === 'Object') {
       const obj = object.value as VbObjectValueData | null;
-      if (obj === null || typeof obj !== 'object') {
+      if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
         throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
       }
 
-      if (typeof obj.setProperty === 'function') {
+      if (
+        (Object.prototype.hasOwnProperty.call(obj, 'setProperty') ||
+          Object.prototype.hasOwnProperty.call(obj, 'classInfo')) &&
+        typeof obj.setProperty === 'function'
+      ) {
         obj.setProperty(propertyName, value, isSet);
       } else {
         const jsValue = this.vbToJs(value);

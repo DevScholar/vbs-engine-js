@@ -722,7 +722,24 @@ export class ExpressionParser {
 
   private parseNewExpression(): VbNewExpression {
     const newToken = this.state.advance();
-    const callee = this.parseIdentifier();
+
+    // Parse the first identifier, then consume any dot-chained members
+    // so that `New Forms.Form` and `New NS.Sub.Class` are supported.
+    let callee: import('../ast/types.ts').Identifier | import('../ast/types.ts').MemberExpression =
+      this.parseIdentifier();
+
+    while (this.state.check('Dot' as TokenType)) {
+      this.state.advance();
+      const prop = this.parseIdentifier();
+      callee = {
+        type: 'MemberExpression',
+        object: callee,
+        property: prop,
+        computed: false,
+        optional: false,
+        loc: callee.loc,
+      } as import('../ast/types.ts').MemberExpression;
+    }
 
     let args: Expression[] = [];
     if (this.state.check('LParen' as TokenType)) {

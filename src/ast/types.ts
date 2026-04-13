@@ -203,7 +203,7 @@ export interface VbEmptyLiteral extends BaseExpression {
 
 export interface VbNewExpression extends BaseExpression {
   type: 'VbNewExpression';
-  callee: Identifier;
+  callee: Identifier | MemberExpression;
   arguments: Expression[];
 }
 
