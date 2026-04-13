@@ -201,12 +201,6 @@ export interface VbEmptyLiteral extends BaseExpression {
   raw?: string | undefined;
 }
 
-export interface VbNewExpression extends BaseExpression {
-  type: 'VbNewExpression';
-  callee: Identifier | MemberExpression;
-  arguments: Expression[];
-}
-
 export interface VbWithObjectExpression extends BaseExpression {
   type: 'VbWithObject';
 }
@@ -332,6 +326,7 @@ export interface ForOfStatement extends BaseStatement {
   left: VariableDeclaration | Pattern;
   right: Expression;
   body: Statement;
+  await: boolean;
 }
 
 export interface VariableDeclaration extends BaseDeclaration {
@@ -346,6 +341,60 @@ export interface VariableDeclarator extends BaseNode {
   init: Expression | null;
 }
 
+// ---------------------------------------------------------------------------
+// TypeScript ESTree nodes
+// ---------------------------------------------------------------------------
+
+export interface TSStringKeyword extends BaseNode { type: 'TSStringKeyword'; }
+export interface TSNumberKeyword extends BaseNode { type: 'TSNumberKeyword'; }
+export interface TSBooleanKeyword extends BaseNode { type: 'TSBooleanKeyword'; }
+export interface TSObjectKeyword extends BaseNode { type: 'TSObjectKeyword'; }
+export interface TSAnyKeyword extends BaseNode { type: 'TSAnyKeyword'; }
+export interface TSVoidKeyword extends BaseNode { type: 'TSVoidKeyword'; }
+export interface TSNullKeyword extends BaseNode { type: 'TSNullKeyword'; }
+
+export interface TSTypeReference extends BaseNode {
+  type: 'TSTypeReference';
+  typeName: Identifier;
+}
+
+export interface TSArrayType extends BaseNode {
+  type: 'TSArrayType';
+  elementType: TSType;
+}
+
+export type TSType =
+  | TSStringKeyword
+  | TSNumberKeyword
+  | TSBooleanKeyword
+  | TSObjectKeyword
+  | TSAnyKeyword
+  | TSVoidKeyword
+  | TSNullKeyword
+  | TSTypeReference
+  | TSArrayType;
+
+export interface TSTypeAnnotation extends BaseNode {
+  type: 'TSTypeAnnotation';
+  typeAnnotation: TSType;
+}
+
+export interface TSEnumMember extends BaseNode {
+  type: 'TSEnumMember';
+  id: Identifier;
+  initializer: Expression | null;
+}
+
+export interface TSEnumDeclaration extends BaseDeclaration {
+  type: 'TSEnumDeclaration';
+  id: Identifier;
+  members: TSEnumMember[];
+  declare?: boolean;
+  const?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+
 export interface VbParameter extends BaseNode {
   type: 'VbParameter';
   name: Identifier;
@@ -354,7 +403,7 @@ export interface VbParameter extends BaseNode {
   isArray: boolean;
   isOptional: boolean;
   isParamArray: boolean;
-  typeAnnotation?: VbTypeAnnotation | undefined;
+  typeAnnotation?: TSTypeAnnotation | undefined;
 }
 
 export interface VbSubStatement extends BaseStatement {
@@ -371,7 +420,7 @@ export interface VbFunctionStatement extends BaseStatement {
   params: VbParameter[];
   body: BlockStatement;
   visibility: 'public' | 'private' | 'default';
-  returnType?: VbTypeAnnotation | undefined;
+  returnType?: TSTypeAnnotation | undefined;
 }
 
 export interface VbVariableDeclarator extends BaseNode {
@@ -380,13 +429,14 @@ export interface VbVariableDeclarator extends BaseNode {
   init: Expression | null;
   isArray: boolean;
   arrayBounds?: Expression[] | undefined;
-  typeAnnotation?: VbTypeAnnotation | undefined;
+  typeAnnotation?: TSTypeAnnotation | undefined;
 }
 
-export interface VbTypeAnnotation extends BaseNode {
-  type: 'VbTypeAnnotation';
-  typeName: string;
-  isArray: boolean;
+export interface VbConstDeclarator extends BaseNode {
+  type: 'VbConstDeclarator';
+  id: Identifier;
+  init: Expression;
+  typeAnnotation?: TSTypeAnnotation | undefined;
 }
 
 export interface VbDimStatement extends BaseStatement {
@@ -412,26 +462,12 @@ export interface VbConstStatement extends BaseStatement {
   visibility: 'public' | 'private';
 }
 
-export interface VbConstDeclarator extends BaseNode {
-  type: 'VbConstDeclarator';
-  id: Identifier;
-  init: Expression;
-  typeAnnotation?: VbTypeAnnotation | undefined;
-}
-
 export interface VbForToStatement extends BaseStatement {
   type: 'VbForToStatement';
   left: Identifier;
   init: Expression;
   to: Expression;
   step: Expression | null;
-  body: Statement;
-}
-
-export interface VbForEachStatement extends BaseStatement {
-  type: 'VbForEachStatement';
-  left: Identifier;
-  right: Expression;
   body: Statement;
 }
 
@@ -453,12 +489,6 @@ export interface VbCaseClause extends BaseNode {
   test: Expression | Expression[] | null;
   consequent: Statement[];
   isElse: boolean;
-}
-
-export interface VbWithStatement extends BaseStatement {
-  type: 'VbWithStatement';
-  object: Expression;
-  body: Statement;
 }
 
 export interface VbOnErrorHandlerStatement extends BaseStatement {
@@ -515,29 +545,6 @@ export interface VbPropertySetStatement extends BaseStatement {
   visibility: 'public' | 'private' | 'default';
 }
 
-export interface VbCallStatement extends BaseStatement {
-  type: 'VbCallStatement';
-  callee: Expression;
-  arguments: Expression[];
-}
-
-export interface VbSetStatement extends BaseStatement {
-  type: 'VbSetStatement';
-  left: Pattern;
-  right: Expression;
-}
-
-export interface VbLetStatement extends BaseStatement {
-  type: 'VbLetStatement';
-  left: Pattern;
-  right: Expression;
-}
-
-export interface VbOnErrorStatement extends BaseStatement {
-  type: 'VbOnErrorStatement';
-  handler: 'ResumeNext' | 'GoTo0' | { label: string };
-}
-
 export interface VbResumeStatement extends BaseStatement {
   type: 'VbResumeStatement';
   target: 'next' | null | { label: string };
@@ -551,19 +558,6 @@ export interface VbGotoStatement extends BaseStatement {
 export interface VbLabelStatement extends BaseStatement {
   type: 'VbLabelStatement';
   label: Identifier;
-}
-
-export interface VbEnumMember extends BaseNode {
-  type: 'VbEnumMember';
-  name: Identifier;
-  value: Expression | null;
-}
-
-export interface VbEnumStatement extends BaseStatement {
-  type: 'VbEnumStatement';
-  name: Identifier;
-  members: VbEnumMember[];
-  visibility: 'public' | 'private';
 }
 
 export interface ObjectPattern extends BasePattern {
@@ -610,7 +604,6 @@ export type Expression =
   | ChainExpression
   | ThisExpression
   | VbEmptyLiteral
-  | VbNewExpression
   | VbWithObjectExpression;
 
 export type Statement =
@@ -644,27 +637,22 @@ export type Statement =
   | VbEraseStatement
   | VbConstStatement
   | VbForToStatement
-  | VbForEachStatement
   | VbDoLoopStatement
   | VbSelectCaseStatement
-  | VbWithStatement
   | VbOnErrorHandlerStatement
   | VbExitStatement
   | VbOptionExplicitStatement
-  | VbCallStatement
-  | VbSetStatement
-  | VbLetStatement
-  | VbOnErrorStatement
   | VbResumeStatement
   | VbGotoStatement
   | VbLabelStatement
-  | VbEnumStatement;
+  | TSEnumDeclaration;
 
 export type Declaration =
   | VariableDeclaration
   | VbSubStatement
   | VbFunctionStatement
-  | VbClassStatement;
+  | VbClassStatement
+  | TSEnumDeclaration;
 
 export type VbNode =
   | Expression
@@ -672,9 +660,9 @@ export type VbNode =
   | VbParameter
   | VbVariableDeclarator
   | VbConstDeclarator
-  | VbTypeAnnotation
+  | TSTypeAnnotation
+  | TSEnumMember
   | VbCaseClause
-  | VbEnumMember
   | Property
   | VariableDeclarator
   | SwitchCase

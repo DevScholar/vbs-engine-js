@@ -36,7 +36,6 @@ export function isExpression(node: VbNode): node is Expression {
     'ChainExpression',
     'ThisExpression',
     'VbEmptyLiteral',
-    'VbNewExpression',
     'VbWithObject',
   ];
   return expressionTypes.includes(node.type);
@@ -73,14 +72,12 @@ export function isStatement(node: VbNode): node is Statement {
     'VbReDimStatement',
     'VbConstStatement',
     'VbForToStatement',
-    'VbForEachStatement',
     'VbDoLoopStatement',
     'VbSelectCaseStatement',
-    'VbWithStatement',
     'VbOnErrorHandlerStatement',
     'VbExitStatement',
     'VbOptionExplicitStatement',
-    'VbEnumStatement',
+    'TSEnumDeclaration',
   ];
   return statementTypes.includes(node.type);
 }

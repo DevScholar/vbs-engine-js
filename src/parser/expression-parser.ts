@@ -3,7 +3,7 @@ import type {
   Identifier,
   Literal,
   VbEmptyLiteral,
-  VbNewExpression,
+  NewExpression,
   MemberExpression,
   CallExpression,
   BinaryExpression,
@@ -720,7 +720,7 @@ export class ExpressionParser {
     };
   }
 
-  private parseNewExpression(): VbNewExpression {
+  private parseNewExpression(): NewExpression {
     const newToken = this.state.advance();
 
     // Parse the first identifier, then consume any dot-chained members
@@ -749,7 +749,7 @@ export class ExpressionParser {
     }
 
     return {
-      type: 'VbNewExpression',
+      type: 'NewExpression',
       callee,
       arguments: args,
       loc: createLocation(newToken, this.state.previous),

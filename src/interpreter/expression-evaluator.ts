@@ -10,7 +10,7 @@ import type {
   AssignmentExpression,
   ConditionalExpression,
   ThisExpression,
-  VbNewExpression,
+  NewExpression,
   VbWithObjectExpression,
 } from '../ast/index.ts';
 import type {
@@ -80,7 +80,7 @@ export class ExpressionEvaluator {
         return this.evaluateLiteral(node);
       case 'VbEmptyLiteral':
         return VbEmpty;
-      case 'VbNewExpression':
+      case 'NewExpression':
         return this.evaluateNew(node);
       case 'ThisExpression':
         return this.evaluateMe(node);
@@ -123,7 +123,7 @@ export class ExpressionEvaluator {
     return createVbValue(node.value);
   }
 
-  private evaluateNew(node: VbNewExpression): VbObjectValue {
+  private evaluateNew(node: NewExpression): VbObjectValue {
     // Simple identifier: try VBScript class registry first, then globalThis fallback.
     if (node.callee.type === 'Identifier') {
       const className = node.callee.name;

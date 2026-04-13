@@ -8,18 +8,17 @@ import type {
   VbEraseStatement,
   VbConstStatement,
   VbForToStatement,
-  VbForEachStatement,
+  ForOfStatement,
   VbDoLoopStatement,
   VbSelectCaseStatement,
-  VbWithStatement,
+  WithStatement,
   VbExitStatement,
   VbOptionExplicitStatement,
   VbSubStatement,
   VbFunctionStatement,
   VbClassStatement,
   VbOnErrorHandlerStatement,
-  VbCallStatement,
-  VbEnumStatement,
+  TSEnumDeclaration,
   Expression,
   VbGotoStatement,
 } from '../ast/index.ts';
@@ -53,6 +52,22 @@ export class ControlFlowSignal extends Error {
 export class GotoSignal extends ControlFlowSignal {
   constructor(public labelName: string) {
     super('goto');
+  }
+}
+
+function tsTypeAnnotationName(annotation: import('../ast/index.ts').TSTypeAnnotation): string {
+  const t = annotation.typeAnnotation;
+  switch (t.type) {
+    case 'TSStringKeyword':  return 'string';
+    case 'TSBooleanKeyword': return 'boolean';
+    case 'TSObjectKeyword':  return 'object';
+    case 'TSAnyKeyword':     return 'variant';
+    case 'TSVoidKeyword':    return 'variant';
+    case 'TSNumberKeyword':  return 'double';
+    case 'TSNullKeyword':    return 'variant';
+    case 'TSTypeReference':  return t.typeName.name;
+    case 'TSArrayType':      return tsTypeAnnotationName({ type: 'TSTypeAnnotation', typeAnnotation: t.elementType });
+    default:                 return 'variant';
   }
 }
 
@@ -99,13 +114,13 @@ export class StatementExecutor {
           return this.executeConstStatement(node);
         case 'VbForToStatement':
           return this.executeForToStatement(node);
-        case 'VbForEachStatement':
+        case 'ForOfStatement':
           return this.executeForEachStatement(node);
         case 'VbDoLoopStatement':
           return this.executeDoLoopStatement(node);
         case 'VbSelectCaseStatement':
           return this.executeSelectCaseStatement(node);
-        case 'VbWithStatement':
+        case 'WithStatement':
           return this.executeWithStatement(node);
         case 'VbExitStatement':
           return this.executeExitStatement(node);
@@ -123,13 +138,11 @@ export class StatementExecutor {
           return this.executePropertyStatement(node);
         case 'VbOnErrorHandlerStatement':
           return this.executeOnErrorHandlerStatement(node);
-        case 'VbCallStatement':
-          return this.executeCallStatement(node);
         case 'VbGotoStatement':
           return this.executeGotoStatement(node);
         case 'VbLabelStatement':
           return VbEmpty;
-        case 'VbEnumStatement':
+        case 'TSEnumDeclaration':
           return this.executeEnumStatement(node);
         case 'ReturnStatement':
           throw new ControlFlowSignal('return');
@@ -158,10 +171,6 @@ export class StatementExecutor {
 
   private executeExpressionStatement(node: ExpressionStatement): VbValue {
     return this.exprEvaluator.evaluate(node.expression);
-  }
-
-  private executeCallStatement(node: VbCallStatement): VbValue {
-    return this.exprEvaluator.evaluateCall(node.callee, node.arguments);
   }
 
   private executeBlockStatement(node: BlockStatement): VbValue {
@@ -198,7 +207,7 @@ export class StatementExecutor {
       } else if (decl.init) {
         value = this.exprEvaluator.evaluate(decl.init);
       } else if (decl.typeAnnotation) {
-        value = getTypedDefault(decl.typeAnnotation.typeName);
+        value = getTypedDefault(tsTypeAnnotationName(decl.typeAnnotation));
       }
 
       this.context.declareVariable(decl.id.name, value);
@@ -207,19 +216,19 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private executeEnumStatement(node: VbEnumStatement): VbValue {
+  private executeEnumStatement(node: TSEnumDeclaration): VbValue {
     let nextValue = BigInt(0);
     for (const member of node.members) {
       let memberValue: VbValue;
-      if (member.value !== null) {
-        const evaluated = this.exprEvaluator.evaluate(member.value);
+      if (member.initializer !== null) {
+        const evaluated = this.exprEvaluator.evaluate(member.initializer);
         const numVal = toNumber(evaluated);
         nextValue = BigInt(Math.trunc(numVal));
         memberValue = { type: 'Long', value: Number(nextValue) };
       } else {
         memberValue = { type: 'Long', value: Number(nextValue) };
       }
-      this.context.globalScope.declare(member.name.name, memberValue, { isConst: true });
+      this.context.globalScope.declare(member.id.name, memberValue, { isConst: true });
       nextValue++;
     }
     return VbEmpty;
@@ -316,8 +325,8 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private executeForEachStatement(node: VbForEachStatement): VbValue {
-    const collection = this.exprEvaluator.evaluate(node.right);
+  private executeForEachStatement(node: ForOfStatement): VbValue {
+    const collection = this.exprEvaluator.evaluate(node.right as Expression);
 
     if (collection.type !== 'Array' && collection.type !== 'Object') {
       throw createVbError(
@@ -341,10 +350,11 @@ export class StatementExecutor {
       }
     }
 
-    this.context.declareVariable(node.left.name, VbEmpty);
+    const loopVar = (node.left as import('../ast/index.ts').Identifier).name;
+    this.context.declareVariable(loopVar, VbEmpty);
 
     for (const item of items) {
-      this.context.setVariable(node.left.name, item);
+      this.context.setVariable(loopVar, item);
 
       try {
         this.execute(node.body);
@@ -492,7 +502,7 @@ export class StatementExecutor {
     return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
   }
 
-  private executeWithStatement(node: VbWithStatement): VbValue {
+  private executeWithStatement(node: WithStatement): VbValue {
     const object = this.exprEvaluator.evaluate(node.object);
     this.context.pushWith(object);
 

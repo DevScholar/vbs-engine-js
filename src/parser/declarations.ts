@@ -6,10 +6,12 @@ import type {
   VbEraseStatement,
   VbConstStatement,
   VbConstDeclarator,
-  VbTypeAnnotation,
-  VbEnumStatement,
-  VbEnumMember,
+  TSTypeAnnotation,
+  TSType,
+  TSEnumDeclaration,
+  TSEnumMember,
 } from '../ast/index.ts';
+import type { SourceLocation } from '../ast/base.ts';
 import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
@@ -83,26 +85,26 @@ export class DeclarationParser {
     };
   }
 
-  parseEnumStatement(visibility?: string): VbEnumStatement {
+  parseEnumStatement(visibility?: string): TSEnumDeclaration {
     const enumToken = this.state.advance(); // consume 'Enum'
-    const name = this.exprParser.parseIdentifier();
+    const id = this.exprParser.parseIdentifier();
     this.state.skipNewlines();
 
-    const members: VbEnumMember[] = [];
+    const members: TSEnumMember[] = [];
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
       if (this.state.check(TokenType.End)) break;
       if (this.state.isEOF) break;
 
       const memberName = this.exprParser.parseIdentifier();
-      let value: Expression | null = null;
+      let initializer: Expression | null = null;
       if (this.state.match(TokenType.Eq)) {
-        value = this.exprParser.parseExpression();
+        initializer = this.exprParser.parseExpression();
       }
       members.push({
-        type: 'VbEnumMember',
-        name: memberName,
-        value,
+        type: 'TSEnumMember',
+        id: memberName,
+        initializer,
         loc: createLocationFromNodeAndToken(memberName, this.state.previous),
       });
     }
@@ -110,11 +112,12 @@ export class DeclarationParser {
     this.state.expect(TokenType.End);
     this.state.expect(TokenType.Enum);
 
+    void visibility; // stored in parent context (Public/Private), not in TSEnumDeclaration
+
     return {
-      type: 'VbEnumStatement',
-      name,
+      type: 'TSEnumDeclaration',
+      id,
       members,
-      visibility: (visibility ?? 'public') as 'public' | 'private',
       loc: createLocation(enumToken, this.state.previous),
     };
   }
@@ -185,7 +188,7 @@ export class DeclarationParser {
       init = this.exprParser.parseExpression();
     }
 
-    let typeAnnotation: VbTypeAnnotation | undefined;
+    let typeAnnotation: TSTypeAnnotation | undefined;
     if (this.state.check(TokenType.As)) {
       typeAnnotation = this.parseTypeAnnotation();
     }
@@ -213,7 +216,7 @@ export class DeclarationParser {
     return bounds;
   }
 
-  parseTypeAnnotation(): VbTypeAnnotation {
+  parseTypeAnnotation(): TSTypeAnnotation {
     this.state.expect(TokenType.As);
     const typeToken = this.state.current;
     let typeName = '';
@@ -245,12 +248,31 @@ export class DeclarationParser {
       this.state.expect(TokenType.RParen);
     }
 
+    const innerType = this.vbTypeNameToTSType(typeName, typeToken.loc);
+    const tsType: TSType = isArray
+      ? { type: 'TSArrayType', elementType: innerType, loc: typeToken.loc }
+      : innerType;
+
     return {
-      type: 'VbTypeAnnotation',
-      typeName,
-      isArray,
+      type: 'TSTypeAnnotation',
+      typeAnnotation: tsType,
       loc: createLocation(typeToken, this.state.previous),
     };
+  }
+
+  private vbTypeNameToTSType(typeName: string, loc: SourceLocation | null | undefined): TSType {
+    switch (typeName.toLowerCase()) {
+      case 'string':  return { type: 'TSStringKeyword',  loc };
+      case 'boolean': return { type: 'TSBooleanKeyword', loc };
+      case 'object':  return { type: 'TSObjectKeyword',  loc };
+      case 'variant': return { type: 'TSAnyKeyword',     loc };
+      default:
+        return {
+          type: 'TSTypeReference',
+          typeName: { type: 'Identifier', name: typeName || 'Variant', loc },
+          loc,
+        };
+    }
   }
 
   private parseConstDeclarators(): VbConstDeclarator[] {
@@ -269,7 +291,7 @@ export class DeclarationParser {
     this.state.expect(TokenType.Eq);
     const init = this.exprParser.parseExpression();
 
-    let typeAnnotation: VbTypeAnnotation | undefined;
+    let typeAnnotation: TSTypeAnnotation | undefined;
     if (this.state.check(TokenType.As)) {
       typeAnnotation = this.parseTypeAnnotation();
     }

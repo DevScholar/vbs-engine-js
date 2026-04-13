@@ -4,7 +4,7 @@ import type {
   Expression,
   IfStatement,
   VbForToStatement,
-  VbForEachStatement,
+  ForOfStatement,
   VbDoLoopStatement,
   VbSelectCaseStatement,
   VbCaseClause,
@@ -316,7 +316,7 @@ export class ControlFlowParser {
     };
   }
 
-  private parseForEachStatement(forToken: Token): VbForEachStatement {
+  private parseForEachStatement(forToken: Token): ForOfStatement {
     this.state.expect('Each' as any);
     const left = this.exprParser.parseIdentifier();
     this.state.expect('In' as any);
@@ -325,10 +325,11 @@ export class ControlFlowParser {
     const body = this.parseForBody();
 
     return {
-      type: 'VbForEachStatement',
+      type: 'ForOfStatement',
       left,
       right,
       body,
+      await: false,
       loc: createLocation(forToken, this.state.previous),
     };
   }

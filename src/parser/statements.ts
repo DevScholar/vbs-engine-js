@@ -1,7 +1,7 @@
 import type {
   Statement,
   Expression,
-  VbWithStatement,
+  WithStatement,
   VbExitStatement,
   VbOptionExplicitStatement,
 } from '../ast/index.ts';
@@ -17,7 +17,7 @@ export class StatementsParser {
     private parseStatement: () => Statement
   ) {}
 
-  parseWithStatement(): VbWithStatement {
+  parseWithStatement(): WithStatement {
     const withToken = this.state.advance();
     const object = this.exprParser.parseExpression();
     this.state.skipNewlines();
@@ -27,7 +27,7 @@ export class StatementsParser {
     this.state.expect(TokenType.With);
 
     return {
-      type: 'VbWithStatement',
+      type: 'WithStatement',
       object,
       body,
       loc: createLocation(withToken, this.state.previous),
@@ -83,10 +83,17 @@ export class StatementsParser {
       args = this.parseCallArgumentsNoParens();
     }
 
-    return {
-      type: 'VbCallStatement',
+    const callExpr = {
+      type: 'CallExpression' as const,
       callee,
       arguments: args,
+      optional: false,
+      loc: createLocation(callToken, this.state.previous),
+    };
+
+    return {
+      type: 'ExpressionStatement',
+      expression: callExpr,
       loc: createLocation(callToken, this.state.previous),
     };
   }
