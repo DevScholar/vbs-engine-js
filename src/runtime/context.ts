@@ -146,29 +146,16 @@ export class VbContext {
       return variable.value;
     }
 
-    const lowerName = name.toLowerCase();
-    for (const key of Object.keys(globalThis)) {
-      if (key.toLowerCase() === lowerName) {
-        const value = (globalThis as Record<string, unknown>)[key];
-        return jsToVb(value, globalThis);
-      }
+    // Direct property check first (catches non-enumerable globals like console)
+    if (name in globalThis) {
+      const value = (globalThis as Record<string, unknown>)[name];
+      return jsToVb(value, globalThis);
     }
 
-    const globalKeys = [
-      'eval',
-      'parseInt',
-      'parseFloat',
-      'isNaN',
-      'isFinite',
-      'decodeURI',
-      'decodeURIComponent',
-      'encodeURI',
-      'encodeURIComponent',
-      'escape',
-      'unescape',
-    ];
-    for (const key of globalKeys) {
-      if (key.toLowerCase() === lowerName && key in globalThis) {
+    // Case-insensitive lookup across all own properties (enumerable + non-enumerable)
+    const lowerName = name.toLowerCase();
+    for (const key of Object.getOwnPropertyNames(globalThis)) {
+      if (key.toLowerCase() === lowerName) {
         const value = (globalThis as Record<string, unknown>)[key];
         return jsToVb(value, globalThis);
       }

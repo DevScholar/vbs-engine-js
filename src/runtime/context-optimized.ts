@@ -211,7 +211,14 @@ export class VbContextOptimized {
 
     // Check if it's a known global key
     if (globalKeySet.has(internedName)) {
-      for (const key of Object.keys(globalThis)) {
+      // Direct access first (catches non-enumerable globals like console)
+      if (name in globalThis) {
+        const value = (globalThis as Record<string, unknown>)[name];
+        const vbValue = jsToVbOptimized(value);
+        setGlobalThisCache(internedName, vbValue);
+        return vbValue;
+      }
+      for (const key of Object.getOwnPropertyNames(globalThis)) {
         if (globalStringInterner.intern(key) === internedName) {
           const value = (globalThis as Record<string, unknown>)[key];
           const vbValue = jsToVbOptimized(value);
@@ -221,8 +228,14 @@ export class VbContextOptimized {
       }
     }
 
-    // Dynamic global lookup
-    for (const key of Object.keys(globalThis)) {
+    // Dynamic global lookup (includes non-enumerable properties)
+    if (name in globalThis) {
+      const value = (globalThis as Record<string, unknown>)[name];
+      const vbValue = jsToVbOptimized(value);
+      globalThisCache.set(internedName, vbValue);
+      return vbValue;
+    }
+    for (const key of Object.getOwnPropertyNames(globalThis)) {
       if (globalStringInterner.intern(key) === internedName) {
         const value = (globalThis as Record<string, unknown>)[key];
         const vbValue = jsToVbOptimized(value);

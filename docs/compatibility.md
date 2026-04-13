@@ -527,6 +527,27 @@ VBScript-engine protocol methods (`getProperty`, `setProperty`, etc.) are
 only used when they exist as **own properties** of the object, so arbitrary
 Proxy objects are treated as plain objects instead.
 
+### Host Object Access via `globalThis`
+
+Standard VBScript only exposes objects explicitly registered by the host
+(e.g. `window`, `document` in IE). This engine automatically makes all
+properties on JavaScript's `globalThis` available to VBScript as variables,
+with case-insensitive name resolution. This includes non-enumerable globals
+such as `console`, `Math`, `JSON`, etc.:
+
+```vbscript
+console.log "Hello from VBScript"
+Dim x : x = Math.round(3.7)   ' 4
+Dim s : s = JSON.stringify(obj)
+```
+
+User-assigned `globalThis` properties are also accessible:
+
+```vbscript
+' JS side: globalThis.Forms = System.Windows.Forms
+' VBS side:
+Set form = New Forms.Form
+```
 
 | Keyword | Status | Notes |
 |---------|--------|-------|
