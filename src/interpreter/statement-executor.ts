@@ -19,6 +19,7 @@ import type {
   VbClassStatement,
   VbOnErrorHandlerStatement,
   TSEnumDeclaration,
+  VbTypeStatement,
   Expression,
   VbGotoStatement,
 } from '../ast/index.ts';
@@ -71,7 +72,7 @@ function tsTypeAnnotationName(annotation: import('../ast/index.ts').TSTypeAnnota
   }
 }
 
-function getTypedDefault(typeName: string): VbValue {
+function getTypedDefault(typeName: string, context?: VbContext): VbValue {
   switch (typeName.toLowerCase()) {
     case 'integer': return { type: 'Integer', value: 0 };
     case 'long': return { type: 'Long', value: 0 };
@@ -84,7 +85,12 @@ function getTypedDefault(typeName: string): VbValue {
     case 'string': return { type: 'String', value: '' };
     case 'date': return { type: 'Date', value: new Date(0) };
     case 'variant': return VbEmpty;
-    default: return { type: 'Object', value: null }; // Object/class → Nothing
+    default:
+      if (context && context.classRegistry.has(typeName)) {
+        const instance = context.classRegistry.createInstance(typeName, []);
+        return { type: 'Object', value: instance };
+      }
+      return { type: 'Object', value: null }; // Object/class → Nothing
   }
 }
 
@@ -144,6 +150,8 @@ export class StatementExecutor {
           return VbEmpty;
         case 'TSEnumDeclaration':
           return this.executeEnumStatement(node);
+        case 'VbTypeStatement':
+          return this.executeTypeStatement(node);
         case 'ReturnStatement':
           throw new ControlFlowSignal('return');
         default:
@@ -207,7 +215,7 @@ export class StatementExecutor {
       } else if (decl.init) {
         value = this.exprEvaluator.evaluate(decl.init);
       } else if (decl.typeAnnotation) {
-        value = getTypedDefault(tsTypeAnnotationName(decl.typeAnnotation));
+        value = getTypedDefault(tsTypeAnnotationName(decl.typeAnnotation), this.context);
       }
 
       this.context.declareVariable(decl.id.name, value);
@@ -231,6 +239,22 @@ export class StatementExecutor {
       this.context.globalScope.declare(member.id.name, memberValue, { isConst: true });
       nextValue++;
     }
+    return VbEmpty;
+  }
+
+  private executeTypeStatement(node: VbTypeStatement): VbValue {
+    const cls = new VbClass(node.name.name);
+
+    cls.initializer = (instance) => {
+      for (const member of node.members) {
+        const defaultValue = member.typeAnnotation
+          ? getTypedDefault(tsTypeAnnotationName(member.typeAnnotation), this.context)
+          : VbEmpty;
+        instance.setProperty(member.id.name, defaultValue);
+      }
+    };
+
+    this.context.classRegistry.register(cls);
     return VbEmpty;
   }
 

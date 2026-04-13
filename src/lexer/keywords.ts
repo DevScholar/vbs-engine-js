@@ -74,4 +74,5 @@ export const KEYWORDS: Record<string, TokenType> = {
   null: TokenType.NullLiteral,
   empty: TokenType.EmptyLiteral,
   enum: TokenType.Enum,
+  type: TokenType.Type,
 };

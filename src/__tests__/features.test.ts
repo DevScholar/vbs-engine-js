@@ -466,3 +466,119 @@ describe('VBA7 LongLong type', () => {
     expect(v.value).toBe(BigInt('9223372036854775807'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// VB6 User-Defined Types (Type...End Type)
+// ---------------------------------------------------------------------------
+describe('VB6 User-Defined Types', () => {
+  it('Type declaration and Dim creates instance with default-initialized fields', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Point
+        X As Integer
+        Y As Integer
+      End Type
+      Dim p As Point
+    `);
+    const p = engine._getVariable('p');
+    expect(p.type).toBe('Object');
+    const instance = p.value as import('../runtime/class-registry.ts').VbObjectInstance;
+    expect(instance.getProperty('X').type).toBe('Integer');
+    expect(instance.getProperty('X').value).toBe(0);
+    expect(instance.getProperty('Y').type).toBe('Integer');
+    expect(instance.getProperty('Y').value).toBe(0);
+  });
+
+  it('Field access and assignment', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Point
+        X As Integer
+        Y As Integer
+      End Type
+      Dim p As Point
+      p.X = 10
+      p.Y = 20
+      result = p.X + p.Y
+    `);
+    expect(engine._getVariable('result').value).toBe(30);
+  });
+
+  it('String and Boolean fields', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Person
+        Name As String
+        Active As Boolean
+        Age As Integer
+      End Type
+      Dim per As Person
+      per.Name = "Alice"
+      per.Active = True
+      per.Age = 30
+    `);
+    const per = engine._getVariable('per');
+    const instance = per.value as import('../runtime/class-registry.ts').VbObjectInstance;
+    expect(instance.getProperty('Name').value).toBe('Alice');
+    expect(instance.getProperty('Active').value).toBe(true);
+    expect(instance.getProperty('Age').value).toBe(30);
+  });
+
+  it('Multiple independent instances', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Point
+        X As Integer
+        Y As Integer
+      End Type
+      Dim a As Point
+      Dim b As Point
+      a.X = 1
+      b.X = 99
+    `);
+    const a = engine._getVariable('a').value as import('../runtime/class-registry.ts').VbObjectInstance;
+    const b = engine._getVariable('b').value as import('../runtime/class-registry.ts').VbObjectInstance;
+    expect(a.getProperty('X').value).toBe(1);
+    expect(b.getProperty('X').value).toBe(99);
+  });
+
+  it('Fields default to type-appropriate zero values', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Defaults
+        N As Long
+        S As String
+        B As Boolean
+        D As Double
+      End Type
+      Dim d As Defaults
+    `);
+    const instance = engine._getVariable('d').value as import('../runtime/class-registry.ts').VbObjectInstance;
+    expect(instance.getProperty('N').value).toBe(0);
+    expect(instance.getProperty('S').value).toBe('');
+    expect(instance.getProperty('B').value).toBe(false);
+    expect(instance.getProperty('D').value).toBe(0);
+  });
+
+  it('UDT used in Sub parameter (ByRef)', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Type Vec
+        X As Double
+        Y As Double
+      End Type
+      Sub Scale(v As Vec, factor As Double)
+        v.X = v.X * factor
+        v.Y = v.Y * factor
+      End Sub
+      Dim v As Vec
+      v.X = 3
+      v.Y = 4
+      Scale v, 2
+      rx = v.X
+      ry = v.Y
+    `);
+    expect(engine._getVariable('rx').value).toBe(6);
+    expect(engine._getVariable('ry').value).toBe(8);
+  });
+});

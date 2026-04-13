@@ -78,6 +78,7 @@ export function isStatement(node: VbNode): node is Statement {
     'VbExitStatement',
     'VbOptionExplicitStatement',
     'TSEnumDeclaration',
+    'VbTypeStatement',
   ];
   return statementTypes.includes(node.type);
 }

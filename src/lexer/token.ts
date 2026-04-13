@@ -129,6 +129,8 @@ export enum TokenType {
   Byte = 'Byte',
 
   Enum = 'Enum',
+
+  Type = 'Type',
 }
 
 export interface TokenLocation {

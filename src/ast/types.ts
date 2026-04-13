@@ -555,6 +555,13 @@ export interface VbGotoStatement extends BaseStatement {
   label: Identifier;
 }
 
+export interface VbTypeStatement extends BaseStatement {
+  type: 'VbTypeStatement';
+  name: Identifier;
+  members: VbVariableDeclarator[];
+  visibility: 'public' | 'private';
+}
+
 export interface VbLabelStatement extends BaseStatement {
   type: 'VbLabelStatement';
   label: Identifier;
@@ -645,6 +652,7 @@ export type Statement =
   | VbResumeStatement
   | VbGotoStatement
   | VbLabelStatement
+  | VbTypeStatement
   | TSEnumDeclaration;
 
 export type Declaration =
@@ -652,6 +660,7 @@ export type Declaration =
   | VbSubStatement
   | VbFunctionStatement
   | VbClassStatement
+  | VbTypeStatement
   | TSEnumDeclaration;
 
 export type VbNode =

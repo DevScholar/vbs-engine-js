@@ -10,6 +10,7 @@ import type {
   TSType,
   TSEnumDeclaration,
   TSEnumMember,
+  VbTypeStatement,
 } from '../ast/index.ts';
 import type { SourceLocation } from '../ast/base.ts';
 import { TokenType } from '../lexer/token.ts';
@@ -85,8 +86,7 @@ export class DeclarationParser {
     };
   }
 
-  parseEnumStatement(visibility?: string): TSEnumDeclaration {
-    const enumToken = this.state.advance(); // consume 'Enum'
+  parseEnumStatement(visibility?: string): TSEnumDeclaration {    const enumToken = this.state.advance(); // consume 'Enum'
     const id = this.exprParser.parseIdentifier();
     this.state.skipNewlines();
 
@@ -119,6 +119,63 @@ export class DeclarationParser {
       id,
       members,
       loc: createLocation(enumToken, this.state.previous),
+    };
+  }
+
+  parseTypeStatement(visibility: 'public' | 'private' = 'public'): VbTypeStatement {
+    const typeToken = this.state.advance(); // consume 'Type'
+    const name = this.exprParser.parseIdentifier();
+    this.state.skipNewlines();
+
+    const members: VbVariableDeclarator[] = [];
+    while (!this.state.isEOF) {
+      this.state.skipStatementSeparators();
+      if (this.state.check(TokenType.End)) break;
+      if (this.state.isEOF) break;
+
+      const member = this.parseTypeMember();
+      members.push(member);
+    }
+
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Type);
+
+    return {
+      type: 'VbTypeStatement',
+      name,
+      members,
+      visibility,
+      loc: createLocation(typeToken, this.state.previous),
+    };
+  }
+
+  private parseTypeMember(): VbVariableDeclarator {
+    const id = this.exprParser.parseIdentifier();
+    let isArray = false;
+    let arrayBounds: Expression[] = [];
+
+    if (this.state.check(TokenType.LParen)) {
+      this.state.advance();
+      isArray = true;
+      if (!this.state.check(TokenType.RParen)) {
+        arrayBounds = this.parseArrayBounds();
+      }
+      this.state.expect(TokenType.RParen);
+    }
+
+    let typeAnnotation: TSTypeAnnotation | undefined;
+    if (this.state.check(TokenType.As)) {
+      typeAnnotation = this.parseTypeAnnotation();
+    }
+
+    return {
+      type: 'VbVariableDeclarator',
+      id,
+      init: null,
+      isArray,
+      arrayBounds: arrayBounds.length > 0 ? arrayBounds : undefined,
+      typeAnnotation,
+      loc: createLocationFromNodeAndToken(id, this.state.previous),
     };
   }
 
