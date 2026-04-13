@@ -365,12 +365,34 @@ export class StatementExecutor {
       const arr = collection.value as VbArray;
       items = arr.toArray();
     } else {
-      const obj = collection.value as VbObjectInstance;
-      const count = obj.getProperty('Count');
-      const countNum = toNumber(count);
-      items = [];
-      for (let i = 0; i < countNum; i++) {
-        items.push(obj.getProperty(String(i)));
+      const rawObj = collection.value as unknown;
+      if (
+        rawObj !== null &&
+        typeof rawObj === 'object' &&
+        Symbol.iterator in (rawObj as object)
+      ) {
+        items = [];
+        for (const item of rawObj as Iterable<unknown>) {
+          if (item === null || item === undefined) {
+            items.push(VbEmpty);
+          } else if (typeof item === 'boolean') {
+            items.push({ type: 'Boolean', value: item });
+          } else if (typeof item === 'number') {
+            items.push({ type: 'Double', value: item });
+          } else if (typeof item === 'string') {
+            items.push({ type: 'String', value: item });
+          } else {
+            items.push({ type: 'Object', value: item });
+          }
+        }
+      } else {
+        const obj = collection.value as VbObjectInstance;
+        const count = obj.getProperty('Count');
+        const countNum = toNumber(count);
+        items = [];
+        for (let i = 0; i < countNum; i++) {
+          items.push(obj.getProperty(String(i)));
+        }
       }
     }
 

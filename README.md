@@ -78,6 +78,68 @@ if (engine.error) {
 }
 ```
 
+## COM / ActiveX Integration (Node.js on Windows)
+
+VBScript's `CreateObject` and `GetObject` depend on a host-provided COM backend.
+In Node.js, wire up [`@devscholar/node-ps1-dotnet`](https://www.npmjs.com/package/@devscholar/node-ps1-dotnet) before running scripts:
+
+```bash
+npm install @devscholar/node-ps1-dotnet
+```
+
+```typescript
+import { VbsEngine } from '@devscholar/vbs-engine-js';
+import { ActiveXObject, GetObject } from '@devscholar/node-ps1-dotnet/activex';
+
+// Expose COM constructors to the engine
+globalThis.ActiveXObject = ActiveXObject;
+globalThis.GetObject = GetObject;
+
+const engine = new VbsEngine();
+```
+
+### `CreateObject`
+
+```typescript
+engine.executeStatement(`
+  Set fso = CreateObject("Scripting.FileSystemObject")
+  MsgBox fso.GetAbsolutePathName(".")
+`);
+```
+
+### `GetObject` — bind to a running instance
+
+```typescript
+// GetObject(, "Excel.Application") — gets a running Excel instance
+engine.executeStatement(`
+  Set xl = GetObject(, "Excel.Application")
+  MsgBox xl.Version
+`);
+```
+
+### `GetObject` — bind to a WMI moniker
+
+```typescript
+engine.executeStatement(`
+  Set wmi = GetObject("winmgmts:")
+  For Each os In wmi.ExecQuery("SELECT * FROM Win32_OperatingSystem")
+    MsgBox os.Caption & " " & os.Version
+  Next
+`);
+```
+
+### `GetObject` — bind to a file
+
+```typescript
+engine.executeStatement(`
+  Set doc = GetObject("C:\Reports\sales.xls")
+  MsgBox doc.Name
+`);
+```
+
+> **Note:** COM/ActiveX requires Windows. On other platforms `CreateObject` returns a
+> dummy object and `GetObject` returns `Nothing`.
+
 ## Security Warning
 
 ⚠️ **Important Security Considerations**

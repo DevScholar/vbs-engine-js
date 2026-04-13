@@ -22,7 +22,23 @@ const VBS_PROTOCOL_NAMES = new Set([
 function wrapCOMProxy(ax: unknown): Record<string, unknown> {
   return new Proxy(Object.create(null) as Record<string, unknown>, {
     get(_target: Record<string, unknown>, prop: string | symbol): unknown {
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === 'symbol') {
+        if (prop === Symbol.iterator) {
+          const axIterable = ax as Record<symbol, unknown>;
+          if (typeof axIterable[Symbol.iterator] === 'function') {
+            return function* () {
+              for (const item of axIterable as Iterable<unknown>) {
+                if (item !== null && (typeof item === 'object' || typeof item === 'function')) {
+                  yield wrapCOMProxy(item);
+                } else {
+                  yield item;
+                }
+              }
+            };
+          }
+        }
+        return undefined;
+      }
       if (VBS_PROTOCOL_NAMES.has(prop)) return undefined;
       const val = (ax as Record<string, unknown>)[prop];
       if (typeof val !== 'function') return val;
@@ -33,6 +49,17 @@ function wrapCOMProxy(ax: unknown): Record<string, unknown> {
           return wrapCOMProxy(result);
         return result;
       };
+    },
+    has(_target: Record<string, unknown>, prop: string | symbol): boolean {
+      if (typeof prop === 'symbol') {
+        if (prop === Symbol.iterator) {
+          const axIterable = ax as Record<symbol, unknown>;
+          return typeof axIterable[Symbol.iterator] === 'function';
+        }
+        return false;
+      }
+      if (VBS_PROTOCOL_NAMES.has(prop)) return false;
+      return prop in (ax as Record<string, unknown>);
     },
     set(_target: Record<string, unknown>, prop: string | symbol, value: unknown): boolean {
       if (typeof prop === 'symbol') return false;
@@ -255,9 +282,23 @@ export function registerBuiltins(context: VbContext): void {
     { isSub: true }
   );
 
-  context.functionRegistry.register('GetObject', (_pathname?: VbValue, _cls?: VbValue): VbValue => {
-    void _pathname; // Intentionally unused - matches VBScript signature
-    void _cls; // Intentionally unused - matches VBScript signature
+  context.functionRegistry.register('GetObject', (pathname?: VbValue, cls?: VbValue): VbValue => {
+    const path = pathname ? String(pathname.value ?? pathname) : '';
+    const className = cls ? String(cls.value ?? cls) : '';
+
+    const getObjectFn = (globalThis as unknown as {
+      GetObject?: (pathname?: string, cls?: string) => unknown;
+    }).GetObject;
+
+    if (getObjectFn) {
+      try {
+        const ax = getObjectFn(path || undefined, className || undefined);
+        return { type: 'Object', value: wrapCOMProxy(ax) };
+      } catch {
+        throw new Error(`ActiveX component can't get object: '${className || path}'`);
+      }
+    }
+
     return { type: 'Object', value: null };
   });
 
