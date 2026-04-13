@@ -558,3 +558,154 @@ Set form = New Forms.Form
 | True | ✔️ | |
 | Me | ✔️ | |
 
+---
+
+## VB6 / VBA7 Extensions
+
+### VB6 Type Syntax (`As Type` Annotations)
+
+Variables, parameters, and function return types can carry explicit type
+annotations using the `As <Type>` syntax. The engine uses the annotation to
+initialize typed variables to their VB6 default values.
+
+```vbscript
+Dim x As Integer        ' initialized to 0 (Integer)
+Dim s As String         ' initialized to "" (String)
+Dim b As Boolean        ' initialized to False (Boolean)
+Dim d As Double         ' initialized to 0 (Double)
+Dim n As Long           ' initialized to 0 (Long)
+Dim by As Byte          ' initialized to 0 (Byte)
+
+Function Add(ByVal a As Integer, ByVal b As Integer) As Long
+  Add = a + b
+End Function
+
+Sub Greet(ByVal name As String)
+  MsgBox "Hello " & name
+End Sub
+
+Property Get Count() As Integer
+  Count = m_count
+End Property
+```
+
+Supported type names: `Integer`, `Long`, `LongLong`, `Single`, `Double`,
+`Currency`, `String`, `Boolean`, `Byte`, `Date`, `Object`, `Variant`.
+
+Type annotations are parsed and stored on the AST but are not enforced at
+runtime (no implicit coercion on assignment). They affect only the initial
+default value of `Dim` variables.
+
+### VB6 Enums (`Enum…End Enum`)
+
+Enumerations declare a set of named integer constants. Members
+auto-increment from 0 (or from the previous explicit value + 1).
+
+```vbscript
+Enum Color
+  Red        ' 0
+  Green      ' 1
+  Blue       ' 2
+End Enum
+
+Enum Status
+  Pending = 10
+  Active  = 20
+  Inactive = 30
+End Enum
+
+Enum Priority
+  Low          ' 0
+  Medium = 10
+  High         ' 11
+  Critical     ' 12
+End Enum
+```
+
+Enum members are declared as global read-only constants and can be used in
+any expression, `Select Case`, or arithmetic:
+
+```vbscript
+heading = East + 45
+
+Select Case pick
+  Case Apple  : result = "apple"
+  Case Banana : result = "banana"
+End Select
+```
+
+`Public Enum` is supported (same as unqualified `Enum`). `Private Enum`
+is also accepted syntactically.
+
+### VB6 Collection
+
+The built-in `Collection` class provides a VB6-compatible ordered list with
+optional string keys. Create instances with `Set col = New Collection`.
+
+```vbscript
+Set col = New Collection
+
+' Add items (optional string key)
+col.Add "Paris", "FR"
+col.Add "London", "UK"
+col.Add 42
+
+' Count
+result = col.Count   ' 3
+
+' Item access (1-based index or string key)
+r1 = col.Item(1)     ' "Paris"
+r2 = col.Item("UK")  ' "London"
+
+' Remove by 1-based index or string key
+col.Remove 1
+col.Remove "UK"
+
+' For Each iteration
+total = 0
+For Each item In col
+  total = total + item
+Next
+```
+
+Supported methods: `Add`, `Remove`, `Item`.  
+Supported properties: `Count`.  
+`TypeName(col)` returns `"Collection"`.
+
+### VBA7 LongLong (64-bit Integer)
+
+On 64-bit VBA7 targets, the `LongLong` type provides a signed 64-bit
+integer. This engine implements it using JavaScript `BigInt`.
+
+```vbscript
+Dim x As LongLong      ' initialized to 0 (LongLong / BigInt)
+
+' Conversion
+x = CLngLng(42)
+x = CLngLng("9223372036854775807")  ' max Int64 via string
+x = CLngLng(-100)
+
+' Arithmetic — LongLong + LongLong stays LongLong
+a = CLngLng(1000000000)
+b = CLngLng(2000000000)
+c = a + b   ' 3000000000 (LongLong)
+
+' Mixed: LongLong + Integer → LongLong
+c = CLngLng(9000000000) + 1
+
+' Mixed: LongLong + Double → Double (promoted)
+c = CLngLng(100) + 1.5
+
+' Integer division (returns LongLong)
+c = CLngLng(10000000000) \ CLngLng(3)   ' 3333333333 (LongLong)
+
+' Inspection
+VarType(CLngLng(0))   ' 20
+TypeName(CLngLng(0))  ' "LongLong"
+CStr(CLngLng(x))      ' string representation
+```
+
+`VarType` code for `LongLong` is **20** (matches VBA7 specification).  
+Comparison operators (`=`, `<`, `>`, `<=`, `>=`, `<>`) work between
+`LongLong` values.
+

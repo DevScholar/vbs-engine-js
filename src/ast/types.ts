@@ -354,6 +354,7 @@ export interface VbParameter extends BaseNode {
   isArray: boolean;
   isOptional: boolean;
   isParamArray: boolean;
+  typeAnnotation?: VbTypeAnnotation | undefined;
 }
 
 export interface VbSubStatement extends BaseStatement {
@@ -370,6 +371,7 @@ export interface VbFunctionStatement extends BaseStatement {
   params: VbParameter[];
   body: BlockStatement;
   visibility: 'public' | 'private' | 'default';
+  returnType?: VbTypeAnnotation | undefined;
 }
 
 export interface VbVariableDeclarator extends BaseNode {
@@ -551,6 +553,19 @@ export interface VbLabelStatement extends BaseStatement {
   label: Identifier;
 }
 
+export interface VbEnumMember extends BaseNode {
+  type: 'VbEnumMember';
+  name: Identifier;
+  value: Expression | null;
+}
+
+export interface VbEnumStatement extends BaseStatement {
+  type: 'VbEnumStatement';
+  name: Identifier;
+  members: VbEnumMember[];
+  visibility: 'public' | 'private';
+}
+
 export interface ObjectPattern extends BasePattern {
   type: 'ObjectPattern';
   properties: Array<Property | RestElement>;
@@ -642,7 +657,8 @@ export type Statement =
   | VbOnErrorStatement
   | VbResumeStatement
   | VbGotoStatement
-  | VbLabelStatement;
+  | VbLabelStatement
+  | VbEnumStatement;
 
 export type Declaration =
   | VariableDeclaration
@@ -658,6 +674,7 @@ export type VbNode =
   | VbConstDeclarator
   | VbTypeAnnotation
   | VbCaseClause
+  | VbEnumMember
   | Property
   | VariableDeclarator
   | SwitchCase

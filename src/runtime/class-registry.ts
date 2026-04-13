@@ -1,4 +1,4 @@
-import type { VbValue } from './values.ts';
+import type { VbValue, VbObjectValueData } from './values.ts';
 import { VbEmpty } from './values.ts';
 
 export type VbPropertyGetter = () => VbValue;
@@ -16,6 +16,9 @@ export interface VbMethodInfo {
   func: (...args: VbValue[]) => VbValue;
   isSub: boolean;
 }
+
+/** A plain-object factory for native built-in classes (like Collection). */
+export type VbNativeFactory = () => VbObjectValueData;
 
 export class VbClass {
   constructor(
@@ -113,9 +116,14 @@ export class VbObjectInstance {
 
 export class VbClassRegistry {
   private classes: Map<string, VbClass> = new Map();
+  private nativeFactories: Map<string, VbNativeFactory> = new Map();
 
   register(cls: VbClass): void {
     this.classes.set(cls.name.toLowerCase(), cls);
+  }
+
+  registerNative(name: string, factory: VbNativeFactory): void {
+    this.nativeFactories.set(name.toLowerCase(), factory);
   }
 
   registerClass(name: string, creator: () => VbValue): void {
@@ -135,10 +143,16 @@ export class VbClassRegistry {
   }
 
   has(name: string): boolean {
-    return this.classes.has(name.toLowerCase());
+    return this.classes.has(name.toLowerCase()) || this.nativeFactories.has(name.toLowerCase());
   }
 
-  createInstance(name: string, _args: VbValue[]): VbObjectInstance {
+  createInstance(name: string, _args: VbValue[]): VbObjectInstance | VbObjectValueData {
+    // Check native factories first
+    const factory = this.nativeFactories.get(name.toLowerCase());
+    if (factory) {
+      return factory();
+    }
+
     void _args; // Intentionally unused - reserved for future constructor args
     const cls = this.classes.get(name.toLowerCase());
     if (!cls) {

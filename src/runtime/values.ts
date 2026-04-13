@@ -8,6 +8,7 @@ export type VbValueType =
   | 'Boolean'
   | 'Integer'
   | 'Long'
+  | 'LongLong'
   | 'Single'
   | 'Double'
   | 'Currency'
@@ -47,6 +48,12 @@ export interface VbIntegerValue {
 export interface VbLongValue {
   type: 'Long';
   value: number;
+}
+
+/** Represents a 64-bit signed integer (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807) */
+export interface VbLongLongValue {
+  type: 'LongLong';
+  value: bigint;
 }
 
 /** Represents a single-precision floating-point number */
@@ -118,6 +125,7 @@ export type VbValue =
   | VbBooleanValue
   | VbIntegerValue
   | VbLongValue
+  | VbLongLongValue
   | VbSingleValue
   | VbDoubleValue
   | VbCurrencyValue
@@ -210,6 +218,9 @@ export function toBoolean(value: VbValue): boolean {
   ) {
     return value.value !== 0;
   }
+  if (value.type === 'LongLong') {
+    return value.value !== BigInt(0);
+  }
   return true;
 }
 
@@ -234,6 +245,9 @@ export function toNumber(value: VbValue): number {
     value.type === 'Currency'
   ) {
     return value.value;
+  }
+  if (value.type === 'LongLong') {
+    return Number(value.value);
   }
   if (value.type === 'String') {
     const str = value.value.trim();
@@ -262,6 +276,9 @@ export function toString(value: VbValue): string {
   if (value.type === 'String') return value.value;
   if (value.type === 'Integer' || value.type === 'Long' || value.type === 'Byte') {
     return String(Math.floor(value.value));
+  }
+  if (value.type === 'LongLong') {
+    return String(value.value);
   }
   if (value.type === 'Double' || value.type === 'Single' || value.type === 'Currency') {
     return String(value.value);
@@ -315,6 +332,7 @@ export function isNumeric(value: VbValue): boolean {
   if (
     value.type === 'Integer' ||
     value.type === 'Long' ||
+    value.type === 'LongLong' ||
     value.type === 'Double' ||
     value.type === 'Single' ||
     value.type === 'Currency' ||
@@ -366,6 +384,8 @@ export function getNumericValue(value: VbValue): number {
     case 'Byte':
     case 'Currency':
       return value.value;
+    case 'LongLong':
+      return Number(value.value);
     default:
       return toNumber(value);
   }

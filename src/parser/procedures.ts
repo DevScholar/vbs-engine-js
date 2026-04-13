@@ -14,6 +14,7 @@ import type {
 import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
+import { DeclarationParser } from './declarations.ts';
 import { createLocation, createLocationFromNodeAndToken } from './location.ts';
 
 function isVbClassElement(stmt: Statement): stmt is VbClassElement {
@@ -30,11 +31,15 @@ function isVbClassElement(stmt: Statement): stmt is VbClassElement {
 }
 
 export class ProcedureParser {
+  private declParser: DeclarationParser;
+
   constructor(
     private state: ParserState,
     private exprParser: ExpressionParser,
     private parseStatement: () => Statement
-  ) {}
+  ) {
+    this.declParser = new DeclarationParser(state, exprParser);
+  }
 
   parseSubStatement(visibility?: string): VbSubStatement {
     const startToken = this.state.current;
@@ -61,6 +66,12 @@ export class ProcedureParser {
     this.state.expect(TokenType.Function);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
+
+    let returnType = undefined;
+    if (this.state.check(TokenType.As)) {
+      returnType = this.declParser.parseTypeAnnotation();
+    }
+
     this.state.skipNewlines();
     const body = this.parseBlock(TokenType.End);
     this.state.expect(TokenType.End);
@@ -72,6 +83,7 @@ export class ProcedureParser {
       params,
       body,
       visibility: (visibility ?? 'public') as 'public' | 'private',
+      returnType,
       loc: createLocation(startToken, this.state.previous),
     };
   }
@@ -115,6 +127,10 @@ export class ProcedureParser {
     this.state.expect(TokenType.Get);
     const name = this.exprParser.parseIdentifier();
     const params = this.parseParameters();
+    // Optional: As Type for property get return type (parsed but stored in params for compatibility)
+    if (this.state.check(TokenType.As)) {
+      this.declParser.parseTypeAnnotation(); // consume but ignore for now
+    }
     this.state.skipNewlines();
     const body = this.parseBlock(TokenType.End);
     this.state.expect(TokenType.End);
@@ -223,6 +239,11 @@ export class ProcedureParser {
       this.state.expect(TokenType.RParen);
     }
 
+    let typeAnnotation = undefined;
+    if (this.state.check(TokenType.As)) {
+      typeAnnotation = this.declParser.parseTypeAnnotation();
+    }
+
     if (this.state.match(TokenType.Eq)) {
       defaultValue = this.exprParser.parseExpression();
     }
@@ -235,6 +256,7 @@ export class ProcedureParser {
       defaultValue,
       isOptional,
       isParamArray,
+      typeAnnotation,
       loc: createLocationFromNodeAndToken(name, this.state.previous),
     };
   }

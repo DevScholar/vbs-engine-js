@@ -58,6 +58,7 @@ export const KEYWORDS: Record<string, TokenType> = {
   mod: TokenType.Mod,
   integer: TokenType.Integer,
   long: TokenType.Long,
+  longlong: TokenType.LongLong,
   single: TokenType.Single,
   double: TokenType.Double,
   currency: TokenType.Currency,
@@ -72,4 +73,5 @@ export const KEYWORDS: Record<string, TokenType> = {
   nothing: TokenType.NothingLiteral,
   null: TokenType.NullLiteral,
   empty: TokenType.EmptyLiteral,
+  enum: TokenType.Enum,
 };

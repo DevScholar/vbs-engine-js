@@ -280,6 +280,7 @@ export class ExpressionEvaluator {
     if (value === undefined) return { type: 'Empty', value: undefined };
     if (value === null) return { type: 'Null', value: null };
     if (typeof value === 'boolean') return { type: 'Boolean', value };
+    if (typeof value === 'bigint') return { type: 'LongLong', value };
     if (typeof value === 'number') {
       if (Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) {
         return { type: 'Long', value };
@@ -411,6 +412,8 @@ export class ExpressionEvaluator {
       case 'Integer':
       case 'String':
         return value.value;
+      case 'LongLong':
+        return value.value; // return as bigint
       case 'Date':
         return value.value instanceof Date ? value.value : new Date(value.value);
       case 'Array':
@@ -447,6 +450,9 @@ export class ExpressionEvaluator {
       case '/':
         return this.divide(left, right);
       case '\\':
+        if (left.type === 'LongLong' || right.type === 'LongLong') {
+          return this.longLongArithmetic(left, right, '\\');
+        }
         return this.integerDivide(left, right);
       case '%':
       case 'Mod':
@@ -487,6 +493,9 @@ export class ExpressionEvaluator {
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'String', value: toString(left) + toString(right) };
     }
+    if (left.type === 'LongLong' || right.type === 'LongLong') {
+      return this.longLongArithmetic(left, right, '+');
+    }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     return createVbValue(leftNum + rightNum);
@@ -496,6 +505,9 @@ export class ExpressionEvaluator {
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
     }
+    if (left.type === 'LongLong' || right.type === 'LongLong') {
+      return this.longLongArithmetic(left, right, '-');
+    }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     return createVbValue(leftNum - rightNum);
@@ -504,6 +516,9 @@ export class ExpressionEvaluator {
   private multiply(left: VbValue, right: VbValue): VbValue {
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
+    }
+    if (left.type === 'LongLong' || right.type === 'LongLong') {
+      return this.longLongArithmetic(left, right, '*');
     }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
@@ -736,5 +751,35 @@ export class ExpressionEvaluator {
       return this.evaluate(node.consequent);
     }
     return this.evaluate(node.alternate);
+  }
+
+  private toLongLongBigInt(v: VbValue): bigint {
+    if (v.type === 'LongLong') return v.value;
+    if (v.type === 'Integer' || v.type === 'Long' || v.type === 'Byte') return BigInt(v.value);
+    if (v.type === 'Boolean') return v.value ? BigInt(-1) : BigInt(0);
+    if (v.type === 'Empty') return BigInt(0);
+    // Float types demote to Double for mixed arithmetic
+    return BigInt(Math.trunc(toNumber(v)));
+  }
+
+  private longLongArithmetic(left: VbValue, right: VbValue, op: '+' | '-' | '*' | '\\'): VbValue {
+    // If either side is floating-point, promote to Double
+    const floatTypes = ['Single', 'Double', 'Currency'];
+    if (floatTypes.includes(left.type) || floatTypes.includes(right.type)) {
+      const l = toNumber(left);
+      const r = toNumber(right);
+      if (op === '+') return { type: 'Double', value: l + r };
+      if (op === '-') return { type: 'Double', value: l - r };
+      if (op === '*') return { type: 'Double', value: l * r };
+      if (r === 0) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      return { type: 'Long', value: Math.floor(l / r) };
+    }
+    const l = this.toLongLongBigInt(left);
+    const r = this.toLongLongBigInt(right);
+    if (op === '+') return { type: 'LongLong', value: l + r };
+    if (op === '-') return { type: 'LongLong', value: l - r };
+    if (op === '*') return { type: 'LongLong', value: l * r };
+    if (r === BigInt(0)) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+    return { type: 'LongLong', value: l / r };
   }
 }

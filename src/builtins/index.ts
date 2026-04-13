@@ -8,6 +8,7 @@ import { registerMsgBox } from './msgbox.ts';
 import { registerInputBox } from './inputbox.ts';
 import { registerRegExp } from './regexp.ts';
 import { localeFunctions } from './locale.ts';
+import { createCollection } from './collection.ts';
 
 // VbObjectValueData protocol names the VBS engine checks via typeof === 'function'.
 // Hide them so the engine falls through to obj[propertyName] → jsfunction path,
@@ -77,6 +78,9 @@ export function registerBuiltins(context: VbContext): void {
   Object.entries(localeFunctions).forEach(([name, func]) => {
     context.functionRegistry.register(name, func);
   });
+
+  // Register Collection as a native built-in class
+  context.classRegistry.registerNative('Collection', createCollection);
 
   context.functionRegistry.register('ScriptEngine', (): VbValue => {
     return { type: 'String', value: 'VBScript' };
@@ -165,6 +169,7 @@ export function registerBuiltins(context: VbContext): void {
       Null: 'Null',
       Integer: 'Integer',
       Long: 'Long',
+      LongLong: 'LongLong',
       Single: 'Single',
       Double: 'Double',
       Currency: 'Currency',
@@ -196,6 +201,7 @@ export function registerBuiltins(context: VbContext): void {
       Boolean: 11,
       Variant: 12,
       Byte: 17,
+      LongLong: 20,
       Array: 8192,
     };
     return { type: 'Integer', value: typeMap[expression.type] ?? 12 };

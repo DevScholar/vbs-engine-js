@@ -80,6 +80,7 @@ export function isStatement(node: VbNode): node is Statement {
     'VbOnErrorHandlerStatement',
     'VbExitStatement',
     'VbOptionExplicitStatement',
+    'VbEnumStatement',
   ];
   return statementTypes.includes(node.type);
 }

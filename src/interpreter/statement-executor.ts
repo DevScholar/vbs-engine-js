@@ -19,6 +19,7 @@ import type {
   VbClassStatement,
   VbOnErrorHandlerStatement,
   VbCallStatement,
+  VbEnumStatement,
   Expression,
   VbGotoStatement,
 } from '../ast/index.ts';
@@ -52,6 +53,23 @@ export class ControlFlowSignal extends Error {
 export class GotoSignal extends ControlFlowSignal {
   constructor(public labelName: string) {
     super('goto');
+  }
+}
+
+function getTypedDefault(typeName: string): VbValue {
+  switch (typeName.toLowerCase()) {
+    case 'integer': return { type: 'Integer', value: 0 };
+    case 'long': return { type: 'Long', value: 0 };
+    case 'longlong': return { type: 'LongLong', value: BigInt(0) };
+    case 'single': return { type: 'Single', value: 0 };
+    case 'double': return { type: 'Double', value: 0 };
+    case 'currency': return { type: 'Currency', value: 0 };
+    case 'byte': return { type: 'Byte', value: 0 };
+    case 'boolean': return { type: 'Boolean', value: false };
+    case 'string': return { type: 'String', value: '' };
+    case 'date': return { type: 'Date', value: new Date(0) };
+    case 'variant': return VbEmpty;
+    default: return { type: 'Object', value: null }; // Object/class → Nothing
   }
 }
 
@@ -111,6 +129,8 @@ export class StatementExecutor {
           return this.executeGotoStatement(node);
         case 'VbLabelStatement':
           return VbEmpty;
+        case 'VbEnumStatement':
+          return this.executeEnumStatement(node);
         case 'ReturnStatement':
           throw new ControlFlowSignal('return');
         default:
@@ -177,11 +197,31 @@ export class StatementExecutor {
         value = { type: 'Array', value: arr };
       } else if (decl.init) {
         value = this.exprEvaluator.evaluate(decl.init);
+      } else if (decl.typeAnnotation) {
+        value = getTypedDefault(decl.typeAnnotation.typeName);
       }
 
       this.context.declareVariable(decl.id.name, value);
     }
 
+    return VbEmpty;
+  }
+
+  private executeEnumStatement(node: VbEnumStatement): VbValue {
+    let nextValue = BigInt(0);
+    for (const member of node.members) {
+      let memberValue: VbValue;
+      if (member.value !== null) {
+        const evaluated = this.exprEvaluator.evaluate(member.value);
+        const numVal = toNumber(evaluated);
+        nextValue = BigInt(Math.trunc(numVal));
+        memberValue = { type: 'Long', value: Number(nextValue) };
+      } else {
+        memberValue = { type: 'Long', value: Number(nextValue) };
+      }
+      this.context.globalScope.declare(member.name.name, memberValue, { isConst: true });
+      nextValue++;
+    }
     return VbEmpty;
   }
 

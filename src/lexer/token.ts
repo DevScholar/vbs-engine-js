@@ -117,6 +117,7 @@ export enum TokenType {
 
   Integer = 'Integer',
   Long = 'Long',
+  LongLong = 'LongLong',
   Single = 'Single',
   Double = 'Double',
   Currency = 'Currency',
@@ -126,6 +127,8 @@ export enum TokenType {
   Object = 'Object',
   Variant = 'Variant',
   Byte = 'Byte',
+
+  Enum = 'Enum',
 }
 
 export interface TokenLocation {

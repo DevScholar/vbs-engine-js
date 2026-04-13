@@ -7,6 +7,8 @@ import type {
   VbConstStatement,
   VbConstDeclarator,
   VbTypeAnnotation,
+  VbEnumStatement,
+  VbEnumMember,
 } from '../ast/index.ts';
 import { TokenType } from '../lexer/token.ts';
 import { ParserState } from './parser-state.ts';
@@ -78,6 +80,42 @@ export class DeclarationParser {
       type: 'VbEraseStatement',
       arrayName,
       loc: createLocation(eraseToken, this.state.previous),
+    };
+  }
+
+  parseEnumStatement(visibility?: string): VbEnumStatement {
+    const enumToken = this.state.advance(); // consume 'Enum'
+    const name = this.exprParser.parseIdentifier();
+    this.state.skipNewlines();
+
+    const members: VbEnumMember[] = [];
+    while (!this.state.isEOF) {
+      this.state.skipStatementSeparators();
+      if (this.state.check(TokenType.End)) break;
+      if (this.state.isEOF) break;
+
+      const memberName = this.exprParser.parseIdentifier();
+      let value: Expression | null = null;
+      if (this.state.match(TokenType.Eq)) {
+        value = this.exprParser.parseExpression();
+      }
+      members.push({
+        type: 'VbEnumMember',
+        name: memberName,
+        value,
+        loc: createLocationFromNodeAndToken(memberName, this.state.previous),
+      });
+    }
+
+    this.state.expect(TokenType.End);
+    this.state.expect(TokenType.Enum);
+
+    return {
+      type: 'VbEnumStatement',
+      name,
+      members,
+      visibility: (visibility ?? 'public') as 'public' | 'private',
+      loc: createLocation(enumToken, this.state.previous),
     };
   }
 
@@ -175,7 +213,7 @@ export class DeclarationParser {
     return bounds;
   }
 
-  private parseTypeAnnotation(): VbTypeAnnotation {
+  parseTypeAnnotation(): VbTypeAnnotation {
     this.state.expect(TokenType.As);
     const typeToken = this.state.current;
     let typeName = '';
@@ -185,6 +223,7 @@ export class DeclarationParser {
       this.state.checkAny(
         TokenType.Integer,
         TokenType.Long,
+        TokenType.LongLong,
         TokenType.Single,
         TokenType.Double,
         TokenType.Currency,

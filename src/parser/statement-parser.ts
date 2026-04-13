@@ -44,6 +44,8 @@ export class StatementParser {
         return this.declarationParser.parseEraseStatement();
       case 'Const' as TokenType:
         return this.declarationParser.parseConstStatement();
+      case 'Enum' as TokenType:
+        return this.declarationParser.parseEnumStatement();
       case 'Public' as TokenType:
         return this.parseVisibilityStatement();
       case 'Private' as TokenType:
@@ -131,6 +133,10 @@ export class StatementParser {
       return visibility === 'public'
         ? this.declarationParser.parsePublicConstStatement()
         : this.declarationParser.parsePrivateConstStatement();
+    }
+
+    if (this.state.check('Enum' as TokenType)) {
+      return this.declarationParser.parseEnumStatement(visibility);
     }
 
     if (this.state.check('Sub' as TokenType)) {

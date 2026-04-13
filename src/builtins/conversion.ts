@@ -48,6 +48,22 @@ export const conversionFunctions = {
     return { type: 'Long', value: num };
   },
 
+  CLngLng: (expression: VbValue): VbValue => {
+    if (expression.type === 'LongLong') return expression;
+    if (expression.type === 'String') {
+      const str = (expression.value as string).trim();
+      try {
+        return { type: 'LongLong', value: BigInt(str) };
+      } catch {
+        const num = parseFloat(str);
+        if (isNaN(num)) throw new Error('Type mismatch: CLngLng');
+        return { type: 'LongLong', value: BigInt(Math.trunc(num)) };
+      }
+    }
+    const num = toNumber(expression);
+    return { type: 'LongLong', value: BigInt(Math.trunc(num)) };
+  },
+
   CSng: (expression: VbValue): VbValue => {
     return { type: 'Single', value: toNumber(expression) };
   },
@@ -262,6 +278,7 @@ export const inspectionFunctions = {
       Boolean: 11,
       Variant: 12,
       Byte: 17,
+      LongLong: 20,
       Array: 8192,
     };
     return { type: 'Integer', value: typeMap[expression.type] ?? 12 };
@@ -273,6 +290,7 @@ export const inspectionFunctions = {
       Null: 'Null',
       Integer: 'Integer',
       Long: 'Long',
+      LongLong: 'LongLong',
       Single: 'Single',
       Double: 'Double',
       Currency: 'Currency',
