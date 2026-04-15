@@ -27,7 +27,7 @@ function wrapCOMProxy(ax: unknown): Record<string, unknown> {
           const axIterable = ax as Record<symbol, unknown>;
           if (typeof axIterable[Symbol.iterator] === 'function') {
             return function* () {
-              for (const item of axIterable as Iterable<unknown>) {
+              for (const item of axIterable as unknown as Iterable<unknown>) {
                 if (item !== null && (typeof item === 'object' || typeof item === 'function')) {
                   yield wrapCOMProxy(item);
                 } else {
