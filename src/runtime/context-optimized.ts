@@ -10,7 +10,7 @@
 
 import type { VbValue } from './values.ts';
 import { VbEmpty } from './values.ts';
-import { Vbscope, globalScopePool } from './scope-optimized.ts';
+import { Vbscope, globalScopePool } from './scope.ts';
 import { VbFunctionRegistry } from './function-registry-optimized.ts';
 import { VbClassRegistry, VbObjectInstance } from './class-registry.ts';
 import { VbError } from './errors.ts';
