@@ -192,50 +192,14 @@ export class ControlFlowParser {
 
   private parseIfBlock(): BlockStatement {
     const body: Statement[] = [];
-    let nestedIfDepth = 0;
 
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
-
-      if (this.state.check('If' as any)) {
-        const savedPos = this.state.save();
-        this.state.advance();
-        while (!this.state.isEOF && !this.state.check('Then' as any)) {
-          this.state.advance();
-        }
-        if (this.state.check('Then' as any)) {
-          this.state.advance();
-          const isSingleLine = !this.state.checkNewline();
-          if (isSingleLine) {
-            this.state.restore(savedPos);
-            const stmt = this.parseStatement();
-            body.push(stmt);
-            continue;
-          } else {
-            this.state.restore(savedPos);
-            this.state.advance();
-            while (!this.state.isEOF && !this.state.check('Then' as any)) {
-              this.state.advance();
-            }
-            this.state.advance();
-            nestedIfDepth++;
-            continue;
-          }
-        }
-        this.state.restore(savedPos);
-      }
 
       if (this.state.check('End' as any)) {
         const savedPos = this.state.save();
         this.state.advance();
         if (this.state.check('If' as any)) {
-          if (nestedIfDepth > 0) {
-            nestedIfDepth--;
-            this.state.restore(savedPos);
-            const stmt = this.parseStatement();
-            body.push(stmt);
-            continue;
-          }
           this.state.restore(savedPos);
           break;
         }
@@ -243,11 +207,6 @@ export class ControlFlowParser {
       }
 
       if (this.state.checkAny('Else' as any, 'ElseIf' as any)) {
-        if (nestedIfDepth > 0) {
-          const stmt = this.parseStatement();
-          body.push(stmt);
-          continue;
-        }
         break;
       }
 

@@ -218,6 +218,20 @@ End If
       expect(x.value).toBe(1);
     });
 
+    it('should execute nested multi-line If blocks', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+Dim x
+If 1 = 1 Then
+    If 2 = 2 Then
+        x = 1
+    End If
+End If
+`);
+      const x = engine._getVariable('x');
+      expect(x.value).toBe(1);
+    });
+
     it('should execute ElseIf', () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
