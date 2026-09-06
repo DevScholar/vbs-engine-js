@@ -82,6 +82,25 @@ End If
       expect(ast.body[0].type).toBe('VbDoLoopStatement');
     });
 
+    it('should parse While-Wend loop', () => {
+      const ast = parse('While x < 10\nx = x + 1\nWend');
+      expect(ast.body[0].type).toBe('WhileStatement');
+    });
+
+    it('should parse Do-Loop While post-test', () => {
+      const ast = parse('Do\nx = x + 1\nLoop While x < 10');
+      const stmt = ast.body[0] as { type: string; testPosition: string };
+      expect(stmt.type).toBe('VbDoLoopStatement');
+      expect(stmt.testPosition).toBe('do-while');
+    });
+
+    it('should parse Do-Loop Until post-test', () => {
+      const ast = parse('Do\nx = x + 1\nLoop Until x < 10');
+      const stmt = ast.body[0] as { type: string; testPosition: string };
+      expect(stmt.type).toBe('VbDoLoopStatement');
+      expect(stmt.testPosition).toBe('do-until');
+    });
+
     it('should parse Sub definition', () => {
       const ast = parse('Sub MySub(x, y)\nEnd Sub');
       expect(ast.body[0].type).toBe('VbSubStatement');

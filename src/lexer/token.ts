@@ -83,6 +83,7 @@ export enum TokenType {
   Do = 'Do',
   Loop = 'Loop',
   While = 'While',
+  Wend = 'Wend',
   Until = 'Until',
 
   Select = 'Select',

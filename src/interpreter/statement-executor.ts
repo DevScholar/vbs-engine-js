@@ -10,6 +10,7 @@ import type {
   VbForToStatement,
   ForOfStatement,
   VbDoLoopStatement,
+  WhileStatement,
   VbSelectCaseStatement,
   WithStatement,
   VbExitStatement,
@@ -124,6 +125,8 @@ export class StatementExecutor {
           return this.executeForEachStatement(node);
         case 'VbDoLoopStatement':
           return this.executeDoLoopStatement(node);
+        case 'WhileStatement':
+          return this.executeWhileStatement(node);
         case 'VbSelectCaseStatement':
           return this.executeSelectCaseStatement(node);
         case 'WithStatement':
@@ -457,6 +460,26 @@ export class StatementExecutor {
       if (!isPreTest) {
         const cond = isWhile ? checkCondition() : !checkCondition();
         if (!cond) break;
+      }
+    }
+
+    return VbEmpty;
+  }
+
+  private executeWhileStatement(node: WhileStatement): VbValue {
+    while (true) {
+      if (this.context.checkTimeout) this.context.checkTimeout();
+
+      const cond = toBoolean(this.exprEvaluator.evaluate(node.test));
+      if (!cond) break;
+
+      try {
+        this.execute(node.body);
+      } catch (signal) {
+        if (signal instanceof ControlFlowSignal && signal.type === 'return') {
+          throw signal;
+        }
+        throw signal;
       }
     }
 

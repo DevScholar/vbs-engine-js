@@ -309,6 +309,42 @@ Loop
       expect(x.value).toBe(5);
     });
 
+    it('should execute While-Wend loop', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+x = 0
+While x < 5
+    x = x + 1
+Wend
+`);
+      const x = engine._getVariable('x');
+      expect(x.value).toBe(5);
+    });
+
+    it('should execute Do-Loop While post-test', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+x = 0
+Do
+    x = x + 1
+Loop While x < 5
+`);
+      const x = engine._getVariable('x');
+      expect(x.value).toBe(5);
+    });
+
+    it('should execute Do-Loop Until post-test', () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(`
+x = 0
+Do
+    x = x + 1
+Loop Until x = 5
+`);
+      const x = engine._getVariable('x');
+      expect(x.value).toBe(5);
+    });
+
     it('should execute Select-Case', () => {
       const engine = new VbsEngine();
       engine.executeStatement(`

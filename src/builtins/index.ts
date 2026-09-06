@@ -44,7 +44,7 @@ function wrapCOMProxy(ax: unknown): Record<string, unknown> {
       if (typeof val !== 'function') return val;
       // Wrap the method function so returned COM objects are also wrapped.
       return (...args: unknown[]) => {
-        const result = (val as Function)(...args);
+        const result = (val as (...args: unknown[]) => unknown)(...args);
         if (result !== null && (typeof result === 'object' || typeof result === 'function'))
           return wrapCOMProxy(result);
         return result;
