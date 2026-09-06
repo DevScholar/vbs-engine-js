@@ -36,7 +36,9 @@ function _syncReadFromConsole(): string | null {
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - Node.js specific
-    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    return Buffer.concat(chunks)
+      .toString('utf8')
+      .replace(/\r?\n$/, '');
   } catch {
     return null;
   }
@@ -202,9 +204,7 @@ export function registerInputBox(context: {
 
       // Node.js interactive fallback using synchronous stdin
       const promptText =
-        `[${titleStr}]\n${message}` +
-        (defaultVal ? ` [${defaultVal}]` : '') +
-        ': ';
+        `[${titleStr}]\n${message}` + (defaultVal ? ` [${defaultVal}]` : '') + ': ';
       _writeToConsole(promptText);
       while (true) {
         const input = _syncReadFromConsole();

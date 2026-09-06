@@ -31,10 +31,15 @@ export function vbToJs(value: VbValue): unknown {
     }
     case 'Object': {
       const obj = value.value as Record<string, unknown> | null;
-      if (obj && typeof obj === 'object' && obj['type'] === 'vbref' && typeof obj['call'] === 'function') {
+      if (
+        obj &&
+        typeof obj === 'object' &&
+        obj['type'] === 'vbref' &&
+        typeof obj['call'] === 'function'
+      ) {
         const callFn = obj['call'] as (...args: unknown[]) => unknown;
         return (...jsArgs: unknown[]): unknown => {
-          const vbArgs = jsArgs.map((a) => jsToVb(a));
+          const vbArgs = jsArgs.map(a => jsToVb(a));
           return vbToJs(callFn(...vbArgs) as import('../runtime/index.ts').VbValue);
         };
       }

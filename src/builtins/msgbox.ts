@@ -27,12 +27,7 @@ export const MsgBoxConstants = {
 };
 
 export type MsgBoxButtonType =
-  | 'OK'
-  | 'OKCancel'
-  | 'AbortRetryIgnore'
-  | 'YesNoCancel'
-  | 'YesNo'
-  | 'RetryCancel';
+  'OK' | 'OKCancel' | 'AbortRetryIgnore' | 'YesNoCancel' | 'YesNo' | 'RetryCancel';
 export type MsgBoxIconType = 'Critical' | 'Question' | 'Exclamation' | 'Information' | null;
 
 export interface MsgBoxResult {
@@ -287,7 +282,9 @@ function _syncReadFromConsole(): string | null {
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - Node.js specific
-    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    return Buffer.concat(chunks)
+      .toString('utf8')
+      .replace(/\r?\n$/, '');
   } catch {
     return null;
   }

@@ -536,8 +536,10 @@ describe('VB6 User-Defined Types', () => {
       a.X = 1
       b.X = 99
     `);
-    const a = engine._getVariable('a').value as import('../runtime/class-registry.ts').VbObjectInstance;
-    const b = engine._getVariable('b').value as import('../runtime/class-registry.ts').VbObjectInstance;
+    const a = engine._getVariable('a')
+      .value as import('../runtime/class-registry.ts').VbObjectInstance;
+    const b = engine._getVariable('b')
+      .value as import('../runtime/class-registry.ts').VbObjectInstance;
     expect(a.getProperty('X').value).toBe(1);
     expect(b.getProperty('X').value).toBe(99);
   });
@@ -553,7 +555,8 @@ describe('VB6 User-Defined Types', () => {
       End Type
       Dim d As Defaults
     `);
-    const instance = engine._getVariable('d').value as import('../runtime/class-registry.ts').VbObjectInstance;
+    const instance = engine._getVariable('d')
+      .value as import('../runtime/class-registry.ts').VbObjectInstance;
     expect(instance.getProperty('N').value).toBe(0);
     expect(instance.getProperty('S').value).toBe('');
     expect(instance.getProperty('B').value).toBe(false);
