@@ -1,0 +1,8 @@
+# Enforce LF line endings on every platform, regardless of each machine's
+# core.autocrlf setting (this repo's system gitconfig sets autocrlf=true,
+# which would otherwise check text files out as CRLF on Windows).
+* text=auto eol=lf
+
+# No binary assets yet; add explicit rules here if any are introduced, e.g.:
+# *.png binary
+# *.wasm binary
