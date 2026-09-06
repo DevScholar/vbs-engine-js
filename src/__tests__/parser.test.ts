@@ -59,6 +59,19 @@ describe('Parser', () => {
       expect(ast.body[0].type).toBe('IfStatement');
     });
 
+    it('should parse nested multi-line If blocks', () => {
+      const ast = parse(`
+If 1 = 1 Then
+    If 2 = 2 Then
+        x = 1
+    End If
+End If
+`);
+      const outer = ast.body[0] as { type: string; consequent: { body: { type: string }[] } };
+      expect(outer.type).toBe('IfStatement');
+      expect(outer.consequent.body[0].type).toBe('IfStatement');
+    });
+
     it('should parse For-Next loop', () => {
       const ast = parse('For i = 1 To 10 Step 2\nx = x + i\nNext');
       expect(ast.body[0].type).toBe('VbForToStatement');
