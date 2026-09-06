@@ -27,6 +27,7 @@ export const KEYWORDS: Record<string, TokenType> = {
   do: TokenType.Do,
   loop: TokenType.Loop,
   while: TokenType.While,
+  wend: TokenType.Wend,
   until: TokenType.Until,
   select: TokenType.Select,
   case: TokenType.Case,

@@ -110,6 +110,8 @@ export class ControlFlowParser {
     this.state.skipNewlines();
     const body = this.parseDoBody();
 
+    this.state.expect('Loop' as any);
+
     if (this.state.check('While' as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
@@ -119,8 +121,6 @@ export class ControlFlowParser {
       test = this.exprParser.parseExpression();
       testPosition = 'do-until';
     }
-
-    this.state.expect('Loop' as any);
 
     return {
       type: 'VbDoLoopStatement',
@@ -326,7 +326,7 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.checkAny('Loop' as any, 'While' as any, 'Until' as any)) {
+      if (this.state.check('Loop' as any)) {
         break;
       }
 

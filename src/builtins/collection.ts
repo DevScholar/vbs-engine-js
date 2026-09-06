@@ -87,6 +87,8 @@ export function createCollection(): VbObjectValueData {
 
     setProperty(_name: string, _value: VbValue): void {
       // Collection properties are read-only
+      void _name;
+      void _value;
     },
 
     hasMethod(name: string): boolean {
