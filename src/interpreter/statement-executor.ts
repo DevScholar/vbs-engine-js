@@ -60,32 +60,53 @@ export class GotoSignal extends ControlFlowSignal {
 function tsTypeAnnotationName(annotation: import('../ast/index.ts').TSTypeAnnotation): string {
   const t = annotation.typeAnnotation;
   switch (t.type) {
-    case 'TSStringKeyword':  return 'string';
-    case 'TSBooleanKeyword': return 'boolean';
-    case 'TSObjectKeyword':  return 'object';
-    case 'TSAnyKeyword':     return 'variant';
-    case 'TSVoidKeyword':    return 'variant';
-    case 'TSNumberKeyword':  return 'double';
-    case 'TSNullKeyword':    return 'variant';
-    case 'TSTypeReference':  return t.typeName.name;
-    case 'TSArrayType':      return tsTypeAnnotationName({ type: 'TSTypeAnnotation', typeAnnotation: t.elementType });
-    default:                 return 'variant';
+    case 'TSStringKeyword':
+      return 'string';
+    case 'TSBooleanKeyword':
+      return 'boolean';
+    case 'TSObjectKeyword':
+      return 'object';
+    case 'TSAnyKeyword':
+      return 'variant';
+    case 'TSVoidKeyword':
+      return 'variant';
+    case 'TSNumberKeyword':
+      return 'double';
+    case 'TSNullKeyword':
+      return 'variant';
+    case 'TSTypeReference':
+      return t.typeName.name;
+    case 'TSArrayType':
+      return tsTypeAnnotationName({ type: 'TSTypeAnnotation', typeAnnotation: t.elementType });
+    default:
+      return 'variant';
   }
 }
 
 function getTypedDefault(typeName: string, context?: VbContext): VbValue {
   switch (typeName.toLowerCase()) {
-    case 'integer': return { type: 'Integer', value: 0 };
-    case 'long': return { type: 'Long', value: 0 };
-    case 'longlong': return { type: 'LongLong', value: BigInt(0) };
-    case 'single': return { type: 'Single', value: 0 };
-    case 'double': return { type: 'Double', value: 0 };
-    case 'currency': return { type: 'Currency', value: 0 };
-    case 'byte': return { type: 'Byte', value: 0 };
-    case 'boolean': return { type: 'Boolean', value: false };
-    case 'string': return { type: 'String', value: '' };
-    case 'date': return { type: 'Date', value: new Date(0) };
-    case 'variant': return VbEmpty;
+    case 'integer':
+      return { type: 'Integer', value: 0 };
+    case 'long':
+      return { type: 'Long', value: 0 };
+    case 'longlong':
+      return { type: 'LongLong', value: BigInt(0) };
+    case 'single':
+      return { type: 'Single', value: 0 };
+    case 'double':
+      return { type: 'Double', value: 0 };
+    case 'currency':
+      return { type: 'Currency', value: 0 };
+    case 'byte':
+      return { type: 'Byte', value: 0 };
+    case 'boolean':
+      return { type: 'Boolean', value: false };
+    case 'string':
+      return { type: 'String', value: '' };
+    case 'date':
+      return { type: 'Date', value: new Date(0) };
+    case 'variant':
+      return VbEmpty;
     default:
       if (context && context.classRegistry.has(typeName)) {
         const instance = context.classRegistry.createInstance(typeName, []);
@@ -248,7 +269,7 @@ export class StatementExecutor {
   private executeTypeStatement(node: VbTypeStatement): VbValue {
     const cls = new VbClass(node.name.name);
 
-    cls.initializer = (instance) => {
+    cls.initializer = instance => {
       for (const member of node.members) {
         const defaultValue = member.typeAnnotation
           ? getTypedDefault(tsTypeAnnotationName(member.typeAnnotation), this.context)
@@ -369,11 +390,7 @@ export class StatementExecutor {
       items = arr.toArray();
     } else {
       const rawObj = collection.value as unknown;
-      if (
-        rawObj !== null &&
-        typeof rawObj === 'object' &&
-        Symbol.iterator in (rawObj as object)
-      ) {
+      if (rawObj !== null && typeof rawObj === 'object' && Symbol.iterator in (rawObj as object)) {
         items = [];
         for (const item of rawObj as Iterable<unknown>) {
           if (item === null || item === undefined) {
@@ -653,7 +670,7 @@ export class StatementExecutor {
 
       self.context.declareVariable(funcName, VbEmpty);
 
-      let result: VbValue = VbEmpty;
+      let result: VbValue;
 
       try {
         self.bindParameters(node.params, args);
@@ -819,7 +836,7 @@ export class StatementExecutor {
             self.context.pushScope();
             self.context.declareVariable(memberNode.name.name, VbEmpty);
             self.bindParameters(memberNode.params, args);
-            let result: VbValue = VbEmpty;
+            let result: VbValue;
             try {
               self.executeBlockStatement(memberNode.body);
               result = self.context.getVariable(memberNode.name.name);

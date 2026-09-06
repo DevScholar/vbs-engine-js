@@ -14,7 +14,12 @@ import { createCollection } from './collection.ts';
 // Hide them so the engine falls through to obj[propertyName] → jsfunction path,
 // which auto-converts VbValue ↔ JS primitives via vbToJs / jsToVb.
 const VBS_PROTOCOL_NAMES = new Set([
-  'getProperty', 'setProperty', 'hasMethod', 'getMethod', 'hasProperty', 'call',
+  'getProperty',
+  'setProperty',
+  'hasMethod',
+  'getMethod',
+  'hasProperty',
+  'call',
 ]);
 
 // Wraps a node-ps1-dotnet COM proxy so the VBS engine treats it as a plain JS
@@ -286,9 +291,11 @@ export function registerBuiltins(context: VbContext): void {
     const path = pathname ? String(pathname.value ?? pathname) : '';
     const className = cls ? String(cls.value ?? cls) : '';
 
-    const getObjectFn = (globalThis as unknown as {
-      GetObject?: (pathname?: string, cls?: string) => unknown;
-    }).GetObject;
+    const getObjectFn = (
+      globalThis as unknown as {
+        GetObject?: (pathname?: string, cls?: string) => unknown;
+      }
+    ).GetObject;
 
     if (getObjectFn) {
       try {
@@ -307,7 +314,9 @@ export function registerBuiltins(context: VbContext): void {
     (cls: VbValue, _servername?: VbValue): VbValue => {
       void _servername; // Intentionally unused - matches VBScript signature
       const className = String(cls.value ?? cls);
-      const axConstructor = (globalThis as unknown as { ActiveXObject?: new (cls: string) => unknown }).ActiveXObject;
+      const axConstructor = (
+        globalThis as unknown as { ActiveXObject?: new (cls: string) => unknown }
+      ).ActiveXObject;
       if (axConstructor) {
         try {
           const ax = new axConstructor(className);

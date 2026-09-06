@@ -116,19 +116,7 @@ export interface AssignmentExpression extends BaseExpression {
 }
 
 export type AssignmentOperator =
-  | '='
-  | '+='
-  | '-='
-  | '*='
-  | '/='
-  | '%='
-  | '**='
-  | '<<='
-  | '>>='
-  | '>>>='
-  | '|='
-  | '^='
-  | '&=';
+  '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '**=' | '<<=' | '>>=' | '>>>=' | '|=' | '^=' | '&=';
 
 export interface LogicalExpression extends BaseExpression {
   type: 'LogicalExpression';
@@ -345,13 +333,27 @@ export interface VariableDeclarator extends BaseNode {
 // TypeScript ESTree nodes
 // ---------------------------------------------------------------------------
 
-export interface TSStringKeyword extends BaseNode { type: 'TSStringKeyword'; }
-export interface TSNumberKeyword extends BaseNode { type: 'TSNumberKeyword'; }
-export interface TSBooleanKeyword extends BaseNode { type: 'TSBooleanKeyword'; }
-export interface TSObjectKeyword extends BaseNode { type: 'TSObjectKeyword'; }
-export interface TSAnyKeyword extends BaseNode { type: 'TSAnyKeyword'; }
-export interface TSVoidKeyword extends BaseNode { type: 'TSVoidKeyword'; }
-export interface TSNullKeyword extends BaseNode { type: 'TSNullKeyword'; }
+export interface TSStringKeyword extends BaseNode {
+  type: 'TSStringKeyword';
+}
+export interface TSNumberKeyword extends BaseNode {
+  type: 'TSNumberKeyword';
+}
+export interface TSBooleanKeyword extends BaseNode {
+  type: 'TSBooleanKeyword';
+}
+export interface TSObjectKeyword extends BaseNode {
+  type: 'TSObjectKeyword';
+}
+export interface TSAnyKeyword extends BaseNode {
+  type: 'TSAnyKeyword';
+}
+export interface TSVoidKeyword extends BaseNode {
+  type: 'TSVoidKeyword';
+}
+export interface TSNullKeyword extends BaseNode {
+  type: 'TSNullKeyword';
+}
 
 export interface TSTypeReference extends BaseNode {
   type: 'TSTypeReference';

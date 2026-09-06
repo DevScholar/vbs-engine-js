@@ -137,9 +137,16 @@ export class ExpressionEvaluator {
       const ctor = (globalThis as Record<string, unknown>)[className];
       if (typeof ctor === 'function') {
         const args = ctorArgs.map(v => this.vbToJs(v));
-        return { type: 'Object', value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args) };
+        return {
+          type: 'Object',
+          value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args),
+        };
       }
-      throw createVbError(VbErrorCodes.InvalidProcedureCall, `Unknown class: ${className}`, 'Vbscript');
+      throw createVbError(
+        VbErrorCodes.InvalidProcedureCall,
+        `Unknown class: ${className}`,
+        'Vbscript'
+      );
     }
 
     // Dotted path (e.g. New Forms.Form, New NS.Sub.Class): evaluate the
@@ -231,7 +238,7 @@ export class ExpressionEvaluator {
     // Proxy object. This is required for chains like form.Controls.Add(...), where
     // `Controls` may itself be represented by a callable function-proxy.
     if (isVbJsFunctionObject(obj) && !['type', 'func', 'thisArg'].includes(propertyName)) {
-      const jsValue = ((obj.func as unknown) as Record<string, unknown>)[propertyName];
+      const jsValue = (obj.func as unknown as Record<string, unknown>)[propertyName];
       if (jsValue === undefined) {
         return { type: 'Empty', value: undefined };
       }
@@ -421,10 +428,11 @@ export class ExpressionEvaluator {
       case 'Object': {
         const obj = value.value as VbObjectValueData | null;
         if (obj && typeof obj === 'object' && (obj as Record<string, unknown>).type === 'vbref') {
-          const callFn = (obj as Record<string, unknown>).call as ((...args: VbValue[]) => VbValue) | undefined;
+          const callFn = (obj as Record<string, unknown>).call as
+            ((...args: VbValue[]) => VbValue) | undefined;
           if (typeof callFn === 'function') {
             return (...jsArgs: unknown[]): unknown => {
-              const vbArgs = jsArgs.map((a) => this.jsToVb(a));
+              const vbArgs = jsArgs.map(a => this.jsToVb(a));
               return this.vbToJs(callFn(...vbArgs));
             };
           }
@@ -779,7 +787,8 @@ export class ExpressionEvaluator {
     if (op === '+') return { type: 'LongLong', value: l + r };
     if (op === '-') return { type: 'LongLong', value: l - r };
     if (op === '*') return { type: 'LongLong', value: l * r };
-    if (r === BigInt(0)) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+    if (r === BigInt(0))
+      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
     return { type: 'LongLong', value: l / r };
   }
 }

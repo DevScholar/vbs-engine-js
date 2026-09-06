@@ -75,7 +75,7 @@ export class Interpreter {
             i = labelInfo.index + 1;
             continue;
           }
-          throw new Error(`Label not found: ${error.labelName}`);
+          throw new Error(`Label not found: ${error.labelName}`, { cause: error });
         }
         if (error instanceof ControlFlowSignal) {
           throw error;
@@ -140,7 +140,7 @@ export class Interpreter {
             i = labelInfo.index + 1;
             continue;
           }
-          throw new Error(`Label not found: ${error.labelName}`);
+          throw new Error(`Label not found: ${error.labelName}`, { cause: error });
         }
         if (error instanceof ControlFlowSignal) {
           throw error;

@@ -86,7 +86,8 @@ export class DeclarationParser {
     };
   }
 
-  parseEnumStatement(visibility?: string): TSEnumDeclaration {    const enumToken = this.state.advance(); // consume 'Enum'
+  parseEnumStatement(visibility?: string): TSEnumDeclaration {
+    const enumToken = this.state.advance(); // consume 'Enum'
     const id = this.exprParser.parseIdentifier();
     this.state.skipNewlines();
 
@@ -319,10 +320,14 @@ export class DeclarationParser {
 
   private vbTypeNameToTSType(typeName: string, loc: SourceLocation | null | undefined): TSType {
     switch (typeName.toLowerCase()) {
-      case 'string':  return { type: 'TSStringKeyword',  loc };
-      case 'boolean': return { type: 'TSBooleanKeyword', loc };
-      case 'object':  return { type: 'TSObjectKeyword',  loc };
-      case 'variant': return { type: 'TSAnyKeyword',     loc };
+      case 'string':
+        return { type: 'TSStringKeyword', loc };
+      case 'boolean':
+        return { type: 'TSBooleanKeyword', loc };
+      case 'object':
+        return { type: 'TSObjectKeyword', loc };
+      case 'variant':
+        return { type: 'TSAnyKeyword', loc };
       default:
         return {
           type: 'TSTypeReference',
