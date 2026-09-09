@@ -61,9 +61,48 @@ export class Interpreter {
   // main loop below.
   private hoistDeclarations(statements: Statement[]): void {
     for (const stmt of statements) {
-      if (stmt.type === 'VbSubStatement' || stmt.type === 'VbFunctionStatement') {
+      this.hoistDeclarationsIn(stmt);
+    }
+  }
+
+  // Real VBScript hoists a Sub/Function declaration no matter how deeply it's
+  // textually nested inside a conditionally-dead branch - declarations are a
+  // compile-time construct, resolved before ANY code runs, completely
+  // independent of whether the branch containing them would ever actually
+  // execute. `If False Then / Sub Foo ... End Sub / End If` still makes Foo
+  // callable, even though that If branch never runs. Found via Wine's own
+  // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs. So this
+  // walks into every kind of nested statement container a Sub/Function
+  // declaration could textually appear inside - real VBScript doesn't allow
+  // nested Sub/Function declarations INSIDE another Sub/Function/Property
+  // body, so there's no need to recurse into those.
+  private hoistDeclarationsIn(stmt: Statement): void {
+    switch (stmt.type) {
+      case 'VbSubStatement':
+      case 'VbFunctionStatement':
         this.executor.execute(stmt);
-      }
+        return;
+      case 'BlockStatement':
+        this.hoistDeclarations(stmt.body);
+        return;
+      case 'IfStatement':
+        this.hoistDeclarationsIn(stmt.consequent);
+        if (stmt.alternate) this.hoistDeclarationsIn(stmt.alternate);
+        return;
+      case 'VbDoLoopStatement':
+      case 'WhileStatement':
+      case 'VbForToStatement':
+      case 'ForOfStatement':
+      case 'WithStatement':
+        this.hoistDeclarationsIn(stmt.body);
+        return;
+      case 'VbSelectCaseStatement':
+        for (const caseClause of stmt.cases) {
+          this.hoistDeclarations(caseClause.consequent);
+        }
+        return;
+      default:
+        return;
     }
   }
 
