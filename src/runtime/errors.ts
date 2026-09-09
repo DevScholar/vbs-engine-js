@@ -23,6 +23,7 @@ export class VbError extends Error {
 
 export const VbErrorCodes = {
   TypeMismatch: 13,
+  InvalidUseOfNull: 94,
   SubscriptOutOfRange: 9,
   OutOfMemory: 7,
   DivisionByZero: 11,

@@ -61,6 +61,15 @@ const SKIP_RANGES = [
     // this range) intact since later, unrelated tests use it.
     [1812, 2005],
 
+    // `collectionObj` is never defined anywhere in this file - another host
+    // fixture (like `testobj` above) that Wine's real C test harness
+    // registers via AddNamedItem before running lang.vbs (a real COM
+    // Collection-like enumerable, used here to test For Each against a
+    // custom IEnumVARIANT implementation). Not an engine bug - our harness
+    // doesn't replicate it, same as testobj, and real VP tables don't rely
+    // on custom host-registered enumerables either.
+    [1543, 1591],
+
     // Same underlying whitespace-insensitive statement-call disambiguation
     // gap as [1812, 2005] above, this time surfacing via a leading-dot
     // With-block shorthand as a bare statement-call's first argument
@@ -110,6 +119,14 @@ engine._registerFunction('getVT', function (value) {
     const vt = VT_MAP[value ? value.type : 'Empty'] || ('VT_UNKNOWN(' + (value && value.type) + ')');
     return { type: 'String', value: vt };
 });
+
+// Wine's real C test harness (dlls/vbscript/tests/run.c) sets this global
+// before running lang.vbs, to gate locale-specific assertions (decimal-point
+// vs. decimal-comma string-to-number parsing) that only hold under an
+// English locale - not an engine bug, just a host fixture this harness needs
+// to replicate, same category as `ok`/`getVT` above. This harness always
+// runs under an English/US locale assumption, so it's always true here.
+engine.addCode('isEnglishLang = True');
 
 let fatalError = null;
 try {

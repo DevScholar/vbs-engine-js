@@ -112,6 +112,20 @@ export class ExpressionEvaluator {
   private evaluateIdentifier(node: Identifier): VbValue {
     const name = node.name;
 
+    // A local variable/parameter (or class instance property) must shadow a
+    // same-named built-in - real VBScript allows `Function trackEval(val,
+    // label)` to use `val` as an ordinary parameter without it colliding
+    // with the built-in Val() function. This used to check the function
+    // registry FIRST unconditionally, so reading a parameter/variable that
+    // happened to share a built-in's name (found via Wine's own
+    // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs: several
+    // helper functions use `val` as a parameter name) silently called the
+    // built-in with zero arguments instead - Val() with no argument then
+    // crashed converting `undefined` to a string.
+    if (this.context.hasDeclaredVariable(name)) {
+      return this.context.getVariable(name);
+    }
+
     if (this.context.functionRegistry.has(name)) {
       return this.context.functionRegistry.call(name, []);
     }
@@ -688,39 +702,72 @@ export class ExpressionEvaluator {
         return createVbValue(toNumber(argument));
       case '!':
       case 'Not':
+        // Null propagates through Not too (`Not Null` is Null) - same
+        // reasoning as unary minus/plus above.
+        if (argument.type === 'Null') return VbNull;
         return { type: 'Boolean', value: !toBoolean(argument) };
       default:
         return VbEmpty;
     }
   }
 
+  // Real VBScript's And/Or/Xor/Eqv/Imp are three-valued (True/False/Null),
+  // not JS's two-valued short-circuit logic - `Null` propagates through all
+  // five, EXCEPT And/Or's documented "absorbing value" special case (`False
+  // And Null = False`, `True Or Null = True`, since the result is already
+  // determined regardless of what the Null side would have been). This also
+  // means And/Or can no longer short-circuit: `Null Or True` must actually
+  // see the True on the right before it can resolve to True rather than
+  // Null. Found via Wine's own vbscript.dll conformance suite, dlls/
+  // vbscript/tests/lang.vbs - `Null Or True` previously crashed outright
+  // (toBoolean(Null) throws) since the old short-circuit form evaluated
+  // toBoolean(left) before ever looking at the right operand.
   private evaluateLogical(node: LogicalExpression): VbValue {
     switch (node.operator) {
       case '&&':
       case 'And': {
         const left = this.evaluate(node.left);
-        if (!toBoolean(left)) return left;
-        return this.evaluate(node.right);
+        const right = this.evaluate(node.right);
+        if (left.type === 'Null' || right.type === 'Null') {
+          if (left.type !== 'Null' && !toBoolean(left)) return { type: 'Boolean', value: false };
+          if (right.type !== 'Null' && !toBoolean(right)) return { type: 'Boolean', value: false };
+          return VbNull;
+        }
+        return toBoolean(left) ? right : left;
       }
       case '||':
       case 'Or': {
         const left = this.evaluate(node.left);
-        if (toBoolean(left)) return left;
-        return this.evaluate(node.right);
+        const right = this.evaluate(node.right);
+        if (left.type === 'Null' || right.type === 'Null') {
+          if (left.type !== 'Null' && toBoolean(left)) return { type: 'Boolean', value: true };
+          if (right.type !== 'Null' && toBoolean(right)) return { type: 'Boolean', value: true };
+          return VbNull;
+        }
+        return toBoolean(left) ? left : right;
       }
       case 'Xor': {
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
+        if (left.type === 'Null' || right.type === 'Null') return VbNull;
         return { type: 'Boolean', value: toBoolean(left) !== toBoolean(right) };
       }
       case 'Eqv': {
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
+        if (left.type === 'Null' || right.type === 'Null') return VbNull;
         return { type: 'Boolean', value: toBoolean(left) === toBoolean(right) };
       }
       case 'Imp': {
+        // A Imp B == (Not A) Or B, including how Null composes through it -
+        // real VBScript's own documented truth table for Imp matches this
+        // exactly (e.g. `False Imp Null = True`: False is Or's "the other
+        // side no longer matters" case once negated to True).
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
+        if (left.type !== 'Null' && !toBoolean(left)) return { type: 'Boolean', value: true };
+        if (right.type !== 'Null' && toBoolean(right)) return { type: 'Boolean', value: true };
+        if (left.type === 'Null' || right.type === 'Null') return VbNull;
         return { type: 'Boolean', value: !toBoolean(left) || toBoolean(right) };
       }
       default:
