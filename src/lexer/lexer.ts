@@ -172,6 +172,18 @@ export class Lexer {
       while (/[0-7]/.test(this.current)) {
         value += this.advance();
       }
+      // Real VBScript raises a syntax error for `&O8` (no valid octal digit
+      // at all before an invalid one) and `&O78` (a valid digit run
+      // immediately followed by an invalid one, 8/9) - previously this loop
+      // just stopped at the first non-octal digit and silently accepted
+      // whatever digits (possibly none) it had consumed, leaving the
+      // invalid trailing digit(s) to be re-tokenized as an unrelated,
+      // adjacent number literal with no error at all. Found via Wine's own
+      // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs
+      // (`Eval("&O8")` expects error 1002).
+      if (value === '' || /[0-9]/.test(this.current)) {
+        throw new Error('Invalid octal literal');
+      }
       let suffix = '';
       if ((this.current as string) === '&') {
         suffix = this.advance();
@@ -199,6 +211,13 @@ export class Lexer {
       this.advance();
       while (/[0-7]/.test(this.current)) {
         value += this.advance();
+      }
+      // Same invalid-trailing-digit check as the explicit `&O` branch above
+      // (value is never '' here, since entry already required peek to be
+      // 0-7) - catches `&19`: consumes '1', then '9' is a decimal digit
+      // immediately adjacent to the octal run, real VBScript syntax error.
+      if (/[0-9]/.test(this.current)) {
+        throw new Error('Invalid octal literal');
       }
       let suffix = '';
       if ((this.current as string) === '&') {

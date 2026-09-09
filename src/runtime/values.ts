@@ -232,6 +232,31 @@ export function toBoolean(value: VbValue): boolean {
   return true;
 }
 
+const HEX_STRING_RE = /^&[hH]([0-9a-fA-F]+)&?$/;
+const OCTAL_STRING_RE = /^&[oO]?([0-7]+)&?$/;
+const DECIMAL_STRING_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * Strictly parses a trimmed string as a VBScript numeric literal (decimal,
+ * hex `&hFF`/`&HFF`, or octal `&o17`/`&17`), requiring the ENTIRE string to
+ * be consumed (unlike JS's `parseFloat`, which happily accepts a numeric
+ * PREFIX of a longer string like `"5abc"` -> 5 - real VBScript's own
+ * string-to-number coercion requires the whole string to be numeric).
+ * Returns null if the string doesn't parse as a real VBScript number at
+ * all, letting callers decide what to do (throw, fall back to string
+ * comparison, etc.) rather than baking in one behavior here.
+ */
+export function parseVbNumericString(trimmed: string): number | null {
+  if (trimmed === '') return null;
+  const hexMatch = HEX_STRING_RE.exec(trimmed);
+  if (hexMatch) return parseInt(hexMatch[1]!, 16);
+  const octalMatch = OCTAL_STRING_RE.exec(trimmed);
+  if (octalMatch) return parseInt(octalMatch[1]!, 8);
+  if (!DECIMAL_STRING_RE.test(trimmed)) return null;
+  const num = parseFloat(trimmed);
+  return isNaN(num) ? null : num;
+}
+
 /**
  * Converts a VbValue to a JavaScript number.
  * Follows VBScript type coercion rules.
@@ -260,8 +285,8 @@ export function toNumber(value: VbValue): number {
   if (value.type === 'String') {
     const str = value.value.trim();
     if (str === '') return 0;
-    const num = parseFloat(str);
-    if (isNaN(num)) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`, 'Vbscript');
+    const num = parseVbNumericString(str);
+    if (num === null) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`, 'Vbscript');
     return num;
   }
   if (value.type === 'Date') {
