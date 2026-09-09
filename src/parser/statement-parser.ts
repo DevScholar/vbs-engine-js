@@ -59,7 +59,21 @@ export class StatementParser {
       case 'Class' as TokenType:
         return this.procedureParser.parseClassStatement();
       case 'Property' as TokenType:
-        return this.procedureParser.parsePropertyStatement();
+        // `Property` only actually starts a Property Get/Let/Set block when
+        // followed by one of those three keywords - otherwise it's real
+        // VBScript's "keywords are usable as ordinary identifiers" rule
+        // applying to `Property` itself (e.g. `Dim Property` then later
+        // `Property = true`, or a Class/Sub literally named `Property`).
+        // Found via Wine's own vbscript.dll conformance suite,
+        // dlls/vbscript/tests/lang.vbs.
+        if (
+          this.state.peek(1).type === ('Get' as TokenType) ||
+          this.state.peek(1).type === ('Let' as TokenType) ||
+          this.state.peek(1).type === ('Set' as TokenType)
+        ) {
+          return this.procedureParser.parsePropertyStatement();
+        }
+        return this.statementsParser.parseExpressionStatement();
       case 'If' as TokenType:
         return this.controlFlowParser.parseIfStatement();
       case 'For' as TokenType:

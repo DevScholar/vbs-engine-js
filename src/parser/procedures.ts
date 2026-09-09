@@ -44,7 +44,10 @@ export class ProcedureParser {
   parseSubStatement(visibility?: string): VbSubStatement {
     const startToken = this.state.current;
     this.state.expect(TokenType.Sub);
-    const name = this.exprParser.parseIdentifier();
+    // parseFlexibleIdentifier() - a Sub can be named after a keyword (e.g.
+    // `Sub Property()` inside a class also named `Property`), same reasoning
+    // as the Dim/parameter fixes elsewhere in this codebase.
+    const name = this.exprParser.parseFlexibleIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
     const body = this.parseBlock(TokenType.End);
@@ -64,7 +67,7 @@ export class ProcedureParser {
   parseFunctionStatement(visibility?: string): VbFunctionStatement {
     const startToken = this.state.current;
     this.state.expect(TokenType.Function);
-    const name = this.exprParser.parseIdentifier();
+    const name = this.exprParser.parseFlexibleIdentifier();
     const params = this.parseParameters();
 
     let returnType = undefined;
@@ -90,7 +93,10 @@ export class ProcedureParser {
 
   parseClassStatement(): VbClassStatement {
     const classToken = this.state.advance();
-    const name = this.exprParser.parseIdentifier();
+    // parseFlexibleIdentifier() - a Class can be named after a keyword too
+    // (Wine's lang.vbs literally tests `Class Property`), same reasoning as
+    // Sub/Function above.
+    const name = this.exprParser.parseFlexibleIdentifier();
     this.state.skipNewlines();
 
     const body = this.parseClassBody();

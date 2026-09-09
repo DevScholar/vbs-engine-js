@@ -112,6 +112,14 @@ export class ControlFlowParser {
 
     this.state.expect('Loop' as any);
 
+    // Real VBScript's post-condition comes AFTER the `Loop` keyword
+    // (`Loop While cond` / `Loop Until cond`), not before it - this
+    // previously checked for While/Until ahead of `Loop`, so a trailing
+    // condition (the standard, common form) was never actually consumed:
+    // `Loop` alone matched `expect('Loop')`, then the real `Until cond` was
+    // left dangling as an invalid next statement ("Unexpected token: Until").
+    // Found via Wine's own vbscript.dll conformance suite, dlls/vbscript/
+    // tests/lang.vbs: `Do: x = x + 2 \n Loop Until x = 4`.
     if (this.state.check('While' as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
@@ -273,7 +281,10 @@ export class ControlFlowParser {
   }
 
   private parseForToStatement(forToken: Token): VbForToStatement {
-    const left = this.exprParser.parseIdentifier();
+    // parseFlexibleIdentifier() - the loop variable can be named after a
+    // keyword too (`For Property = 1 To 2`), same reasoning as the other
+    // keyword-as-identifier fixes in this codebase.
+    const left = this.exprParser.parseFlexibleIdentifier();
     this.state.expect('Eq' as any);
     const init = this.exprParser.parseExpression();
     this.state.expect('To' as any);
@@ -300,7 +311,7 @@ export class ControlFlowParser {
 
   private parseForEachStatement(forToken: Token): ForOfStatement {
     this.state.expect('Each' as any);
-    const left = this.exprParser.parseIdentifier();
+    const left = this.exprParser.parseFlexibleIdentifier();
     this.state.expect('In' as any);
     const right = this.exprParser.parseExpression();
     this.state.skipNewlines();

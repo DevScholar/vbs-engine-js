@@ -192,29 +192,34 @@ export class DeclarationParser {
     };
   }
 
+  // Both of these are only ever reached via parseVisibilityStatement(), which
+  // has already consumed the Public/Private token before dispatching here -
+  // an extra advance() at the top (as this used to have) eats the real
+  // `Const` token instead, leaving the following identifier where `Const`
+  // was expected ("Expected Const, got Identifier"). Found via Wine's own
+  // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs:
+  // `Private Const c4 = 4`.
   parsePublicConstStatement(): VbConstStatement {
-    const visibilityToken = this.state.advance();
-    this.state.expect(TokenType.Const);
+    const constToken = this.state.expect(TokenType.Const);
     const declarations = this.parseConstDeclarators();
 
     return {
       type: 'VbConstStatement',
       declarations,
       visibility: 'public',
-      loc: createLocation(visibilityToken, this.state.previous),
+      loc: createLocation(constToken, this.state.previous),
     };
   }
 
   parsePrivateConstStatement(): VbConstStatement {
-    const visibilityToken = this.state.advance();
-    this.state.expect(TokenType.Const);
+    const constToken = this.state.expect(TokenType.Const);
     const declarations = this.parseConstDeclarators();
 
     return {
       type: 'VbConstStatement',
       declarations,
       visibility: 'private',
-      loc: createLocation(visibilityToken, this.state.previous),
+      loc: createLocation(constToken, this.state.previous),
     };
   }
 
@@ -230,7 +235,12 @@ export class DeclarationParser {
   }
 
   private parseVariableDeclarator(): VbVariableDeclarator {
-    const id = this.exprParser.parseIdentifier();
+    // parseFlexibleIdentifier(), not parseIdentifier() - `Dim Property`/`Dim
+    // Class`/etc. are valid VBScript (keywords are usable as ordinary
+    // identifiers almost everywhere), same reasoning as the parameter-list
+    // fix elsewhere in this file. Found via Wine's own vbscript.dll
+    // conformance suite, dlls/vbscript/tests/lang.vbs: `Dim Property`.
+    const id = this.exprParser.parseFlexibleIdentifier();
     let init: Expression | null = null;
     let isArray = false;
     let arrayBounds: Expression[] = [];
