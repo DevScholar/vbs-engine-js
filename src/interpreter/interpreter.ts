@@ -48,11 +48,31 @@ export class Interpreter {
     return labels;
   }
 
+  // Real VBScript hoists every Sub/Function (and Class) declaration in a scope
+  // before running any statement in that scope, so a call can textually precede
+  // its own declaration - e.g. many VPX table scripts open with a bare call to a
+  // loader Sub defined further down the file. This interpreter otherwise
+  // registers a Sub/Function into functionRegistry only when execution reaches
+  // it sequentially, so without this pre-pass such a forward call throws
+  // "Variable is undefined" (or, without Option Explicit, silently no-ops
+  // instead of calling the Sub). executor.execute() on a Sub/Function statement
+  // only registers it - it doesn't run the body - so calling it again here has
+  // no side effect beyond the one it already has each time it's reached in the
+  // main loop below.
+  private hoistDeclarations(statements: Statement[]): void {
+    for (const stmt of statements) {
+      if (stmt.type === 'VbSubStatement' || stmt.type === 'VbFunctionStatement') {
+        this.executor.execute(stmt);
+      }
+    }
+  }
+
   run(program: Program): VbValue {
     this.startTime = Date.now();
     let result: VbValue = VbEmpty;
     const statements = program.body;
     const labels = this.collectLabels(statements);
+    this.hoistDeclarations(statements);
     let i = 0;
     const maxIterations = statements.length * 10000;
     let iterations = 0;
@@ -117,6 +137,7 @@ export class Interpreter {
 
   executeStatements(statements: Statement[]): VbValue {
     const labels = this.collectLabels(statements);
+    this.hoistDeclarations(statements);
     let result: VbValue = VbEmpty;
     let i = 0;
     const maxIterations = statements.length * 10000;
