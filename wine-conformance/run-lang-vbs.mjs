@@ -106,6 +106,15 @@ const engine = new VbsEngine({ injectGlobalThis: false });
 // individually found via real table scripts.
 engine.addObject('testObj', new Proxy({}, { get: () => 10 }), true);
 
+// `testDisp(obj)`: Wine's real C test harness does native IDispatch-level
+// reflection over `obj` here (property/method enumeration, type info, etc.)
+// - a single call site, genuinely host-side, not meaningfully
+// reimplementable from JS. No-op stub so this one line doesn't crash the
+// whole run; not worth replicating C-side introspection for one call.
+engine._registerFunction('testDisp', function () {
+    return { type: 'Empty', value: undefined };
+});
+
 // ok(condition, message) - VbValue in, VbValue out (matches
 // vbs-engine-js's own browser/activex.ts createObject() convention for
 // _registerFunction, not addObject's plain-JS-value convention).
