@@ -359,6 +359,19 @@ export class ExpressionEvaluator {
     if (calleeExpr.type === 'MemberExpression') {
       const memberResult = this.evaluateMember(calleeExpr);
 
+      // Chained array read, e.g. `obj.Items(0)` or `arr(0)(4)` where the inner
+      // `arr(0)` was itself parsed as a MemberExpression (see the Identifier
+      // branch above, which already handles the non-chained `arr(4)` case the
+      // same way). Missing here until 2026-09-03: this branch only ever tried
+      // callObjectMethod and threw for anything else, so a nested array read
+      // could never succeed - previously unreachable in practice because
+      // nested-array WRITES were separately broken (see parseStatementAssignment
+      // above), so `arr(0)` never actually held a populated array to expose this.
+      if (memberResult.type === 'Array') {
+        const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
+        const arr = memberResult.value as unknown as { get: (indices: number[]) => VbValue };
+        return arr.get(indices);
+      }
       if (memberResult.type === 'Object' && memberResult.value !== null) {
         return this.callObjectMethod(memberResult, callArgs);
       }
@@ -366,6 +379,13 @@ export class ExpressionEvaluator {
     }
 
     const callee = this.evaluate(calleeExpr);
+    // Same chained-array-read gap as above, for callees more deeply nested than
+    // one level (e.g. a CallExpression callee from `arr(0)(4)(1)`).
+    if (callee.type === 'Array') {
+      const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
+      const arr = callee.value as unknown as { get: (indices: number[]) => VbValue };
+      return arr.get(indices);
+    }
     if (callee.type === 'Object' && callee.value !== null) {
       return this.callObjectMethod(callee, callArgs);
     }

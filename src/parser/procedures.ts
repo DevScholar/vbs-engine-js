@@ -229,7 +229,7 @@ export class ProcedureParser {
       byRef = false;
     }
 
-    const name = this.exprParser.parseIdentifier();
+    const name = this.exprParser.parseFlexibleIdentifier();
     let isArray = false;
     let defaultValue: Expression | undefined;
 
