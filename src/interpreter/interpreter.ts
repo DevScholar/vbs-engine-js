@@ -80,6 +80,12 @@ export class Interpreter {
     switch (stmt.type) {
       case 'VbSubStatement':
       case 'VbFunctionStatement':
+      case 'VbClassStatement':
+        // Class declarations are hoisted too, same as Sub/Function - `New
+        // EmptyClass` can textually precede `Class EmptyClass ... End
+        // Class`. executeClassStatement() just (re-)registers the class
+        // into classRegistry, so calling it again when execution naturally
+        // reaches it is harmless, same as Sub/Function.
         this.executor.execute(stmt);
         return;
       case 'BlockStatement':

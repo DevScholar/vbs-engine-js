@@ -95,6 +95,17 @@ let failCount = 0;
 
 const engine = new VbsEngine({ injectGlobalThis: false });
 
+// `testObj`: a host fixture Wine's real C test harness registers via
+// AddNamedItem, used throughout lang.vbs to test that every VBScript
+// keyword also works as a property name after a dot (`testObj.while`,
+// `testObj.stop`, etc. - every one of these expects exactly 10). Real
+// semantics: any property get returns 10 regardless of name. Implemented
+// directly (rather than skipped like the narrower VARIANT-subtype testobj_
+// range below) since it's simple and stress-tests this fork's dot-property-
+// name handling across every single keyword at once, not just the handful
+// individually found via real table scripts.
+engine.addObject('testObj', new Proxy({}, { get: () => 10 }), true);
+
 // ok(condition, message) - VbValue in, VbValue out (matches
 // vbs-engine-js's own browser/activex.ts createObject() convention for
 // _registerFunction, not addObject's plain-JS-value convention).
