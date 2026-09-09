@@ -1,3 +1,5 @@
+import { createVbError, VbErrorCodes } from './errors.ts';
+
 /**
  * Represents all possible VBScript value types.
  * These correspond to the Variant subtypes in VBScript.
@@ -201,7 +203,13 @@ export function createVbValue(value: unknown): VbValue {
 export function toBoolean(value: VbValue): boolean {
   if (value.type === 'Boolean') return value.value;
   if (value.type === 'Empty') return false;
-  if (value.type === 'Null') throw new Error('Type mismatch: Null cannot be converted to Boolean');
+  // Real VBScript's error 94 ("Invalid use of Null") for exactly this case -
+  // must be a real, catchable VbError (not a plain Error) so `On Error
+  // Resume Next` around a construct that puts Null in a boolean context
+  // (`If Null Then`, `While Null`, etc.) can actually suppress it, matching
+  // real VBScript behavior. Found via Wine's own vbscript.dll conformance
+  // suite, dlls/vbscript/tests/lang.vbs.
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null', 'Vbscript');
   if (value.type === 'String') {
     const str = value.value;
     if (str === '') return false;
@@ -234,7 +242,7 @@ export function toBoolean(value: VbValue): boolean {
  */
 export function toNumber(value: VbValue): number {
   if (value.type === 'Empty') return 0;
-  if (value.type === 'Null') throw new Error('Type mismatch: Null cannot be converted to Number');
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null', 'Vbscript');
   if (value.type === 'Boolean') return value.value ? -1 : 0;
   if (
     value.type === 'Integer' ||

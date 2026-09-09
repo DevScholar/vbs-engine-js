@@ -188,6 +188,17 @@ export class VbContext {
     this.currentScope.set(name, value);
   }
 
+  // True only for a genuinely user-declared name (a class instance property,
+  // or a variable/parameter somewhere in the current scope chain) - NOT the
+  // broader hasVariable() below, which also matches globalThis/built-ins.
+  // Used to give local variables/parameters priority over same-named
+  // built-in functions (see evaluateIdentifier's comment in
+  // expression-evaluator.ts for why that priority matters).
+  hasDeclaredVariable(name: string): boolean {
+    if (this.currentInstance && this.currentInstance.hasProperty(name)) return true;
+    return this.currentScope.has(name);
+  }
+
   hasVariable(name: string): boolean {
     if (this.currentScope.has(name)) return true;
     const lowerName = name.toLowerCase();
