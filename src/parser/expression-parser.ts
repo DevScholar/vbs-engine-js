@@ -442,8 +442,51 @@ export class ExpressionParser {
     return left;
   }
 
+  // Real VBScript's `Not` and every comparison operator (=, <>, >, <, >=,
+  // <=, Is) share ONE precedence tier - confirmed from Wine's actual yacc
+  // grammar (dlls/vbscript/parser.y), not just a third-party reconstruction:
+  // `EqualityExpression` is a single self-recursive rule covering `tNOT
+  // EqualityExpression` and every comparison operator with EqualityExpression
+  // on both sides. Two consequences neither a strict "Not is one fixed tier"
+  // design nor the previous (wrong) "Not binds tightest, like unary minus"
+  // design get right:
+  //   - `Not` greedily grabs a FULL comparison expression as its operand
+  //     when nothing else claims it first: `Not 1 > 2` is `Not (1 > 2)` =
+  //     True, not `(Not 1) > 2`.
+  //   - `Not` is equally reachable as the OPERAND of a comparison operator,
+  //     not just as a leading prefix: `1 <> Not 0 = 0` is
+  //     `1 <> (Not (0 = 0))` = True.
+  // The tier itself still needs to stay LEFT-associative for bare chained
+  // comparisons with no Not involved (`"" = true = false` must group as
+  // `("" = true) = false`, matching yacc's declared `%left` - a real
+  // recursive-descent mistake here would be making the whole tier right-
+  // recursive instead of using a while-loop) - so only parseComparisonOperand()
+  // recurses into the full parseComparison() (for Not's own operand
+  // specifically); the outer loop stays a standard left-associative chain.
+  // Confirmed via two independent MIT-licensed ANTLR VB6/VBA grammars
+  // (proleap-vb6-parser, antlr/grammars-v4's vba7_1) that comparisons bind
+  // tighter than Not, then verified precisely against Wine's real yacc
+  // source and hand-traced against every real Not+comparison combination in
+  // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs,
+  // before writing this.
+  private parseComparisonOperand(): Expression {
+    if (this.state.check('Not' as TokenType)) {
+      const op = this.state.advance();
+      const argument = this.parseComparison();
+      return {
+        type: 'UnaryExpression',
+        operator: '!',
+        prefix: true,
+        argument,
+        loc: createLocation(op, { loc: argument.loc! } as Token),
+      };
+    }
+
+    return this.parseIs();
+  }
+
   private parseComparison(): Expression {
-    let left = this.parseIs();
+    let left = this.parseComparisonOperand();
 
     while (
       this.state.checkAny(
@@ -456,7 +499,7 @@ export class ExpressionParser {
       )
     ) {
       const op = this.state.advance();
-      const right = this.parseIs();
+      const right = this.parseComparisonOperand();
       const operator = this.getComparisonOperator(op);
       left = {
         type: 'BinaryExpression',
@@ -602,18 +645,6 @@ export class ExpressionParser {
   }
 
   private parseUnary(): Expression {
-    if (this.state.check('Not' as TokenType)) {
-      const op = this.state.advance();
-      const argument = this.parseUnary();
-      return {
-        type: 'UnaryExpression',
-        operator: '!',
-        prefix: true,
-        argument,
-        loc: createLocation(op, { loc: argument.loc! } as Token),
-      };
-    }
-
     if (this.state.check('Minus' as TokenType)) {
       const op = this.state.advance();
       const argument = this.parseUnary();
