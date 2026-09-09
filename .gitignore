@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 types
 .aider*
+
+# Wine's LGPL vbscript.dll conformance suite (dlls/vbscript/tests/lang.vbs) -
+# used privately for testing against real MS-accuracy behavior, but not
+# included in this repo's tracked files per the maintainer's licensing note
+# on PR #3 (Apache/MIT repo, LGPL test fixture would create friction).
+wine-conformance/
