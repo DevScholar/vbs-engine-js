@@ -57,6 +57,56 @@ function isVbJsFunctionObject(
   return obj.type === 'jsfunction' && 'func' in obj;
 }
 
+// Real VBScript's And/Or/Xor/Eqv/Imp/Not all ultimately call the real OLE
+// Automation VarAnd/VarOr/VarXor/VarEqv/VarImp/VarNot - genuine BITWISE
+// operations, not JS-style boolean logic - with two VBScript-specific
+// pre-coercions those native functions don't do themselves: Empty becomes
+// Long(0), and a String becomes a number if it parses as one, else a
+// Boolean (True/False, via the same leniency toBoolean() already applies to
+// strings). Confirmed directly from Wine's real C source,
+// dlls/vbscript/interp.c's coerce_empty_to_i4()/coerce_str_to_num_or_bool(),
+// and verified against many real assertions in dlls/vbscript/tests/lang.vbs
+// (`("1" Or "2") = 3`, `(Empty And Empty) = 0`, etc.) - never call this on a
+// Null operand, which always needs its own three-valued-logic handling
+// first (see evaluateLogical below).
+function toBitwiseLong(value: VbValue): number {
+  if (value.type === 'Empty') return 0;
+  if (value.type === 'Boolean') return value.value ? -1 : 0;
+  if (value.type === 'String') {
+    const parsed = Number(value.value.trim());
+    if (value.value.trim() !== '' && !isNaN(parsed)) return parsed | 0;
+    return toBoolean(value) ? -1 : 0;
+  }
+  // An Object operand (e.g. `Not MyObject`, `MyObject And True`) doesn't
+  // have a numeric form `toNumber()` can produce - this engine doesn't yet
+  // implement real default-property invocation (a genuinely separate,
+  // bigger feature from this bitwise-math fix; see the still-open
+  // `obj.publicFunction` bug for the other half of that gap). Route through
+  // toBoolean() instead of throwing, matching what this engine's own
+  // pre-existing (if simplistic - toBoolean() itself just defaults to
+  // `true` for any Object, not real default-property resolution) behavior
+  // already did for `Not`/`And`/`Or` on objects before this fix - avoids a
+  // regression on that front while still fixing the actually-reported
+  // bitwise-math bug for numeric/string operands.
+  if (value.type === 'Object') return toBoolean(value) ? -1 : 0;
+  return toNumber(value) | 0;
+}
+
+// Boolean+Boolean stays Boolean-typed (matches VarAnd's own promotion rule -
+// bitwise math on -1/0 happens to equal boolean logic anyway, so this only
+// affects the RESULT's reported type, e.g. TypeName()/getVT(), not its
+// truthiness). Every other combination (Empty, String, numeric, mixed)
+// promotes to Long, confirmed via many `getVT(...) = "VT_I4"` assertions in
+// Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
+function bitwiseResultType(left: VbValue, right: VbValue): 'Boolean' | 'Long' {
+  return left.type === 'Boolean' && right.type === 'Boolean' ? 'Boolean' : 'Long';
+}
+
+function makeBitwiseResult(value: number, left: VbValue, right: VbValue): VbValue {
+  const type = bitwiseResultType(left, right);
+  return type === 'Boolean' ? { type: 'Boolean', value: value !== 0 } : { type: 'Long', value };
+}
+
 export class ExpressionEvaluator {
   constructor(private context: VbContext) {}
 
@@ -621,7 +671,37 @@ export class ExpressionEvaluator {
   // anything against Null (`x < Null`) crashed with "Type mismatch: Null
   // cannot be converted to Number" instead of yielding Null. Found via
   // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
+  //
+  // Two more real VBScript comparison quirks, both confirmed against Wine's
+  // lang.vbs comments/assertions rather than guessed: (1) an Array operand
+  // on EITHER side of any comparison always raises type mismatch (error 13)
+  // - this wins even over Null propagation and Empty/Object special-casing,
+  // so it must be checked first. (2) Boolean compared against String never
+  // does numeric coercion or Null-style handling: it's always a plain
+  // string comparison against CStr(bool) ("True"/"False"), case-sensitive,
+  // no trimming, never errors - so it must be checked before the generic
+  // String branch below (which lowercases for case-insensitive equality,
+  // wrong for this specific combination).
+  private checkComparisonOperands(left: VbValue, right: VbValue): void {
+    if (left.type === 'Array' || right.type === 'Array') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch', 'Vbscript');
+    }
+  }
+
+  private compareBooleanString(left: VbValue, right: VbValue): number | undefined {
+    if (
+      (left.type === 'Boolean' && right.type === 'String') ||
+      (left.type === 'String' && right.type === 'Boolean')
+    ) {
+      const ls = toString(left);
+      const rs = toString(right);
+      return ls < rs ? -1 : ls > rs ? 1 : 0;
+    }
+    return undefined;
+  }
+
   private equals(left: VbValue, right: VbValue): VbValue {
+    this.checkComparisonOperands(left, right);
     if (left.type === 'Empty' && right.type === 'Empty') {
       return { type: 'Boolean', value: true };
     }
@@ -630,6 +710,10 @@ export class ExpressionEvaluator {
     }
     if (left.type === 'Object' && right.type === 'Object') {
       return { type: 'Boolean', value: left.value === right.value };
+    }
+    const boolStr = this.compareBooleanString(left, right);
+    if (boolStr !== undefined) {
+      return { type: 'Boolean', value: boolStr === 0 };
     }
     if (left.type === 'String' || right.type === 'String') {
       return {
@@ -647,8 +731,13 @@ export class ExpressionEvaluator {
   }
 
   private lessThan(left: VbValue, right: VbValue): VbValue {
+    this.checkComparisonOperands(left, right);
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
+    }
+    const boolStr = this.compareBooleanString(left, right);
+    if (boolStr !== undefined) {
+      return { type: 'Boolean', value: boolStr < 0 };
     }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) < toString(right) };
@@ -657,8 +746,13 @@ export class ExpressionEvaluator {
   }
 
   private lessThanOrEqual(left: VbValue, right: VbValue): VbValue {
+    this.checkComparisonOperands(left, right);
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
+    }
+    const boolStr = this.compareBooleanString(left, right);
+    if (boolStr !== undefined) {
+      return { type: 'Boolean', value: boolStr <= 0 };
     }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) <= toString(right) };
@@ -667,8 +761,13 @@ export class ExpressionEvaluator {
   }
 
   private greaterThan(left: VbValue, right: VbValue): VbValue {
+    this.checkComparisonOperands(left, right);
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
+    }
+    const boolStr = this.compareBooleanString(left, right);
+    if (boolStr !== undefined) {
+      return { type: 'Boolean', value: boolStr > 0 };
     }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) > toString(right) };
@@ -677,8 +776,13 @@ export class ExpressionEvaluator {
   }
 
   private greaterThanOrEqual(left: VbValue, right: VbValue): VbValue {
+    this.checkComparisonOperands(left, right);
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
+    }
+    const boolStr = this.compareBooleanString(left, right);
+    if (boolStr !== undefined) {
+      return { type: 'Boolean', value: boolStr >= 0 };
     }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) >= toString(right) };
@@ -702,10 +806,20 @@ export class ExpressionEvaluator {
         return createVbValue(toNumber(argument));
       case '!':
       case 'Not':
-        // Null propagates through Not too (`Not Null` is Null) - same
-        // reasoning as unary minus/plus above.
+        // Null propagates through Not too (`Not Null` is Null).
         if (argument.type === 'Null') return VbNull;
-        return { type: 'Boolean', value: !toBoolean(argument) };
+        // Real VBScript's Not is VarNot - a genuine BITWISE complement, not
+        // a boolean negation, except when the operand is already strictly
+        // Boolean-typed (where bitwise complement of -1/0 happens to equal
+        // boolean negation anyway, so this is just a type-preservation
+        // distinction, not a value one). `Not 5` is the Long -6, not a
+        // Boolean. Confirmed via Wine's own vbscript.dll conformance suite,
+        // dlls/vbscript/tests/lang.vbs: `(Not Empty) = -1,
+        // getVT(Not Empty) = VT_I4`.
+        if (argument.type === 'Boolean') {
+          return { type: 'Boolean', value: !argument.value };
+        }
+        return { type: 'Long', value: ~toBitwiseLong(argument) };
       default:
         return VbEmpty;
     }
@@ -725,54 +839,76 @@ export class ExpressionEvaluator {
   private evaluateLogical(node: LogicalExpression): VbValue {
     switch (node.operator) {
       case '&&':
-      case 'And': {
-        const left = this.evaluate(node.left);
-        const right = this.evaluate(node.right);
-        if (left.type === 'Null' || right.type === 'Null') {
-          if (left.type !== 'Null' && !toBoolean(left)) return { type: 'Boolean', value: false };
-          if (right.type !== 'Null' && !toBoolean(right)) return { type: 'Boolean', value: false };
-          return VbNull;
-        }
-        return toBoolean(left) ? right : left;
-      }
+      case 'And':
+        return this.applyAnd(this.evaluate(node.left), this.evaluate(node.right));
       case '||':
-      case 'Or': {
-        const left = this.evaluate(node.left);
-        const right = this.evaluate(node.right);
-        if (left.type === 'Null' || right.type === 'Null') {
-          if (left.type !== 'Null' && toBoolean(left)) return { type: 'Boolean', value: true };
-          if (right.type !== 'Null' && toBoolean(right)) return { type: 'Boolean', value: true };
-          return VbNull;
-        }
-        return toBoolean(left) ? left : right;
-      }
+      case 'Or':
+        return this.applyOr(this.evaluate(node.left), this.evaluate(node.right));
       case 'Xor': {
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
         if (left.type === 'Null' || right.type === 'Null') return VbNull;
-        return { type: 'Boolean', value: toBoolean(left) !== toBoolean(right) };
+        return makeBitwiseResult(toBitwiseLong(left) ^ toBitwiseLong(right), left, right);
       }
       case 'Eqv': {
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
         if (left.type === 'Null' || right.type === 'Null') return VbNull;
-        return { type: 'Boolean', value: toBoolean(left) === toBoolean(right) };
+        return makeBitwiseResult(~(toBitwiseLong(left) ^ toBitwiseLong(right)), left, right);
       }
       case 'Imp': {
-        // A Imp B == (Not A) Or B, including how Null composes through it -
-        // real VBScript's own documented truth table for Imp matches this
-        // exactly (e.g. `False Imp Null = True`: False is Or's "the other
-        // side no longer matters" case once negated to True).
+        // A Imp B == (Not A) Or B - real VBScript's own documented truth
+        // table for Imp matches this composition exactly, including how
+        // Null propagates through it (e.g. `False Imp Null = True`: False
+        // negates to True, which is Or's own absorbing value). Delegating to
+        // the already-fixed applyNot()/applyOr() rather than hand-duplicating
+        // their logic (absorption, bitwise math, result typing) a third time.
         const left = this.evaluate(node.left);
         const right = this.evaluate(node.right);
-        if (left.type !== 'Null' && !toBoolean(left)) return { type: 'Boolean', value: true };
-        if (right.type !== 'Null' && toBoolean(right)) return { type: 'Boolean', value: true };
-        if (left.type === 'Null' || right.type === 'Null') return VbNull;
-        return { type: 'Boolean', value: !toBoolean(left) || toBoolean(right) };
+        return this.applyOr(this.applyNot(left), right);
       }
       default:
         return VbEmpty;
     }
+  }
+
+  private applyNot(argument: VbValue): VbValue {
+    if (argument.type === 'Null') return VbNull;
+    if (argument.type === 'Boolean') return { type: 'Boolean', value: !argument.value };
+    return { type: 'Long', value: ~toBitwiseLong(argument) };
+  }
+
+  // Real VBScript's And is three-valued (True/False/Null) AND genuinely
+  // bitwise for non-Boolean operands - `5 And 3` is `1`, not a JS-style
+  // "pick a value" result. Null only ever propagates as Null UNLESS the
+  // OTHER side is already the absorbing value (a definite falsy 0/False),
+  // in which case the whole result is decided regardless of the Null side -
+  // and that absorption returns the ACTUAL absorbing operand itself
+  // (preserving its real type, e.g. `CInt(0) And Null` stays Integer-typed
+  // 0), not a synthetic Boolean. Confirmed via Wine's own vbscript.dll
+  // conformance suite, dlls/vbscript/tests/lang.vbs, and Wine's real C
+  // source, dlls/vbscript/interp.c's interp_and()/coerce_empty_to_i4()/
+  // coerce_str_to_num_or_bool() (which is where the Empty->Long(0) and
+  // String->number-or-boolean pre-coercions toBitwiseLong() replicates come
+  // from - native VarAnd/VarOr/VarImp don't do those themselves).
+  private applyAnd(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      if (left.type !== 'Null' && !toBoolean(left)) return left;
+      if (right.type !== 'Null' && !toBoolean(right)) return right;
+      return VbNull;
+    }
+    return makeBitwiseResult(toBitwiseLong(left) & toBitwiseLong(right), left, right);
+  }
+
+  // Mirror of applyAnd() above for Or - True is the absorbing value instead
+  // of False, same reasoning and same source (Wine's interp_or()).
+  private applyOr(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      if (left.type !== 'Null' && toBoolean(left)) return left;
+      if (right.type !== 'Null' && toBoolean(right)) return right;
+      return VbNull;
+    }
+    return makeBitwiseResult(toBitwiseLong(left) | toBitwiseLong(right), left, right);
   }
 
   private evaluateAssignment(node: AssignmentExpression): VbValue {

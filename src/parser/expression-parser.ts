@@ -428,8 +428,16 @@ export class ExpressionParser {
     while (this.state.checkAny('Xor' as TokenType, 'Eqv' as TokenType, 'Imp' as TokenType)) {
       const op = this.state.advance();
       const right = this.parseComparison();
+      // LogicalExpression['operator'] declares these capitalized ('Xor' |
+      // 'Eqv' | 'Imp'), matching the evaluator's switch cases - this
+      // previously lowercased them ('xor'/'eqv'/'imp'), silenced only by the
+      // `as LogicalExpression['operator']` cast below, so Xor/Eqv/Imp NEVER
+      // actually matched any case in evaluateLogical() and silently always
+      // fell through to its `default: return VbEmpty` - a real, pre-existing
+      // bug unrelated to (found while verifying) the Null-propagation/
+      // bitwise-math fixes elsewhere in this codebase.
       const operator =
-        op.value.toLowerCase() === 'xor' ? 'xor' : op.value.toLowerCase() === 'eqv' ? 'eqv' : 'imp';
+        op.value.toLowerCase() === 'xor' ? 'Xor' : op.value.toLowerCase() === 'eqv' ? 'Eqv' : 'Imp';
       left = {
         type: 'LogicalExpression',
         operator: operator as LogicalExpression['operator'],
