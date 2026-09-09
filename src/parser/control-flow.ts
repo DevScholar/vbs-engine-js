@@ -193,6 +193,29 @@ export class ControlFlowParser {
   private parseIfBlock(): BlockStatement {
     const body: Statement[] = [];
 
+    // Previously this manually re-scanned tokens ahead of a nested `If` to
+    // classify it single- vs multi-line, then tracked a hand-rolled
+    // `nestedIfDepth` counter to decide whether a later `Else`/`ElseIf`/`End
+    // If` belonged to the nested If or to this block. That's unnecessary and
+    // was actively wrong: once depth > 0, it fed a bare `Else`/`ElseIf` token
+    // straight into `this.parseStatement()` as if it were its own statement -
+    // but `Else`/`ElseIf` are never valid statement-starters on their own,
+    // which threw "Unexpected token: Else"/"Unexpected token: ElseIf" on any
+    // multi-line If nested inside another If/Else block (a completely
+    // standard, common VBScript pattern - found via a real WPC table's actual
+    // script, not a contrived case; also matches this repo's own open issue
+    // #1, "Nested multi-line If ... End If fails to parse").
+    //
+    // The actual fix is simpler than what was here: `this.parseStatement()`
+    // already dispatches an `If` token to the real, already-recursive
+    // `parseIfStatement()` / `parseMultiLineIf()` / `parseElseIfStatement()`,
+    // which correctly consumes a nested If's ENTIRE structure - its own Else/
+    // ElseIf chain and matching End If - as a single statement before
+    // returning. So this block never needs to peek ahead or count depth for
+    // nested Ifs at all: by the time control returns here, any nested If's
+    // own End If/Else has already been fully consumed, and an Else/ElseIf/End
+    // If seen at THIS loop level can only belong to the block being parsed
+    // right now.
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 

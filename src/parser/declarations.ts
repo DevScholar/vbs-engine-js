@@ -238,7 +238,18 @@ export class DeclarationParser {
     if (this.state.check(TokenType.LParen)) {
       this.state.advance();
       isArray = true;
-      arrayBounds = this.parseArrayBounds();
+      // `Dim name()` / `ReDim name()` - an empty-parens dynamic array declaration
+      // with no bounds yet (bounds supplied later via a real ReDim) - is valid
+      // VBScript. Unlike parseTypeMember() below, which already guards this
+      // correctly, this function unconditionally called parseArrayBounds(),
+      // which tries to parse an expression starting at `)` and throws
+      // "Unexpected token: RParen" - meaning `Dim name()` couldn't be parsed at
+      // all until this fix (bug found 2026-09-03 while root-causing what looked
+      // like a separate ReDim-element-persistence bug; it was actually this
+      // parse failure the whole time, not an executor/runtime issue).
+      if (!this.state.check(TokenType.RParen)) {
+        arrayBounds = this.parseArrayBounds();
+      }
       this.state.expect(TokenType.RParen);
     }
 

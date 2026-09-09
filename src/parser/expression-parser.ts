@@ -19,6 +19,42 @@ import {
   createLocationFromNodeAndToken,
 } from './location.ts';
 
+/**
+ * Converts a call-expression chain (as produced by parseCall() for `name(args)`
+ * or chained `name(args)(args)`) into the equivalent nested MemberExpression
+ * chain, for use as an assignment target. Returns null if the chain isn't
+ * convertible: any level with more than one argument (true multi-dimensional
+ * indexing isn't supported by the single-index array-write path this feeds
+ * into), or a base that isn't ultimately an Identifier/MemberExpression.
+ */
+function callChainToMemberChain(expr: Expression): MemberExpression | null {
+  if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
+    return expr as MemberExpression;
+  }
+  if (expr.type !== 'CallExpression') {
+    return null;
+  }
+  const call = expr as CallExpression;
+  if (call.arguments.length !== 1) {
+    return null;
+  }
+  const object =
+    call.callee.type === 'Identifier' || call.callee.type === 'MemberExpression'
+      ? (call.callee as Expression)
+      : callChainToMemberChain(call.callee as Expression);
+  if (!object) {
+    return null;
+  }
+  return {
+    type: 'MemberExpression',
+    object,
+    property: call.arguments[0],
+    computed: true,
+    optional: false,
+    loc: call.loc,
+  } as MemberExpression;
+}
+
 export class ExpressionParser {
   private state: ParserState;
 
@@ -103,7 +139,83 @@ export class ExpressionParser {
       const left = this.parseCall();
 
       if (left.type === 'CallExpression') {
-        return this.continueStringConcat(left);
+        // `name(args)` is ambiguous in VBScript between an array-index read/write
+        // and a sub/function call - parseCall() always builds a (possibly nested,
+        // for chained/jagged access like `arr(0)(4)`) CallExpression for it, since
+        // arrays and calls share identical syntax. That's correct for a *read*
+        // (`y = arr(1)`), but for a *write* (`arr(1) = y`) this used to return
+        // immediately, before ever checking for a following `=`, so indexed-array
+        // assignment could never be recognized at the statement level (bug found
+        // and root-caused 2026-09-03 evaluating this engine for vp-engine-wasm's
+        // VP-table VBScript replacement). Fix: if `=` follows a call-chain target
+        // built entirely of single-argument calls, convert the whole chain into
+        // the equivalent nested MemberExpression and treat it as an indexed-
+        // assignment target instead of a bare call-statement. Multi-argument
+        // calls anywhere in the chain (true multi-dimensional `arr(i, j) = x`)
+        // are left unconverted - assignToMember only supports a single index per
+        // level today, so converting those here would silently mis-handle them
+        // rather than fix them; that's a separate, narrower gap.
+        const memberChain = this.state.check('Eq' as TokenType)
+          ? callChainToMemberChain(left as CallExpression)
+          : null;
+        if (memberChain) {
+          const op = this.state.advance();
+          const right = this.parseStatementAssignment();
+          return this.createAssignmentExpression(memberChain, '=', right, op);
+        }
+
+        // A Comma immediately following a single call-chain (not `=`) means this is a
+        // bare statement-style call whose first argument merely happens to be written
+        // with its own parens - a classic, well-documented VBScript idiom:
+        //   PlaySound("fx_x" & b), -1, Vol(...), Pan(...), 0, pitch, 1, 0, fade
+        // parseCall() has no way to know ahead of time that `PlaySound(...)` isn't a
+        // complete, self-contained call - arrays and calls share identical syntax, so
+        // it correctly builds a CallExpression from just the parenthesized part. Real
+        // VBScript then treats everything after the comma as MORE arguments to that
+        // same statement call, not a syntax error and not a second statement. Found
+        // via a real production table script (Chance, Playmatic 1971) that hit
+        // "Unexpected token: Comma" here - confirmed via a minimal repro
+        // (`Foo("x"), 1, 2`) before this fix. Only applies when `left` is a plain call
+        // (callee is Identifier/MemberExpression, not itself a further call chain) -
+        // `arr(0)(1), 2` (jagged-array read result comma-continued) isn't a real
+        // statement-call pattern and shouldn't be coerced into one.
+        if (
+          this.state.check('Comma' as TokenType) &&
+          (left as CallExpression).callee.type !== 'CallExpression'
+        ) {
+          const args = [...(left as CallExpression).arguments];
+          while (this.state.match('Comma' as TokenType)) {
+            args.push(this.parseExpression());
+          }
+          const callExpr: CallExpression = {
+            type: 'CallExpression',
+            callee: (left as CallExpression).callee,
+            arguments: args,
+            optional: false,
+            loc: left.loc,
+          } as CallExpression;
+          return this.continueStringConcat(callExpr);
+        }
+
+        // Not an indexed-assignment target either - `left` (e.g. `CInt(1)`)
+        // is a genuine call/read whose result may still be the LEFT operand
+        // of any binary operator (`CInt(1) / Empty`, `Foo() + 5`,
+        // `Bar() > threshold`, etc.), not just `&` string-concat.
+        // continueStringConcat() only knows about `&`, so anything else left
+        // dangling after `left` either got silently discarded (Plus/Minus,
+        // which can also start a new top-level statement, so the leftover
+        // ` + 5` was reparsed as an unrelated, meaningless second statement)
+        // or threw outright ("Unexpected token: Asterisk"/"...Gt" etc. -
+        // found via Wine's own vbscript.dll conformance suite,
+        // dlls/vbscript/tests/lang.vbs: `CInt(1) / Empty` failed to parse at
+        // all). Fix: abandon this fast-path attempt and restore+reparse via
+        // the general expression grammar, exactly like the "left.type isn't
+        // Identifier/MemberExpression/CallExpression at all" fallback at the
+        // bottom of this function already does - it correctly re-derives
+        // `left` fresh and continues through every real operator uniformly,
+        // there's no need to hand-splice continuation logic for each one.
+        this.state.restore(savedState);
+        return this.parseStringConcat();
       }
 
       if (this.state.check('Eq' as TokenType)) {
@@ -116,7 +228,15 @@ export class ExpressionParser {
 
       if (
         (left.type === 'Identifier' || left.type === 'MemberExpression') &&
-        this.isStatementCallArgumentStart()
+        // A bare Comma right after the callee (no parens at all) is real, valid
+        // VBScript too: `PlayersReel.SetValue, PlayersPlayingGame` deliberately
+        // omits the first positional argument, same idiom as `Foo(, x)` inside
+        // parens (parseArguments() already handles that case via VbEmptyLiteral
+        // below) - just without any parens wrapping the whole call here. Found
+        // via the same production table script as the CallExpression/Comma fix
+        // above (Chance, Playmatic 1971) - a second, distinct instance of the
+        // "statement-call arg list starts unusually" gap, not a duplicate.
+        (this.isStatementCallArgumentStart() || this.state.check('Comma' as TokenType))
       ) {
         const args = this.parseStatementCallArguments();
         const callExpr: CallExpression = {
@@ -161,7 +281,23 @@ export class ExpressionParser {
       'EmptyLiteral' as TokenType,
       'Identifier' as TokenType,
       'LParen' as TokenType,
-      'New' as TokenType
+      'New' as TokenType,
+      // `Not` - a real, common no-parens call pattern (found via Wine's own
+      // vbscript.dll conformance test suite, dlls/vbscript/tests/lang.vbs:
+      // `ok not false, "msg"` failed with "Unexpected token: Comma" because
+      // this list didn't recognize `Not` as a valid argument start at all,
+      // so the call was never recognized as a call - `ok` got parsed as a
+      // bare read, then `not false, "msg"` was left dangling as an invalid
+      // top-level statement). `Not` is unambiguous here (always unary in
+      // VBScript, never a binary operator), unlike Minus/Plus - deliberately
+      // NOT added: `x = x + i` needs `+` parsed as binary addition once `x`
+      // (the RHS's own leading identifier) is reached recursively here, but
+      // adding Plus/Minus made this branch instead misparse it as `x(+i)` -
+      // a real regression, caught immediately by the existing test suite
+      // (`For-To loop` etc. silently computed 0 instead of 15) before ever
+      // reaching the wine-conformance harness. Minus/Plus genuinely cannot
+      // be disambiguated from the next token alone at this decision point.
+      'Not' as TokenType
     );
   }
 
@@ -169,7 +305,19 @@ export class ExpressionParser {
     const args: Expression[] = [];
 
     while (!this.state.checkAny('Newline' as TokenType, 'Colon' as TokenType, 'EOF' as TokenType)) {
-      args.push(this.parseExpression());
+      // Omitted positional argument (leading or consecutive Comma, no expression
+      // between) - same VbEmptyLiteral representation parseArguments() already
+      // uses for the parenthesized-call equivalent (`Foo(, x)`).
+      if (this.state.check('Comma' as TokenType)) {
+        args.push({
+          type: 'VbEmptyLiteral',
+          value: undefined,
+          raw: '',
+          loc: this.state.current.loc,
+        } as Expression);
+      } else {
+        args.push(this.parseExpression());
+      }
       if (!this.state.match('Comma' as TokenType)) {
         break;
       }
@@ -617,7 +765,26 @@ export class ExpressionParser {
       return this.parseWithMemberExpression();
     }
 
-    if (this.state.check('Identifier' as TokenType)) {
+    if (
+      this.state.checkAny(
+        'Identifier' as TokenType,
+        // Type-annotation keywords (Dim x As String, etc. - see parseTypeAnnotation() in
+        // declarations.ts) double as ordinary identifiers everywhere else, same as any other
+        // built-in name shadowing in real VBScript. See parseFlexibleIdentifier()'s comment.
+        'Integer' as TokenType,
+        'Long' as TokenType,
+        'LongLong' as TokenType,
+        'Single' as TokenType,
+        'Double' as TokenType,
+        'Currency' as TokenType,
+        'String' as TokenType,
+        'Boolean' as TokenType,
+        'Date' as TokenType,
+        'Object' as TokenType,
+        'Variant' as TokenType,
+        'Byte' as TokenType
+      )
+    ) {
       return this.parseIdentifierOrCall();
     }
 
@@ -757,7 +924,7 @@ export class ExpressionParser {
   }
 
   private parseIdentifierOrCall(): Expression {
-    const id = this.parseIdentifier();
+    const id = this.parseFlexibleIdentifier();
 
     if (this.state.check('LParen' as TokenType)) {
       this.state.advance();
@@ -782,6 +949,20 @@ export class ExpressionParser {
       name: token.value,
       loc: token.loc,
     };
+  }
+
+  // Type-annotation keywords (String/Integer/Long/Boolean/Date/Object/Variant/etc. - see
+  // parseTypeAnnotation() in declarations.ts, this engine's `Dim x As String` extension) are
+  // valid ordinary identifiers everywhere EXCEPT immediately after `As` - real VBScript has no
+  // reserved type names at all, and shadowing built-in function names (`String`, `Date`, etc.)
+  // as a variable/parameter name is completely normal. Found via a real production table script
+  // (Chance, Playmatic 1971): `Function GetHSChar(String, Index)` then `Mid(String, Index, 1)`
+  // inside its body - both the parameter declaration AND every later reference to it hit strict
+  // identifier checks that only accepted the plain Identifier token type. Exposed publicly
+  // (parsePropertyName stays private, used only for member-access names within this file) -
+  // procedures.ts's parseParameter() and this file's own parseIdentifierOrCall() both need it.
+  parseFlexibleIdentifier(): Identifier {
+    return this.parsePropertyName();
   }
 
   private parsePropertyName(): Identifier {
