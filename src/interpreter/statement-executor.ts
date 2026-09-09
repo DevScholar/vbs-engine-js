@@ -42,6 +42,19 @@ import {
 } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
+// Real VBScript's control-flow conditions (If/While/Do/Select Case) treat
+// Null as simply False - unlike toBoolean() itself, which correctly throws
+// "Invalid use of Null" for Null in a general boolean-coercion context
+// (comparisons, And/Or, CBool). `If Null Then`/`While Null` silently don't
+// execute their body rather than crashing the whole script. Found via
+// Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs:
+// `if null then call ok(false, ...)` / `while null : call ok(false, ...) :
+// wend` both assert the body never runs, not that an error is raised.
+function toConditionBoolean(value: VbValue): boolean {
+  if (value.type === 'Null') return false;
+  return toBoolean(value);
+}
+
 export class ControlFlowSignal extends Error {
   constructor(
     public type: 'exit' | 'return' | 'continue' | 'break' | 'goto',
@@ -216,7 +229,7 @@ export class StatementExecutor {
   private executeIfStatement(node: IfStatement): VbValue {
     const test = this.exprEvaluator.evaluate(node.test);
 
-    if (toBoolean(test)) {
+    if (toConditionBoolean(test)) {
       return this.execute(node.consequent);
     } else if (node.alternate) {
       return this.execute(node.alternate);
@@ -445,7 +458,7 @@ export class StatementExecutor {
     const checkCondition = (): boolean => {
       if (!node.test) return true;
       const testValue = this.exprEvaluator.evaluate(node.test!);
-      return toBoolean(testValue);
+      return toConditionBoolean(testValue);
     };
 
     const isWhile = node.testPosition === 'while-do' || node.testPosition === 'do-while';
@@ -495,7 +508,7 @@ export class StatementExecutor {
   // should simply propagate past this loop uncaught, not be special-cased
   // here.
   private executeWhileStatement(node: WhileStatement): VbValue {
-    while (toBoolean(this.exprEvaluator.evaluate(node.test))) {
+    while (toConditionBoolean(this.exprEvaluator.evaluate(node.test))) {
       if (this.context.checkTimeout) this.context.checkTimeout();
       this.execute(node.body);
     }
@@ -544,7 +557,7 @@ export class StatementExecutor {
 
         switch (operator) {
           case '==':
-            if (toBoolean(this.equals(discriminant, right))) return true;
+            if (toConditionBoolean(this.equals(discriminant, right))) return true;
             break;
           case '<':
             if (toNumber(discriminant) < toNumber(right)) return true;
@@ -559,12 +572,12 @@ export class StatementExecutor {
             if (toNumber(discriminant) >= toNumber(right)) return true;
             break;
           case '!=':
-            if (!toBoolean(this.equals(discriminant, right))) return true;
+            if (!toConditionBoolean(this.equals(discriminant, right))) return true;
             break;
         }
       } else {
         const testValue = this.exprEvaluator.evaluate(t);
-        if (toBoolean(this.equals(discriminant, testValue))) {
+        if (toConditionBoolean(this.equals(discriminant, testValue))) {
           return true;
         }
       }
