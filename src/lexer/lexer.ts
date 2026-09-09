@@ -427,6 +427,19 @@ export class Lexer {
           return this.createToken(TokenType.Bang, '!', start);
         case '=':
           this.advance();
+          // Real VBScript accepts `=<`/`=>` as alternate spellings of `<=`/`>=`
+          // (the `=` may come before or after the relational operator, both
+          // equally valid) - found via Wine's own vbscript.dll conformance
+          // suite, dlls/vbscript/tests/lang.vbs: `ok(2 => 1, ...)`, a real
+          // assertion in Microsoft-accuracy test code, not a typo.
+          if (this.current === '<') {
+            this.advance();
+            return this.createToken(TokenType.Le, '=<', start);
+          }
+          if (this.current === '>') {
+            this.advance();
+            return this.createToken(TokenType.Ge, '=>', start);
+          }
           return this.createToken(TokenType.Eq, '=', start);
         case '<':
           this.advance();
@@ -444,6 +457,13 @@ export class Lexer {
           if (this.current === '=') {
             this.advance();
             return this.createToken(TokenType.Ge, '>=', start);
+          }
+          // `><` is likewise a valid alternate spelling of `<>` (see the `=<`/`=>`
+          // comment above - same "either character order" VB grammar quirk,
+          // also found via Wine's lang.vbs: `ok(not (2 >< 2), ...)`).
+          if (this.current === '<') {
+            this.advance();
+            return this.createToken(TokenType.Ne, '><', start);
           }
           return this.createToken(TokenType.Gt, '>', start);
         default:
