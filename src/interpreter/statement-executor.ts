@@ -483,21 +483,21 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
+  // `While...Wend` - a real, basic VBScript looping construct that never
+  // actually worked in this engine at any layer: `Wend` wasn't even a
+  // registered lexer keyword (fell through as a plain Identifier, so
+  // parseWhileBody() could never recognize it as the loop's terminator and
+  // ran to EOF), and even once parsing was fixed there was no executor case
+  // for WhileStatement at all. Found via Wine's own vbscript.dll conformance
+  // suite, dlls/vbscript/tests/lang.vbs. Unlike Do...Loop, real VBScript has
+  // no `Exit While` - a ControlFlowSignal from the body (e.g. `Exit Do`/
+  // `Exit For` targeting an enclosing loop, or `Exit Sub`/`Exit Function`)
+  // should simply propagate past this loop uncaught, not be special-cased
+  // here.
   private executeWhileStatement(node: WhileStatement): VbValue {
-    while (true) {
+    while (toBoolean(this.exprEvaluator.evaluate(node.test))) {
       if (this.context.checkTimeout) this.context.checkTimeout();
-
-      const cond = toBoolean(this.exprEvaluator.evaluate(node.test));
-      if (!cond) break;
-
-      try {
-        this.execute(node.body);
-      } catch (signal) {
-        if (signal instanceof ControlFlowSignal && signal.type === 'return') {
-          throw signal;
-        }
-        throw signal;
-      }
+      this.execute(node.body);
     }
 
     return VbEmpty;
