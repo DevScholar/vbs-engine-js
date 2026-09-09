@@ -184,6 +184,7 @@ export class StatementExecutor {
         case 'VbGotoStatement':
           return this.executeGotoStatement(node);
         case 'VbLabelStatement':
+        case 'EmptyStatement':
           return VbEmpty;
         case 'TSEnumDeclaration':
           return this.executeEnumStatement(node);

@@ -73,6 +73,7 @@ export const KEYWORDS: Record<string, TokenType> = {
   false: TokenType.BooleanLiteral,
   nothing: TokenType.NothingLiteral,
   me: TokenType.Me,
+  stop: TokenType.Stop,
   null: TokenType.NullLiteral,
   empty: TokenType.EmptyLiteral,
   enum: TokenType.Enum,

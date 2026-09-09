@@ -103,6 +103,16 @@ export class StatementParser {
       case 'Colon' as TokenType:
         this.state.advance();
         return this.parseStatement();
+      // `Stop` is a real VBScript statement (a debugger breakpoint) that was
+      // never recognized at all - it fell through as a bare identifier
+      // reference and failed with "Variable is undefined: 'Stop'" the
+      // moment execution reached it. Without an attached debugger it's a
+      // harmless no-op. Found via Wine's own vbscript.dll conformance
+      // suite, dlls/vbscript/tests/lang.vbs.
+      case 'Stop' as TokenType: {
+        const stopToken = this.state.advance();
+        return { type: 'EmptyStatement', loc: createLocation(stopToken, stopToken) };
+      }
       default:
         if (this.state.checkIdentifier() && this.state.peek(1).type === ('Colon' as TokenType)) {
           return this.parseLabelStatement();
