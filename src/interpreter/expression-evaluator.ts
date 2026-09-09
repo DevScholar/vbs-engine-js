@@ -598,12 +598,21 @@ export class ExpressionEvaluator {
     return { type: 'Double', value: Math.pow(leftNum, rightNum) };
   }
 
-  private equals(left: VbValue, right: VbValue): VbBooleanValue {
+  // Real VBScript propagates Null through every comparison operator (=, <>,
+  // <, <=, >, >=) - the result is Null, not a definite True/False - the same
+  // "Null infects the result" rule this engine already applied to arithmetic
+  // (add/subtract/etc. above). `equals` previously hardcoded `false` for a
+  // Null operand instead of propagating, and lessThan/lessThanOrEqual/
+  // greaterThan/greaterThanOrEqual had no Null handling at all, so comparing
+  // anything against Null (`x < Null`) crashed with "Type mismatch: Null
+  // cannot be converted to Number" instead of yielding Null. Found via
+  // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
+  private equals(left: VbValue, right: VbValue): VbValue {
     if (left.type === 'Empty' && right.type === 'Empty') {
       return { type: 'Boolean', value: true };
     }
     if (left.type === 'Null' || right.type === 'Null') {
-      return { type: 'Boolean', value: false };
+      return VbNull;
     }
     if (left.type === 'Object' && right.type === 'Object') {
       return { type: 'Boolean', value: left.value === right.value };
@@ -617,33 +626,46 @@ export class ExpressionEvaluator {
     return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
   }
 
-  private notEquals(left: VbValue, right: VbValue): VbBooleanValue {
+  private notEquals(left: VbValue, right: VbValue): VbValue {
     const eq = this.equals(left, right);
-    return { type: 'Boolean', value: !eq.value };
+    if (eq.type === 'Null') return VbNull;
+    return { type: 'Boolean', value: !toBoolean(eq) };
   }
 
-  private lessThan(left: VbValue, right: VbValue): VbBooleanValue {
+  private lessThan(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      return VbNull;
+    }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) < toString(right) };
     }
     return { type: 'Boolean', value: toNumber(left) < toNumber(right) };
   }
 
-  private lessThanOrEqual(left: VbValue, right: VbValue): VbBooleanValue {
+  private lessThanOrEqual(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      return VbNull;
+    }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) <= toString(right) };
     }
     return { type: 'Boolean', value: toNumber(left) <= toNumber(right) };
   }
 
-  private greaterThan(left: VbValue, right: VbValue): VbBooleanValue {
+  private greaterThan(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      return VbNull;
+    }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) > toString(right) };
     }
     return { type: 'Boolean', value: toNumber(left) > toNumber(right) };
   }
 
-  private greaterThanOrEqual(left: VbValue, right: VbValue): VbBooleanValue {
+  private greaterThanOrEqual(left: VbValue, right: VbValue): VbValue {
+    if (left.type === 'Null' || right.type === 'Null') {
+      return VbNull;
+    }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) >= toString(right) };
     }
@@ -655,8 +677,14 @@ export class ExpressionEvaluator {
 
     switch (node.operator) {
       case '-':
+        // Null propagates through unary minus too (`-Null` is Null, not a
+        // crash) - same reasoning as the binary arithmetic/comparison Null
+        // handling elsewhere in this file. Found via Wine's own vbscript.dll
+        // conformance suite, dlls/vbscript/tests/lang.vbs: `getVT(-null)`.
+        if (argument.type === 'Null') return VbNull;
         return createVbValue(-toNumber(argument));
       case '+':
+        if (argument.type === 'Null') return VbNull;
         return createVbValue(toNumber(argument));
       case '!':
       case 'Not':

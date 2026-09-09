@@ -11,6 +11,7 @@ export enum TokenType {
   DateLiteral = 'DateLiteral',
   BooleanLiteral = 'BooleanLiteral',
   NothingLiteral = 'NothingLiteral',
+  Me = 'Me',
   NullLiteral = 'NullLiteral',
   EmptyLiteral = 'EmptyLiteral',
 

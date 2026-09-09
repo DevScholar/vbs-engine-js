@@ -776,6 +776,20 @@ export class ExpressionParser {
       return this.parseNewExpression();
     }
 
+    // `Me` (the current class instance) was never actually wired up here -
+    // the interpreter's evaluateMe()/ThisExpression handling already existed
+    // but nothing in the parser ever produced a ThisExpression node, and
+    // `Me` wasn't even a registered lexer keyword, so it silently parsed as
+    // an ordinary Identifier and failed at runtime with "Variable is
+    // undefined: 'Me'" the moment a method body actually read it. Found via
+    // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/
+    // lang.vbs (a chained-call test: `(New testclass).publicSub()` style
+    // code returning `Me` from a method).
+    if (this.state.check('Me' as TokenType)) {
+      const token = this.state.advance();
+      return { type: 'ThisExpression', loc: token.loc } as Expression;
+    }
+
     if (this.state.check('Dot' as TokenType)) {
       return this.parseWithMemberExpression();
     }
