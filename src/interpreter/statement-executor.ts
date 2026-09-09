@@ -643,7 +643,19 @@ export class StatementExecutor {
 
         self.updateByRefArgs(node.params, args);
       } catch (signal) {
-        if (signal instanceof ControlFlowSignal && signal.type === 'return') {
+        // `Exit Sub` was never actually handled here - only 'return' was
+        // checked, so it always fell through to the `throw signal` below and
+        // escaped uncaught past this Sub's own boundary, exactly like the
+        // For/Do loops' own exit-flag checks already handle correctly for
+        // 'for'/'do'. Found via Wine's own vbscript.dll conformance suite,
+        // dlls/vbscript/tests/lang.vbs - a near-universal real VBScript
+        // idiom (early-return guard clauses) was completely broken.
+        if (
+          signal instanceof ControlFlowSignal &&
+          ((signal.type === 'exit' && self.context.getExitFlag() === 'sub') ||
+            signal.type === 'return')
+        ) {
+          if (signal.type === 'exit') self.context.clearExitFlag();
           self.updateByRefArgs(node.params, args);
         } else {
           throw signal;
@@ -694,7 +706,14 @@ export class StatementExecutor {
 
         result = self.context.getVariable(funcName);
       } catch (signal) {
-        if (signal instanceof ControlFlowSignal && signal.type === 'return') {
+        // `Exit Function` - same fix and reasoning as executeSubStatement's
+        // `Exit Sub` above.
+        if (
+          signal instanceof ControlFlowSignal &&
+          ((signal.type === 'exit' && self.context.getExitFlag() === 'function') ||
+            signal.type === 'return')
+        ) {
+          if (signal.type === 'exit') self.context.clearExitFlag();
           self.updateByRefArgs(node.params, args);
           result = self.context.getVariable(funcName);
         } else {
@@ -793,6 +812,11 @@ export class StatementExecutor {
               self.context.pushScope();
               try {
                 self.executeBlockStatement(memberNode.body);
+              } catch (signal) {
+                if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+                  throw signal;
+                }
+                self.context.clearExitFlag();
               } finally {
                 self.context.popScope();
                 self.context.currentInstance = prevInstance;
@@ -812,6 +836,11 @@ export class StatementExecutor {
               self.context.pushScope();
               try {
                 self.executeBlockStatement(memberNode.body);
+              } catch (signal) {
+                if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+                  throw signal;
+                }
+                self.context.clearExitFlag();
               } finally {
                 self.context.popScope();
                 self.context.currentInstance = prevInstance;
@@ -831,6 +860,11 @@ export class StatementExecutor {
             try {
               self.bindParameters(memberNode.params, args);
               self.executeBlockStatement(memberNode.body);
+            } catch (signal) {
+              if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+                throw signal;
+              }
+              self.context.clearExitFlag();
             } finally {
               self.context.popScope();
               self.context.currentInstance = prevInstance;
@@ -854,7 +888,12 @@ export class StatementExecutor {
               self.executeBlockStatement(memberNode.body);
               result = self.context.getVariable(memberNode.name.name);
             } catch (signal) {
-              if (signal instanceof ControlFlowSignal && signal.type === 'return') {
+              if (
+                signal instanceof ControlFlowSignal &&
+                ((signal.type === 'exit' && self.context.getExitFlag() === 'function') ||
+                  signal.type === 'return')
+              ) {
+                if (signal.type === 'exit') self.context.clearExitFlag();
                 result = self.context.getVariable(memberNode.name.name);
               } else {
                 throw signal;
@@ -880,15 +919,23 @@ export class StatementExecutor {
           self.context.propertyGetName = memberNode.name.name.toLowerCase();
           self.context.pushScope();
           self.context.declareVariable(memberNode.name.name, VbEmpty);
+          let result: VbValue = VbEmpty;
           try {
             self.executeBlockStatement(memberNode.body);
-            return self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
+            result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
+          } catch (signal) {
+            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+              throw signal;
+            }
+            self.context.clearExitFlag();
+            result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
           } finally {
             self.context.popScope();
             self.context.currentInstance = prevInstance;
             self.context.inPropertyGet = prevInPropertyGet;
             self.context.propertyGetName = prevPropertyGetName;
           }
+          return result;
         };
         cls.properties.set(propName, existing);
       } else if (member.type === 'VbPropertyLetStatement') {
@@ -906,6 +953,11 @@ export class StatementExecutor {
           }
           try {
             self.executeBlockStatement(memberNode.body);
+          } catch (signal) {
+            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+              throw signal;
+            }
+            self.context.clearExitFlag();
           } finally {
             self.context.popScope();
             self.context.currentInstance = prevInstance;
@@ -927,6 +979,11 @@ export class StatementExecutor {
           }
           try {
             self.executeBlockStatement(memberNode.body);
+          } catch (signal) {
+            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+              throw signal;
+            }
+            self.context.clearExitFlag();
           } finally {
             self.context.popScope();
             self.context.currentInstance = prevInstance;
