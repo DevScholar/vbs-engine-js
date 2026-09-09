@@ -1,6 +1,6 @@
 import type { Program, Statement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty } from '../runtime/index.ts';
+import { VbContext, VbEmpty, createVbError } from '../runtime/index.ts';
 import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 import { registerBuiltins } from '../builtins/index.ts';
@@ -165,15 +165,24 @@ export class Interpreter {
   }
 
   evaluate(code: string): VbValue {
+    // Real VBScript's Eval() raises a catchable error 1002 ("Syntax error")
+    // for malformed source, not a silent no-op - this previously caught and
+    // swallowed EVERY error (parse failures and real runtime errors alike)
+    // into a console.error + Empty return, so `On Error Resume Next` around
+    // an Eval() call could never see anything went wrong at all (Err.Number
+    // stayed 0). Only the parse phase gets remapped to 1002 here; a
+    // syntactically valid Eval'd expression that fails at runtime (e.g.
+    // `Eval("1/0")`) should keep propagating its own real error (11), not
+    // 1002 - found via Wine's own vbscript.dll conformance suite,
+    // dlls/vbscript/tests/lang.vbs (`Eval("&O8")` / `Eval("&19")`).
+    let ast;
     try {
-      const ast = parse(code);
-      const evaluator = new ExpressionEvaluator(this.context);
-      const result = evaluator.evaluateProgram(ast);
-      return result;
-    } catch (e) {
-      console.error('Eval error:', e);
-      return { type: 'Empty', value: undefined };
+      ast = parse(code);
+    } catch {
+      throw createVbError(1002, 'Syntax error', 'Vbscript');
     }
+    const evaluator = new ExpressionEvaluator(this.context);
+    return evaluator.evaluateProgram(ast);
   }
 
   getContext(): VbContext {
