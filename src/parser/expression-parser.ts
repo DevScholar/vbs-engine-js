@@ -804,7 +804,15 @@ export class ExpressionParser {
         // e.g. `Dim Property` then later `Property = true`. Found via
         // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/
         // lang.vbs.
-        'Property' as TokenType
+        'Property' as TokenType,
+        // `Error`/`Explicit`/`Step` too (each declared via `Dim` then
+        // assigned as a plain variable, e.g. `Dim step : step = "xx"`) -
+        // same rule, same suite (Wine's lang.vbs `test_identifiers` sub
+        // exhaustively exercises every VBScript keyword that's also
+        // required to work as an ordinary identifier).
+        'Error' as TokenType,
+        'Explicit' as TokenType,
+        'Step' as TokenType
       )
     ) {
       return this.parseIdentifierOrCall();

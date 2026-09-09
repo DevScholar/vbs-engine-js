@@ -131,7 +131,7 @@ export class ProcedureParser {
 
   private parsePropertyGet(visibility: string): VbPropertyGetStatement {
     this.state.expect(TokenType.Get);
-    const name = this.exprParser.parseIdentifier();
+    const name = this.exprParser.parseFlexibleIdentifier();
     const params = this.parseParameters();
     // Optional: As Type for property get return type (parsed but stored in params for compatibility)
     if (this.state.check(TokenType.As)) {
@@ -154,7 +154,7 @@ export class ProcedureParser {
 
   private parsePropertyLet(visibility: string): VbPropertyLetStatement {
     this.state.expect(TokenType.Let);
-    const name = this.exprParser.parseIdentifier();
+    const name = this.exprParser.parseFlexibleIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
     const body = this.parseBlock(TokenType.End);
@@ -173,7 +173,7 @@ export class ProcedureParser {
 
   private parsePropertySet(visibility: string): VbPropertySetStatement {
     this.state.expect(TokenType.Set);
-    const name = this.exprParser.parseIdentifier();
+    const name = this.exprParser.parseFlexibleIdentifier();
     const params = this.parseParameters();
     this.state.skipNewlines();
     const body = this.parseBlock(TokenType.End);
