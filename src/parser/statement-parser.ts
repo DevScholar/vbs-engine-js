@@ -171,7 +171,17 @@ export class StatementParser {
       return this.procedureParser.parsePropertyStatement(visibility);
     }
 
-    if (this.state.checkIdentifier()) {
+    // A keyword can be the field name too (`Public true`/`Private rem`), same
+    // "keywords are usable as ordinary identifiers" rule as everywhere else -
+    // checkIdentifier() alone rejects any non-Identifier-typed keyword token.
+    // parseVariableDeclarations() already goes through parseFlexibleIdentifier()
+    // per declarator, so it's safe to attempt for any non-terminator token;
+    // genuinely invalid input still throws from there. Found via Wine's own
+    // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
+    if (
+      this.state.checkIdentifier() ||
+      !this.state.checkAny('Newline' as TokenType, 'EOF' as TokenType, 'Colon' as TokenType)
+    ) {
       const declarations = this.declarationParser.parseVariableDeclarations();
       return {
         type: 'VbDimStatement',

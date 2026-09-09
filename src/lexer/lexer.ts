@@ -31,6 +31,10 @@ export class Lexer {
   private line: number = 1;
   private column: number = 1;
   private options: LexerOptions;
+  // Tracks the last token actually returned by nextToken(), so `Rem` can be
+  // told apart from the REM-comment keyword when it appears right after a
+  // `.`/`!` (a member-access position) - see nextToken()'s wrapper below.
+  private lastTokenType: TokenType | null = null;
 
   constructor(source: string, options: LexerOptions = {}) {
     this.source = source;
@@ -311,6 +315,12 @@ export class Lexer {
   }
 
   nextToken(): Token {
+    const token = this.scanToken();
+    this.lastTokenType = token.type;
+    return token;
+  }
+
+  private scanToken(): Token {
     while (!this.isEOF) {
       if (this.options.skipWhitespace) {
         this.skipWhitespaceAndLineContinuation();
@@ -361,7 +371,15 @@ export class Lexer {
       if (/[a-zA-Z_]/.test(this.current)) {
         const token = this.readIdentifier();
         if (token.type === TokenType.Rem) {
-          if (this.options.skipWhitespace) {
+          // `rem` right after `.`/`!` is a member-access property name
+          // (`testObj.rem`), not the REM-comment keyword - real VBScript
+          // only treats REM as a comment at a statement-start position.
+          // Found via Wine's own vbscript.dll conformance suite,
+          // dlls/vbscript/tests/lang.vbs: without this check, `.rem`
+          // silently swallowed the rest of the line as a comment.
+          const isMemberAccess =
+            this.lastTokenType === TokenType.Dot || this.lastTokenType === TokenType.Bang;
+          if (this.options.skipWhitespace && !isMemberAccess) {
             this.readRemComment();
             continue;
           }
