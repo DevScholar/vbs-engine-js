@@ -75,7 +75,22 @@ export class ExpressionParser {
   }
 
   parseMemberExpression(): Expression {
-    let expr = this.parseIdentifierOnly();
+    // The `Call` statement (this method's only caller) can target ANY
+    // expression, not just a plain identifier - including a parenthesized
+    // expression whose result is then immediately member-accessed/called,
+    // e.g. `Call (New testclass).publicSub()`. Found via Wine's own
+    // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs. Every
+    // other base (bare identifier) still goes through parseIdentifierOnly()
+    // unchanged; the postfix loop below (Dot/Bang/LBracket chaining) already
+    // works uniformly regardless of what `expr` started as.
+    let expr: Expression;
+    if (this.state.check('LParen' as TokenType)) {
+      this.state.advance();
+      expr = this.parseExpression();
+      this.state.expect('RParen' as TokenType);
+    } else {
+      expr = this.parseIdentifierOnly();
+    }
 
     while (true) {
       if (this.state.check('Dot' as TokenType)) {
@@ -782,7 +797,14 @@ export class ExpressionParser {
         'Date' as TokenType,
         'Object' as TokenType,
         'Variant' as TokenType,
-        'Byte' as TokenType
+        'Byte' as TokenType,
+        // `Property` too, when NOT immediately starting a real Property
+        // Get/Let/Set block (that case is already routed to
+        // parsePropertyStatement() before parsePrimary() is ever reached) -
+        // e.g. `Dim Property` then later `Property = true`. Found via
+        // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/
+        // lang.vbs.
+        'Property' as TokenType
       )
     ) {
       return this.parseIdentifierOrCall();
