@@ -86,28 +86,8 @@ export class ExpressionEvaluator {
         return this.evaluateMe(node);
       case 'VbWithObject':
         return this.evaluateWithObject(node);
-      case 'MemberExpression': {
-        // evaluateMember() defers a bare `.methodName` (no parens) to a
-        // method-reference wrapper object, since evaluateCallInternal()
-        // needs to see that wrapper unresolved when THIS MemberExpression
-        // is itself a call's callee (`obj.method(args)`) - real args need
-        // to reach the actual call. But reached from here, as an ordinary
-        // value-producing expression (assignment RHS, comparison operand,
-        // string-concat, etc. - never itself the callee of a surrounding
-        // CallExpression, which bypasses this dispatch entirely via its own
-        // direct evaluateMember() call), a zero-arg Sub/Function accessed
-        // without parens must be implicitly called and yield its result,
-        // same as a bare Sub/Function name with no parens elsewhere in this
-        // engine. Found via Wine's own vbscript.dll conformance suite,
-        // dlls/vbscript/tests/lang.vbs: `obj.publicFunction = 4` compared
-        // the inert wrapper object itself instead of calling it.
-        const result = this.evaluateMember(node);
-        if (result.type === 'Object' && result.value && isVbMethodObject(result.value as VbObjectValueData)) {
-          const methodObj = result.value as VbObjectValueData & VbMethodObject;
-          return methodObj.object.getMethod(methodObj.method).func.call(methodObj.object);
-        }
-        return result;
-      }
+      case 'MemberExpression':
+        return this.evaluateMember(node);
       case 'CallExpression':
         return this.evaluateCallInternal(node.callee as Expression, node.arguments);
       case 'BinaryExpression':
