@@ -261,13 +261,13 @@ export function toNumber(value: VbValue): number {
     const str = value.value.trim();
     if (str === '') return 0;
     const num = parseFloat(str);
-    if (isNaN(num)) throw new Error(`Type mismatch: "${str}" cannot be converted to Number`);
+    if (isNaN(num)) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`, 'Vbscript');
     return num;
   }
   if (value.type === 'Date') {
     return value.value.getTime();
   }
-  throw new Error(`Type mismatch: ${value.type} cannot be converted to Number`);
+  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Number`, 'Vbscript');
 }
 
 /**
@@ -317,7 +317,7 @@ export function toVbDate(value: VbValue): Date {
     const str = value.value;
     const date = new Date(str);
     if (isNaN(date.getTime())) {
-      throw new Error(`Type mismatch: "${str}" cannot be converted to Date`);
+      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Date`, 'Vbscript');
     }
     return date;
   }
@@ -326,7 +326,7 @@ export function toVbDate(value: VbValue): Date {
     const baseDate = new Date(1899, 11, 30);
     return new Date(baseDate.getTime() + serial * 86400000);
   }
-  throw new Error(`Type mismatch: ${value.type} cannot be converted to Date`);
+  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`, 'Vbscript');
 }
 
 /**
