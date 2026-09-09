@@ -1,6 +1,25 @@
 import { TokenType, type Token, type TokenLocation } from './token.ts';
 import { KEYWORDS } from './keywords.ts';
 
+// Real VBScript hex/octal integer-literal semantics (verified against Wine's
+// own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs - a
+// genuine, non-obvious language quirk, not something to guess at): an
+// unsuffixed hex/octal literal is interpreted using the NARROWEST width its
+// raw bit pattern fits in (16-bit if <= 0xFFFF, else 32-bit), reinterpreting
+// the top bit as a sign via two's complement - so `&hffff` (raw 65535, fits
+// 16 bits) becomes -1, not 65535. A trailing `&` suffix forces 32-bit (Long)
+// width regardless of how the raw value would otherwise fit - so `&hffff&`
+// stays 65535 (only negative once the raw value exceeds 0x7FFFFFFF). Prior
+// to this fix, the trailing `&` suffix wasn't consumed by the lexer at all,
+// leaving it to be re-tokenized as a stray Ampersand (string-concat operator)
+// token, cascading into "Unexpected token" parse errors on anything after it.
+function signExtendIntegerLiteral(raw: number, forceLong: boolean): number {
+  if (forceLong || raw > 0xffff) {
+    return raw > 0x7fffffff ? raw - 0x100000000 : raw;
+  }
+  return raw > 0x7fff ? raw - 0x10000 : raw;
+}
+
 export interface LexerOptions {
   skipWhitespace?: boolean;
   skipNewlines?: boolean;
@@ -130,12 +149,16 @@ export class Lexer {
       while (/[0-9a-fA-F]/.test(this.current)) {
         value += this.advance();
       }
-      const num = parseInt(value, 16);
+      let suffix = '';
+      if ((this.current as string) === '&') {
+        suffix = this.advance();
+      }
+      const num = signExtendIntegerLiteral(parseInt(value, 16), suffix === '&');
       return this.createToken(
         TokenType.NumberLiteral,
         String(num),
         start,
-        '&' + (this.source[start.offset + 1] === 'H' ? 'H' : 'h') + value
+        '&' + (this.source[start.offset + 1] === 'H' ? 'H' : 'h') + value + suffix
       );
     }
 
@@ -145,20 +168,56 @@ export class Lexer {
       while (/[0-7]/.test(this.current)) {
         value += this.advance();
       }
-      const num = parseInt(value, 8);
+      let suffix = '';
+      if ((this.current as string) === '&') {
+        suffix = this.advance();
+      }
+      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === '&');
       return this.createToken(
         TokenType.NumberLiteral,
         String(num),
         start,
-        '&' + (this.source[start.offset + 1] === 'O' ? 'O' : 'o') + value
+        '&' + (this.source[start.offset + 1] === 'O' ? 'O' : 'o') + value + suffix
       );
+    }
+
+    // A bare `&` directly followed by octal digits (no `o`/`O` letter) is
+    // ALSO valid octal literal syntax in VBScript - `&100` = octal 100 =
+    // decimal 64 (found via Wine's own vbscript.dll conformance suite,
+    // dlls/vbscript/tests/lang.vbs, which explicitly comments "Bare '&'
+    // followed by octal digits (no 'o'/'O') is octal too"). Previously
+    // entirely unhandled - readNumber() only recognized `&h`/`&H` and
+    // `&o`/`&O`, so a bare `&100` left the `&` to be tokenized as the
+    // Ampersand (string-concat) operator instead, on top of `100` being
+    // parsed as a separate, unrelated decimal literal - "Unexpected token:
+    // Ampersand" (or worse, silently wrong values, depending on context).
+    if (this.current === '&' && /[0-7]/.test(this.peek)) {
+      this.advance();
+      while (/[0-7]/.test(this.current)) {
+        value += this.advance();
+      }
+      let suffix = '';
+      if ((this.current as string) === '&') {
+        suffix = this.advance();
+      }
+      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === '&');
+      return this.createToken(TokenType.NumberLiteral, String(num), start, '&' + value + suffix);
     }
 
     while (/[0-9]/.test(this.current)) {
       value += this.advance();
     }
 
-    if (this.current === '.' && /[0-9]/.test(this.peek)) {
+    // A digit was already consumed above, so a `.` here is unambiguously
+    // part of this number, not a member-access operator (numbers are never
+    // valid targets of `.property` in VBScript) - no digits need to follow
+    // it: `10.` is valid VBScript for `10.0` (found via Wine's own
+    // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs:
+    // `10. = 10`). Previously required a digit after the dot, so `10.` left
+    // the `.` unconsumed, re-tokenized as a stray Dot (member-access)
+    // operator and cascading into "Expected property name"/"Expected
+    // RParen" parse errors depending on context.
+    if (this.current === '.') {
       isFloat = true;
       value += this.advance();
       while (/[0-9]/.test(this.current)) {
@@ -286,7 +345,7 @@ export class Lexer {
 
       if (
         this.current === '&' &&
-        (this.peek === 'h' || this.peek === 'H' || this.peek === 'o' || this.peek === 'O')
+        (this.peek === 'h' || this.peek === 'H' || this.peek === 'o' || this.peek === 'O' || /[0-7]/.test(this.peek))
       ) {
         return this.readNumber();
       }
