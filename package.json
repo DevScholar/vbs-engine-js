@@ -56,7 +56,8 @@
     "vite-plugin-dts": "^5.1.0",
     "vitest": "^5.0.0"
   },
-  "dependencies": {
+  "dependencies": {},
+  "optionalDependencies": {
     "@devscholar/node-ps1-dotnet": "file:../node-with-series/node-ps1-dotnet"
   }
 }
