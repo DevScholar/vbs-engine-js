@@ -23,9 +23,15 @@ const { packages: localDeps } = JSON.parse(readFileSync(localDepsPath, 'utf-8'))
 
 let changed = false;
 for (const [name, localRef] of Object.entries(localDeps)) {
-  if (pkg.dependencies?.[name] !== undefined) {
-    const current = pkg.dependencies[name];
-    pkg.dependencies[name] = localRef;
+  const section =
+    pkg.dependencies?.[name] !== undefined
+      ? pkg.dependencies
+      : pkg.optionalDependencies?.[name] !== undefined
+        ? pkg.optionalDependencies
+        : null;
+  if (section) {
+    const current = section[name];
+    section[name] = localRef;
     changed = true;
     console.log(`[post-publish] ${name}: "${current}" → "${localRef}"`);
   }

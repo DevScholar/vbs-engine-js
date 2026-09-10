@@ -26,14 +26,20 @@ const { packages: localDeps } = JSON.parse(readFileSync(localDepsPath, 'utf-8'))
 
 let changed = false;
 for (const name of Object.keys(localDeps)) {
-  if (pkg.dependencies?.[name] !== undefined) {
+  const section =
+    pkg.dependencies?.[name] !== undefined
+      ? pkg.dependencies
+      : pkg.optionalDependencies?.[name] !== undefined
+        ? pkg.optionalDependencies
+        : null;
+  if (section) {
     const pinned = packages[name];
     if (!pinned) {
       console.error(`[pre-publish] ERROR: no version found for "${name}" in last-known-good-versions.json`);
       process.exit(1);
     }
-    const current = pkg.dependencies[name];
-    pkg.dependencies[name] = pinned;
+    const current = section[name];
+    section[name] = pinned;
     changed = true;
     console.log(`[pre-publish] ${name}: "${current}" → "${pinned}"`);
   }
