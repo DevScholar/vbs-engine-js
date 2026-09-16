@@ -12,6 +12,7 @@ import type {
 } from '../ast/index.ts';
 import type { Token } from '../lexer/index.ts';
 import { TokenType } from '../lexer/token.ts';
+import { NAMEABLE_KEYWORDS } from '../lexer/keywords.ts';
 import { ParserState } from './parser-state.ts';
 import {
   createLocation,
@@ -149,7 +150,16 @@ export class ExpressionParser {
   }
 
   private parseStatementAssignment(): Expression {
-    if (this.state.check('Identifier' as TokenType) || this.state.check('Dot' as TokenType)) {
+    // A statement can also START with one of the keywords usable as a name (`Step = 4`). Without
+    // them the statement never enters the assignment path at all: it falls through to the
+    // expression path, where `Step = 4` parses as the COMPARISON `Step = 4`, its value is
+    // discarded, the variable is never written, and nothing is raised. `Dim Step` on its own
+    // parses, so the failure is silent rather than visible.
+    if (
+      this.state.check('Identifier' as TokenType) ||
+      this.state.check('Dot' as TokenType) ||
+      NAMEABLE_KEYWORDS.has(this.state.current.type)
+    ) {
       const savedState = this.state.save();
       const left = this.parseCall();
 
