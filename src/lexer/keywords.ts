@@ -79,3 +79,27 @@ export const KEYWORDS: Record<string, TokenType> = {
   enum: TokenType.Enum,
   type: TokenType.Type,
 };
+
+/**
+ * The keywords that real VBScript nevertheless accepts as ordinary names.
+ *
+ * `Dim Property` compiles and `Dim Class` does not, so neither test is right on its own:
+ * parseIdentifier() refuses all of them, and parsePropertyName() (reached through
+ * parseFlexibleIdentifier()) accepts every token, including the ones the language genuinely
+ * reserves.
+ *
+ * Established by running `Dim <word>` for each of the keywords above through the real engine -
+ * `cscript //E:vbscript` on Windows: these nine compile, the other 68 fail with
+ * "Expected identifier".
+ */
+export const NAMEABLE_KEYWORDS: ReadonlySet<TokenType> = new Set([
+  TokenType.Date,
+  TokenType.Erase,
+  TokenType.Error,
+  TokenType.Explicit,
+  TokenType.LongLong,
+  TokenType.Object,
+  TokenType.Property,
+  TokenType.Step,
+  TokenType.String,
+]);

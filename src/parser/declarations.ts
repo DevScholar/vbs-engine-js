@@ -14,6 +14,7 @@ import type {
 } from '../ast/index.ts';
 import type { SourceLocation } from '../ast/base.ts';
 import { TokenType } from '../lexer/token.ts';
+import { NAMEABLE_KEYWORDS } from '../lexer/keywords.ts';
 import { ParserState } from './parser-state.ts';
 import { ExpressionParser } from './expression-parser.ts';
 import { createLocation, createLocationFromNodeAndToken } from './location.ts';
@@ -235,12 +236,15 @@ export class DeclarationParser {
   }
 
   private parseVariableDeclarator(): VbVariableDeclarator {
-    // parseFlexibleIdentifier(), not parseIdentifier() - `Dim Property`/`Dim
-    // Class`/etc. are valid VBScript (keywords are usable as ordinary
-    // identifiers almost everywhere), same reasoning as the parameter-list
-    // fix elsewhere in this file. Found via Wine's own vbscript.dll
-    // conformance suite, dlls/vbscript/tests/lang.vbs: `Dim Property`.
-    const id = this.exprParser.parseFlexibleIdentifier();
+    // Keywords are usable as ordinary identifiers in VBScript - but only SOME of them, so this
+    // needs the measured set rather than either extreme. parseIdentifier() alone refuses
+    // `Dim Property`, which is valid (Wine's vbscript.dll conformance suite,
+    // dlls/vbscript/tests/lang.vbs). parseFlexibleIdentifier() alone accepts every token, which
+    // admits `Dim Class`, `Dim Loop`, `Dim Next` and `Dim Wend` - all four rejected by the real
+    // engine with "Expected identifier", leaving this parser more permissive than the language.
+    const id = NAMEABLE_KEYWORDS.has(this.state.current.type)
+      ? this.exprParser.parseFlexibleIdentifier()
+      : this.exprParser.parseIdentifier();
     let init: Expression | null = null;
     let isArray = false;
     let arrayBounds: Expression[] = [];

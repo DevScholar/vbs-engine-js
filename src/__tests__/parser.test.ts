@@ -116,4 +116,33 @@ End If
       expect(ast.body[0].type).toBe('VbClassStatement');
     });
   });
+
+  // VBScript accepts nine of its keywords as ordinary names and reserves the rest. Both halves
+  // are asserted on purpose: accepting all of them leaves the parser more permissive than the
+  // language, refusing all of them rejects scripts that really do compile. Established with
+  // cscript //E:vbscript, which compiles `Dim Property` and fails `Dim Class` with
+  // "Expected identifier".
+  describe('keywords as declared names', () => {
+    it.each([
+      'Property',
+      'Step',
+      'Error',
+      'Object',
+      'Date',
+      'String',
+      'Erase',
+      'Explicit',
+      'LongLong',
+    ])('should parse Dim %s, which VBScript allows as a name', word => {
+      const ast = parse(`Dim ${word}`);
+      expect(ast.body[0].type).toBe('VbDimStatement');
+    });
+
+    it.each(['Class', 'Loop', 'Next', 'Wend'])(
+      'should refuse Dim %s, which VBScript reserves',
+      word => {
+        expect(() => parse(`Dim ${word}`)).toThrow();
+      }
+    );
+  });
 });
