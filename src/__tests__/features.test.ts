@@ -585,3 +585,39 @@ describe('VB6 User-Defined Types', () => {
     expect(engine._getVariable('ry').value).toBe(8);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Keywords usable as ordinary variable names
+// ---------------------------------------------------------------------------
+// These assert the STORED VALUE rather than that the line parses. Parsing alone is not the
+// property that matters here: a statement led by a keyword that is never recognised as an
+// assignment still parses - as a comparison - and then discards its value, leaving the variable
+// unwritten with nothing raised. A parse-only assertion cannot tell that apart from a real fix.
+describe('Keyword-named variables', () => {
+  it.each<[string, number]>([
+    ['Step', 4],
+    ['Error', 7],
+    ['Object', 9],
+  ])('assigns to %s and reads the value back', (word, value) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim ${word}
+      ${word} = ${value}
+    `);
+    expect(engine._getVariable(word).value).toBe(value);
+  });
+
+  it('takes the branch the stored value selects', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim Step
+      Step = 4
+      If Step = 4 Then
+        taken = "yes"
+      Else
+        taken = "no"
+      End If
+    `);
+    expect(engine._getVariable('taken').value).toBe('yes');
+  });
+});
