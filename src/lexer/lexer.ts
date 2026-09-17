@@ -95,18 +95,30 @@ export class Lexer {
         this.advance();
       }
 
-      if (this.current === '_' && (this.peek === '\n' || this.peek === '\r')) {
-        this.advance();
-        if (this.peek === '\r') {
-          this.advance();
+      if (this.current === '_') {
+        // VBScript tolerates spaces and tabs between the continuation underscore and the line
+        // break. Anything else after it is not a continuation -- the real engine rejects that
+        // with a compilation error -- so the scan stops at the first other character.
+        let afterUnderscore = this.pos + 1;
+        while (this.source[afterUnderscore] === ' ' || this.source[afterUnderscore] === '\t') {
+          afterUnderscore++;
         }
-        if (this.peek === '\n') {
-          this.advance();
+
+        if (this.source[afterUnderscore] === '\n' || this.source[afterUnderscore] === '\r') {
+          while (this.pos < afterUnderscore) {
+            this.advance();
+          }
+          if (this.peek === '\r') {
+            this.advance();
+          }
+          if (this.peek === '\n') {
+            this.advance();
+          }
+          if ((this.current as string) === '\n') {
+            this.advance();
+          }
+          continue;
         }
-        if ((this.current as string) === '\n') {
-          this.advance();
-        }
-        continue;
       }
 
       break;
