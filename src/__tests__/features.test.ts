@@ -893,3 +893,76 @@ describe('Round', () => {
     expect(engine._getVariable('r').value).toBe(expected);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A member read without parentheses is the call
+// ---------------------------------------------------------------------------
+// Four of the six positive cases fail silently rather than loudly: the concatenation yields
+// "[object]", the bare Sub statement simply does not run, the nested read gives Empty, and the
+// host member hands back the wrapper. Only the comparison raises anything, and it raises a type
+// error that names nothing useful.
+//
+// The Sub case asserts an instance field rather than an enclosing-scope variable on purpose -
+// a class method writing an outer variable is a SEPARATE defect in this engine, and pinning it
+// here would make this test fail for a reason that has nothing to do with the call.
+//
+// The four guards are the other half: a plain property must NOT be called, and a member that
+// already has parentheses - with or without arguments - must keep reaching the real call path.
+describe('Parenthesis-less member reads', () => {
+  const CLASSES = [
+    'Class Inner',
+    '  Public Function G()',
+    '    G = 8',
+    '  End Function',
+    'End Class',
+    'Class C',
+    '  Public P',
+    '  Public Function F()',
+    '    F = 3',
+    '  End Function',
+    '  Public Function Add(a)',
+    '    Add = a + 1',
+    '  End Function',
+    '  Public Sub M()',
+    '    P = 99',
+    '  End Sub',
+    '  Public Function MakeInner()',
+    '    Set MakeInner = New Inner',
+    '  End Function',
+    'End Class',
+    'Dim o',
+    'Set o = New C',
+    'o.P = 5',
+  ].join('\n');
+
+  it.each<[string, string, string, string | number]>([
+    ['calls a function read without parentheses', 'r = o.F', 'r', 3],
+    ['calls it as a comparison operand', 'If o.F <= 0 Then\n r = "le"\nElse\n r = "gt"\nEnd If', 'r', 'gt'],
+    ['calls it as a concatenation operand', 'r = "n=" & o.F', 'r', 'n=3'],
+    ['runs a Sub written as a bare statement', 'o.M', 'o.P', 99],
+    ['calls through a nested member read', 'r = o.MakeInner.G', 'r', 8],
+    ['GUARD leaves a plain property alone', 'r = o.P', 'r', 5],
+    ['GUARD keeps arguments reaching the call', 'r = o.Add(4)', 'r', 5],
+    ['GUARD keeps the parenthesised form working', 'r = o.F()', 'r', 3],
+  ])('%s', (_label, tail, read, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`${CLASSES}\n${tail}`);
+    expect(engine.error).toBeNull();
+    expect(engine.eval(read)).toBe(expected);
+  });
+
+  it('calls a host function exposed through addObject', () => {
+    const engine = new VbsEngine();
+    engine.addObject('hlObj', { GetValue: () => 42, Name: 'x' }, true);
+    engine.executeStatement('r = hlObj.GetValue');
+    expect(engine.error).toBeNull();
+    expect(engine.eval('r')).toBe(42);
+  });
+
+  it('GUARD leaves a plain host property alone', () => {
+    const engine = new VbsEngine();
+    engine.addObject('hlObj', { GetValue: () => 42, Name: 'x' }, true);
+    engine.executeStatement('r = hlObj.Name');
+    expect(engine.eval('r')).toBe('x');
+  });
+});
