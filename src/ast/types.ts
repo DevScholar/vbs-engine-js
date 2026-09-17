@@ -133,6 +133,13 @@ export interface MemberExpression extends BaseExpression {
   property: Expression | PrivateIdentifier;
   computed: boolean;
   optional: boolean;
+  /**
+   * Every subscript of a VBScript array write, when this member was built from
+   * `a(i, j) = v`. `property` stays the first one so that all existing readers
+   * keep working; a writer that understands multi-dimensional arrays reads this
+   * instead. Absent for an ordinary member access.
+   */
+  vbIndices?: Expression[];
 }
 
 export interface ConditionalExpression extends BaseExpression {

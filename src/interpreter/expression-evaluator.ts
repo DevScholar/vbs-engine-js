@@ -961,8 +961,11 @@ export class ExpressionEvaluator {
 
     if (object.type === 'Array') {
       const arr = object.value as unknown as { set: (indices: number[], v: VbValue) => void };
-      const index = toNumber(this.evaluate(node.property as Expression));
-      arr.set([Math.floor(index)], value);
+      const subscripts = node.vbIndices ?? [node.property as Expression];
+      arr.set(
+        subscripts.map((subscript) => Math.floor(toNumber(this.evaluate(subscript)))),
+        value
+      );
     } else if (object.type === 'Object') {
       const obj = object.value as VbObjectValueData | null;
       if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
