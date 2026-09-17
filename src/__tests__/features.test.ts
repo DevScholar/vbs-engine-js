@@ -727,3 +727,31 @@ describe('Multi-dimensional array assignment', () => {
     expect(engine._getVariable('r').value).toBe(4);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Line continuation with trailing whitespace
+// ---------------------------------------------------------------------------
+// The significant character here is a space or tab AFTER the underscore, so these sources are
+// built by joining explicit strings rather than written as template literals: a trailing space at
+// the end of a line in this file would not survive the formatter, and the test would quietly stop
+// testing anything. The failure being pinned is silent - the statement simply ends at the
+// underscore and the continued half is dropped, with nothing raised.
+describe('Line continuation', () => {
+  it.each<[string, string]>([
+    ['no trailing whitespace', 'a = "x" & _'],
+    ['a trailing space', 'a = "x" & _ '],
+    ['a trailing tab', 'a = "x" & _\t'],
+    ['trailing spaces and tabs', 'a = "x" & _ \t '],
+  ])('continues the statement with %s', (_label, firstLine) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim a', firstLine, '"1"'].join('\n'));
+    expect(engine.error).toBeNull();
+    expect(engine._getVariable('a').value).toBe('x1');
+  });
+
+  it('leaves an underscore inside an identifier alone', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim a_b', 'a_b = 5'].join('\n'));
+    expect(engine._getVariable('a_b').value).toBe(5);
+  });
+});
