@@ -488,7 +488,10 @@ export class StatementExecutor {
         throw signal;
       }
 
-      if (!isPreTest) {
+      // An unconditional `Do ... Loop` has nothing to re-check and runs until an Exit Do.
+      // Without the node.test guard the absent condition reads as true, the until-branch
+      // negates it to false, and the loop leaves after a single pass with nothing raised.
+      if (!isPreTest && node.test) {
         const cond = isWhile ? checkCondition() : !checkCondition();
         if (!cond) break;
       }

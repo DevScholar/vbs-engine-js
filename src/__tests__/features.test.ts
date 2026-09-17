@@ -829,3 +829,27 @@ describe('Colon before the end of a single-line If', () => {
     expect(engine.error).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Do ... Loop in every form
+// ---------------------------------------------------------------------------
+// Only the first row fails without the fix; the other five are the forms that must not move
+// while it is made. The last one is the one a careless fix breaks: a post-test loop runs its
+// body once even when the condition is false from the start, so "no condition" and "condition
+// false" cannot be collapsed into the same answer. Every case terminates on its own - an
+// unconditional loop with no Exit Do would hang the suite rather than fail it.
+describe('Do loops', () => {
+  it.each<[string, string, number]>([
+    ['unconditional, left by Exit Do', 'Do\n n = n + 1\n If n >= 3 Then Exit Do\nLoop', 3],
+    ['Do While, pre-test', 'Do While n < 4\n n = n + 1\nLoop', 4],
+    ['Do Until, pre-test', 'Do Until n >= 4\n n = n + 1\nLoop', 4],
+    ['Loop While, post-test', 'Do\n n = n + 1\nLoop While n < 4', 4],
+    ['Loop Until, post-test', 'Do\n n = n + 1\nLoop Until n >= 4', 4],
+    ['post-test with a false condition, one pass', 'Do\n n = n + 1\nLoop While 1 = 2', 1],
+  ])('runs the body the right number of times: %s', (_label, body, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim n', 'n = 0', body].join('\n'));
+    expect(engine.error).toBeNull();
+    expect(engine._getVariable('n').value).toBe(expected);
+  });
+});
