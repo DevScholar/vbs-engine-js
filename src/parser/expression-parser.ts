@@ -23,10 +23,12 @@ import {
 /**
  * Converts a call-expression chain (as produced by parseCall() for `name(args)`
  * or chained `name(args)(args)`) into the equivalent nested MemberExpression
- * chain, for use as an assignment target. Returns null if the chain isn't
- * convertible: any level with more than one argument (true multi-dimensional
- * indexing isn't supported by the single-index array-write path this feeds
- * into), or a base that isn't ultimately an Identifier/MemberExpression.
+ * chain, for use as an assignment target. A level with no arguments at all is
+ * the `o.P() = v` spelling of a property write and yields the member itself.
+ * Returns null if the chain isn't convertible: any level with more than one
+ * argument (true multi-dimensional indexing isn't supported by the single-index
+ * array-write path this feeds into), or a base that isn't ultimately an
+ * Identifier/MemberExpression.
  */
 function callChainToMemberChain(expr: Expression): MemberExpression | null {
   if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
@@ -36,14 +38,20 @@ function callChainToMemberChain(expr: Expression): MemberExpression | null {
     return null;
   }
   const call = expr as CallExpression;
-  if (call.arguments.length !== 1) {
-    return null;
-  }
   const object =
     call.callee.type === 'Identifier' || call.callee.type === 'MemberExpression'
       ? (call.callee as Expression)
       : callChainToMemberChain(call.callee as Expression);
   if (!object) {
+    return null;
+  }
+  if (call.arguments.length === 0) {
+    // `o.P() = v` targets the property itself. A bare `a() = v` is not the same thing -- the
+    // real engine raises a runtime Type mismatch for that one -- so only a member target is
+    // converted here, and an identifier is left to fail as it already does.
+    return object.type === 'MemberExpression' ? (object as MemberExpression) : null;
+  }
+  if (call.arguments.length !== 1) {
     return null;
   }
   return {

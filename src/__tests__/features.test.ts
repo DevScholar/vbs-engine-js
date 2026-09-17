@@ -621,3 +621,57 @@ describe('Keyword-named variables', () => {
     expect(engine._getVariable('taken').value).toBe('yes');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Assigning to a property written with empty parentheses
+// ---------------------------------------------------------------------------
+// `o.P() = v` is the parenthesised spelling of `o.P = v` and the real engine accepts it. A bare
+// `a() = v` is NOT the same thing - there it raises a runtime Type mismatch - so the negative
+// case below is as much a part of this fix as the positive ones: the point is to admit the
+// member form without also admitting the identifier form.
+describe('Empty-parenthesis assignment targets', () => {
+  it('assigns to a public field written with empty parentheses', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Class C
+        Public P
+      End Class
+      Dim o
+      Set o = New C
+      o.P() = 5
+      r = o.P
+    `);
+    expect(engine._getVariable('r').value).toBe(5);
+  });
+
+  it('assigns through a Property Let written with empty parentheses', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Class C
+        Private m
+        Public Property Let P(v)
+          m = v * 2
+        End Property
+        Public Property Get P
+          P = m
+        End Property
+      End Class
+      Dim o
+      Set o = New C
+      o.P() = 5
+      r = o.P
+    `);
+    expect(engine._getVariable('r').value).toBe(10);
+  });
+
+  it('still refuses empty parentheses on a plain variable', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim a
+      a() = 5
+    `);
+    // The error itself is not pinned: the real engine says Type mismatch here and this one does
+    // not, and pinning the wording would pin that divergence rather than the behaviour.
+    expect(engine.error).not.toBeNull();
+  });
+});
