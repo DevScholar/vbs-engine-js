@@ -384,9 +384,17 @@ export class Lexer {
         return this.readDate(start);
       }
 
+      // `&h` and `&o` introduce a literal only when a digit of that base actually follows.
+      // Without that check `"Nr: "&hlObj` and `"x"&oShell` are read as radix prefixes and the
+      // concatenation is lost. VBScript resolves the ambiguity the same way: `&h` followed by a
+      // hex digit IS the literal even when a variable of that name exists, so `"x"&h1` is a
+      // compile error there rather than a concatenation -- which this guard preserves.
+      const afterRadixPrefix = this.source[this.pos + 2] ?? '';
       if (
         this.current === '&' &&
-        (this.peek === 'h' || this.peek === 'H' || this.peek === 'o' || this.peek === 'O' || /[0-7]/.test(this.peek))
+        (((this.peek === 'h' || this.peek === 'H') && /[0-9a-fA-F]/.test(afterRadixPrefix)) ||
+          ((this.peek === 'o' || this.peek === 'O') && /[0-7]/.test(afterRadixPrefix)) ||
+          /[0-7]/.test(this.peek))
       ) {
         return this.readNumber();
       }

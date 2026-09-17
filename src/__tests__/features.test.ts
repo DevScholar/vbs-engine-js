@@ -755,3 +755,47 @@ describe('Line continuation', () => {
     expect(engine._getVariable('a_b').value).toBe(5);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Ampersand before an identifier that starts with h or o
+// ---------------------------------------------------------------------------
+// The literal rows are as much a part of this as the concatenation rows. VBScript resolves the
+// ambiguity in favour of the literal whenever a digit of the base follows, so widening the
+// concatenation case must not cost `&hFF` - and `"x"&h1` stays a literal there even where a
+// variable h1 exists, which is why no row claims otherwise.
+describe('Ampersand before an h/o identifier', () => {
+  it.each<[string, string, number]>([
+    ['hex', 'r = &hFF', 255],
+    ['octal with a prefix', 'r = &o17', 15],
+    ['bare octal', 'r = &100', 64],
+  ])('still reads a %s literal', (_label, source, value) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(source);
+    expect(engine._getVariable('r').value).toBe(value);
+  });
+
+  it.each<[string, string]>([
+    ['hl', 'x7'],
+    ['oShell', 'x6'],
+  ])('concatenates with the variable %s', (name, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement([`Dim ${name}`, `${name} = ${expected.slice(1)}`, `r = "x"&${name}`].join('\n'));
+    expect(engine.error).toBeNull();
+    expect(engine._getVariable('r').value).toBe(expected);
+  });
+
+  it('concatenates with a member call on such an identifier', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Class C
+        Public Function M()
+          M = 3
+        End Function
+      End Class
+      Dim hlObj
+      Set hlObj = New C
+      r = "Nr: "&hlObj.M()
+    `);
+    expect(engine._getVariable('r').value).toBe('Nr: 3');
+  });
+});
