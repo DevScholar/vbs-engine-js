@@ -675,3 +675,55 @@ describe('Empty-parenthesis assignment targets', () => {
     expect(engine.error).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Assigning to a multi-dimensional array element
+// ---------------------------------------------------------------------------
+// The transposed pair is the test that matters. An implementation that collapses the subscripts
+// into one - or that keeps only the first, as this one did - still passes a single-cell check,
+// because writing and reading agree with each other on the wrong cell. Two cells that differ only
+// in the order of their subscripts must hold different values.
+describe('Multi-dimensional array assignment', () => {
+  it('writes and reads a two-dimensional element', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim a(3,3)
+      a(1,2) = 7
+      r = a(1,2)
+    `);
+    expect(engine._getVariable('r').value).toBe(7);
+  });
+
+  it('keeps transposed cells apart', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim a(3,3)
+      a(1,2) = 7
+      a(2,1) = 9
+      r1 = a(1,2)
+      r2 = a(2,1)
+    `);
+    expect(engine._getVariable('r1').value).toBe(7);
+    expect(engine._getVariable('r2').value).toBe(9);
+  });
+
+  it('writes and reads a three-dimensional element', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim b(2,2,2)
+      b(1,0,1) = 5
+      r = b(1,0,1)
+    `);
+    expect(engine._getVariable('r').value).toBe(5);
+  });
+
+  it('leaves the single-subscript write alone', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`
+      Dim a(3)
+      a(2) = 4
+      r = a(2)
+    `);
+    expect(engine._getVariable('r').value).toBe(4);
+  });
+});

@@ -25,10 +25,9 @@ import {
  * or chained `name(args)(args)`) into the equivalent nested MemberExpression
  * chain, for use as an assignment target. A level with no arguments at all is
  * the `o.P() = v` spelling of a property write and yields the member itself.
- * Returns null if the chain isn't convertible: any level with more than one
- * argument (true multi-dimensional indexing isn't supported by the single-index
- * array-write path this feeds into), or a base that isn't ultimately an
- * Identifier/MemberExpression.
+ * A level with several arguments is a multi-dimensional array write, `a(i, j) = v`:
+ * every subscript is carried on vbIndices for the array-write path to use.
+ * Returns null if the base isn't ultimately an Identifier/MemberExpression.
  */
 function callChainToMemberChain(expr: Expression): MemberExpression | null {
   if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
@@ -51,13 +50,13 @@ function callChainToMemberChain(expr: Expression): MemberExpression | null {
     // converted here, and an identifier is left to fail as it already does.
     return object.type === 'MemberExpression' ? (object as MemberExpression) : null;
   }
-  if (call.arguments.length !== 1) {
-    return null;
-  }
   return {
     type: 'MemberExpression',
     object,
     property: call.arguments[0],
+    // Keeps every subscript for `a(i, j) = v`; `property` stays the first one so that
+    // readers which only understand a single index are unaffected.
+    vbIndices: call.arguments,
     computed: true,
     optional: false,
     loc: call.loc,
