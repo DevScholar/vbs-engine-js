@@ -966,3 +966,22 @@ describe('Parenthesis-less member reads', () => {
     expect(engine.eval('r')).toBe('x');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Naming what could not be called
+// ---------------------------------------------------------------------------
+// Unlike the other fixes here this one is not a conformance change - real VBScript does not
+// phrase it this way either. It is about a message that fits every call in a ninety-line
+// procedure body being no help in finding which one failed. Both throw sites already hold the
+// name, so the test asserts it reaches the description and nothing about the wording around it.
+describe('Invalid procedure call names its target', () => {
+  it.each<[string, string, string]>([
+    ['an identifier', 'Dim v\nv = 1\nv 1, 2', "'v'"],
+    ['a member', 'Class C\nEnd Class\nDim o\nSet o = New C\no.Nope 1', "'o.Nope'"],
+  ])('names %s that could not be called', (_label, source, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(source);
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.description).toContain(expected);
+  });
+});

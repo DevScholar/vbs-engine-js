@@ -57,6 +57,26 @@ function isVbJsFunctionObject(
   return obj.type === 'jsfunction' && 'func' in obj;
 }
 
+/**
+ * "Invalid procedure call" on its own fits every call in a ninety-line procedure. Both throw
+ * sites that raise it already hold the name they failed on, so it goes into the message.
+ */
+function invalidProcedureCall(name: string) {
+  return createVbError(
+    VbErrorCodes.InvalidProcedureCall,
+    name ? `Invalid procedure call '${name}'` : 'Invalid procedure call',
+    'Vbscript'
+  );
+}
+
+/** `o.M` for the common shape; the empty string when neither half is a plain name. */
+function memberExpressionName(node: MemberExpression): string {
+  const objectName =
+    node.object.type === 'Identifier' ? `${(node.object as Identifier).name}.` : '';
+  const propertyName = node.property.type === 'Identifier' ? (node.property as Identifier).name : '';
+  return objectName + propertyName;
+}
+
 // Real VBScript's And/Or/Xor/Eqv/Imp/Not all ultimately call the real OLE
 // Automation VarAnd/VarOr/VarXor/VarEqv/VarImp/VarNot - genuine BITWISE
 // operations, not JS-style boolean logic - with two VBScript-specific
@@ -449,7 +469,7 @@ export class ExpressionEvaluator {
       if (callee.type === 'Object' && callee.value !== null) {
         return this.callObjectMethod(callee, callArgs);
       }
-      throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call', 'Vbscript');
+      throw invalidProcedureCall(name);
     }
 
     if (calleeExpr.type === 'MemberExpression') {
@@ -471,7 +491,7 @@ export class ExpressionEvaluator {
       if (memberResult.type === 'Object' && memberResult.value !== null) {
         return this.callObjectMethod(memberResult, callArgs);
       }
-      throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call', 'Vbscript');
+      throw invalidProcedureCall(memberExpressionName(calleeExpr));
     }
 
     const callee = this.evaluate(calleeExpr);
