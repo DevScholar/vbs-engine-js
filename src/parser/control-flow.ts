@@ -176,6 +176,13 @@ export class ControlFlowParser {
     const body: Statement[] = [];
 
     while (!this.state.isEOF) {
+      // A colon separates statements, so it can also sit directly in front of the token that
+      // ends the body: `If c Then : x = 1 : End If`. Without this the terminator is never
+      // reached and the If is reported against whatever follows it.
+      while (this.state.check('Colon' as any)) {
+        this.state.advance();
+      }
+
       if (this.state.checkNewline()) {
         break;
       }

@@ -799,3 +799,33 @@ describe('Ampersand before an h/o identifier', () => {
     expect(engine._getVariable('r').value).toBe('Nr: 3');
   });
 });
+
+// ---------------------------------------------------------------------------
+// A colon in front of the token that ends a single-line If
+// ---------------------------------------------------------------------------
+// `: ElseIf` is NOT part of this: the real engine rejects it ("Must be first statement on the
+// line"), and so does this parser, so the last case pins that the widening stopped where the
+// language stops. Its wording is not asserted - the two engines disagree on the message and
+// only agree on the verdict.
+describe('Colon before the end of a single-line If', () => {
+  it.each<[string, string, number]>([
+    ['End If', 'If 1 = 1 Then : x = 1 : End If', 1],
+    ['Else', 'If 1 = 2 Then : x = 1 : Else : x = 2 : End If', 2],
+    ['a doubled colon', 'If 1 = 1 Then :: x = 1 :: End If', 1],
+    ['an empty body', 'If 1 = 1 Then : End If', 0],
+    ['no colon at all', 'If 1 = 1 Then x = 1', 1],
+  ])('parses a colon before %s', (_label, source, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim x', 'x = 0', source].join('\n'));
+    expect(engine.error).toBeNull();
+    expect(engine._getVariable('x').value).toBe(expected);
+  });
+
+  it('still refuses ElseIf after a colon', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(
+      ['Dim x', 'x = 0', 'If 1 = 2 Then : x = 1 : ElseIf 1 = 1 Then : x = 3 : End If'].join('\n')
+    );
+    expect(engine.error).not.toBeNull();
+  });
+});
