@@ -466,12 +466,22 @@ export class VbsEngine {
     // VbError carries the real VBScript code and the engine's own table already holds them
     // (TypeMismatch 13, DivisionByZero 11, ObjectRequired 424, ...). Only a non-VbError still
     // has nothing better than -1.
-    const raised = err as Error & { number?: unknown; token?: Token };
+    const raised = err as Error & {
+      number?: unknown;
+      token?: Token;
+      line?: unknown;
+      column?: unknown;
+    };
     const number = typeof raised.number === 'number' ? raised.number : -1;
 
-    // A parse error carries the token it stopped on, so VbsError's declared line and column
-    // can finally be filled instead of staying undefined.
-    const at = raised.token?.loc?.start;
+    // A parse error carries the token it stopped on; a runtime error was stamped with its
+    // statement's position on the way out. Either way VbsError's declared line and column can
+    // finally be filled instead of staying undefined.
+    const at =
+      raised.token?.loc?.start ??
+      (typeof raised.line === 'number'
+        ? { line: raised.line, column: typeof raised.column === 'number' ? raised.column : 0 }
+        : undefined);
 
     this.lastError = at
       ? { number, description: err.message, line: at.line, column: at.column }
