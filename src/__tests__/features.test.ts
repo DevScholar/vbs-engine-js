@@ -1014,3 +1014,30 @@ describe('Error number and position', () => {
     expect(engine.error!.column).toBe(7);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The position of a runtime failure
+// ---------------------------------------------------------------------------
+// The indented case is the one that matters: it pins the COLUMN as the statement's own start,
+// not the start of the line and not the sub-expression inside it. For these two scripts cscript
+// //E:vbscript reports (5, 5) and (2, 1), which is what these assert. Because every enclosing
+// statement catches the same error again, only the innermost frame may stamp it - a later frame
+// overwriting would move the position out to the block and quietly pass a laxer test.
+describe('Runtime error position', () => {
+  it('reports the failing statement, not the block around it', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(
+      ['Dim x', 'x = 1', '', 'If 1 = 1 Then', '    x = CInt("abc")', 'End If'].join('\n')
+    );
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.line).toBe(5);
+    expect(engine.error!.column).toBe(5);
+  });
+
+  it('reports a failure at the top level', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim x', 'x = 1/0'].join('\n'));
+    expect(engine.error!.line).toBe(2);
+    expect(engine.error!.column).toBe(1);
+  });
+});

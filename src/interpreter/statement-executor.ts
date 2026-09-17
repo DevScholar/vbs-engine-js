@@ -199,7 +199,20 @@ export class StatementExecutor {
       if (error instanceof ControlFlowSignal) {
         throw error;
       }
+      // Stamp the failing statement's position on the way out, but only if nothing has yet.
+      // Every enclosing statement catches the same error again, so the first frame to see it --
+      // the innermost one -- wins, and that is where the real engine points: at the statement
+      // that failed, not at the block containing it.
+      const at = (node as Statement).loc?.start;
+      const stampPosition = (target: { line?: number; column?: number }): void => {
+        if (at && target.line === undefined) {
+          target.line = at.line;
+          target.column = at.column;
+        }
+      };
+
       if (error instanceof VbError) {
+        stampPosition(error);
         this.context.setError(error);
         if (this.context.onErrorResumeNext) {
           return VbEmpty;
@@ -207,6 +220,7 @@ export class StatementExecutor {
         throw error;
       }
       const vbError = VbError.fromError(error as Error);
+      stampPosition(vbError);
       this.context.setError(vbError);
       if (this.context.onErrorResumeNext) {
         return VbEmpty;

@@ -4,6 +4,12 @@ export class VbError extends Error {
   public description: string;
   public helpFile?: string;
   public helpContext?: number;
+  /**
+   * Where the failing statement began. Filled by the first frame that catches the error, which
+   * is the innermost statement -- the one the real engine points at.
+   */
+  public line?: number;
+  public column?: number;
 
   constructor(number: number, description: string, source: string = '') {
     super(description);
