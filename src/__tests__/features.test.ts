@@ -985,3 +985,32 @@ describe('Invalid procedure call names its target', () => {
     expect(engine.error!.description).toContain(expected);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The error number and the position of a parse failure
+// ---------------------------------------------------------------------------
+// VbsError declares number, line and column, and documents line as "Source line number where
+// error occurred". Every error answered -1 with neither, although the engine's own VbErrorCodes
+// table already held the right codes. The numbers below are the real engine's (cscript
+// //E:vbscript on Windows), and so is the position: for the same script it reports (5, 7).
+describe('Error number and position', () => {
+  it.each<[string, string, number]>([
+    ['type mismatch', 'x = CInt("abc")', 13],
+    ['division by zero', 'x = 1/0', 11],
+    ['object required', 'Dim o\nx = o.Foo', 424],
+    ['invalid procedure call', 'Dim v\nv = 1\nv 1, 2', 5],
+  ])('reports %s as its real VBScript code', (_label, source, code) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(source);
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.number).toBe(code);
+  });
+
+  it('reports the line and column a parse failure stopped at', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(['Dim x', 'x = 1', '', 'If 1 = 1 Then', '  x = )', 'End If'].join('\n'));
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.line).toBe(5);
+    expect(engine.error!.column).toBe(7);
+  });
+});

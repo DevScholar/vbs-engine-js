@@ -1,4 +1,5 @@
 import { Lexer } from '../lexer/index.ts';
+import type { Token } from '../lexer/token.ts';
 import { Parser, globalParserCache } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
@@ -457,17 +458,24 @@ export class VbsEngine {
   }
 
   private handleError(err: unknown): void {
-    if (err instanceof Error) {
-      this.lastError = {
-        number: -1,
-        description: err.message,
-      };
-    } else {
-      this.lastError = {
-        number: -1,
-        description: String(err),
-      };
+    if (!(err instanceof Error)) {
+      this.lastError = { number: -1, description: String(err) };
+      return;
     }
+
+    // VbError carries the real VBScript code and the engine's own table already holds them
+    // (TypeMismatch 13, DivisionByZero 11, ObjectRequired 424, ...). Only a non-VbError still
+    // has nothing better than -1.
+    const raised = err as Error & { number?: unknown; token?: Token };
+    const number = typeof raised.number === 'number' ? raised.number : -1;
+
+    // A parse error carries the token it stopped on, so VbsError's declared line and column
+    // can finally be filled instead of staying undefined.
+    const at = raised.token?.loc?.start;
+
+    this.lastError = at
+      ? { number, description: err.message, line: at.line, column: at.column }
+      : { number, description: err.message };
   }
 
   private syncFunctionsToGlobalThis(): void {

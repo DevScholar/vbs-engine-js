@@ -888,7 +888,12 @@ export class ExpressionParser {
       return this.parseIdentifierOrCall();
     }
 
-    throw new Error(`Unexpected token: ${this.state.current.type}`);
+    // Carries the token so the engine can report WHERE the parse stopped. Without it the
+    // message names a token type and nothing else, which in a long script is not enough to
+    // find the line it came from.
+    throw Object.assign(new Error(`Unexpected token: ${this.state.current.type}`), {
+      token: this.state.current,
+    });
   }
 
   private parseWithMemberExpression(): MemberExpression {
