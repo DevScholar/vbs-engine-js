@@ -137,7 +137,7 @@ export class ExpressionEvaluator {
       case 'VbWithObject':
         return this.evaluateWithObject(node);
       case 'MemberExpression':
-        return this.evaluateMember(node);
+        return this.evaluateMemberAsValue(node);
       case 'CallExpression':
         return this.evaluateCallInternal(node.callee as Expression, node.arguments);
       case 'BinaryExpression':
@@ -256,6 +256,31 @@ export class ExpressionEvaluator {
       throw new Error('With object not available - must be inside a With statement');
     }
     return withObject;
+  }
+
+  /**
+   * A member read written WITHOUT parentheses, reached where a value is wanted. In VBScript such
+   * a read of a zero-argument Sub or Function IS the call: `r = o.F` yields F's result, and a bare
+   * `o.M` on its own line runs M.
+   *
+   * Only this dispatch is affected. `o.F(args)` reaches evaluateCallInternal(), which calls
+   * evaluateMember() directly and still sees the unresolved method reference it needs, so real
+   * arguments continue to reach the real call.
+   */
+  private evaluateMemberAsValue(node: MemberExpression): VbValue {
+    const value = this.evaluateMember(node);
+
+    if (value.type === 'Object' && value.value !== null) {
+      const obj = value.value as VbObjectValueData;
+      if (isVbMethodObject(obj) || isVbJsFunctionObject(obj)) {
+        // Goes through the ordinary call path with no arguments, so a class method and a host
+        // function exposed via addObject() are invoked exactly as they are when written with
+        // parentheses -- including the jsToVb conversion a host function's result needs.
+        return this.callObjectMethod(value as VbObjectValue, []);
+      }
+    }
+
+    return value;
   }
 
   private evaluateMember(node: MemberExpression): VbValue {
