@@ -853,3 +853,43 @@ describe('Do loops', () => {
     expect(engine._getVariable('n').value).toBe(expected);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Round
+// ---------------------------------------------------------------------------
+// The whole matrix was read off cscript //E:vbscript on Windows rather than derived. Two
+// property pinned is that a tie goes to the even neighbour. The non-tie rows are green in both
+// states and keep ordinary rounding honest.
+//
+// The 1.005 / 1.015 / 1.025 / 8.835 rows pin the opposite direction, and they are the reason
+// this comment exists. Those literals do not land on an exact tie once scaled, and it is
+// tempting to "repair" that by snapping the scaled value back to its decimal reading. VBScript
+// does not: it answers 1.01 for Round(1.015, 2), which is the binary value rounding down, not
+// the 1.02 a decimal reading gives. These rows fail against that well-meant extra step.
+describe('Round', () => {
+  it.each<[string, number]>([
+    ['Round(0.5)', 0],
+    ['Round(1.5)', 2],
+    ['Round(2.5)', 2],
+    ['Round(3.5)', 4],
+    ['Round(-0.5)', 0],
+    ['Round(-1.5)', -2],
+    ['Round(-2.5)', -2],
+    ['Round(0.125, 2)', 0.12],
+    ['Round(0.135, 2)', 0.14],
+    ['Round(2.675, 2)', 2.68],
+    ['Round(1.2345, 3)', 1.234],
+    ['Round(7.7, 0)', 8],
+    ['Round(1.005, 2)', 1],
+    ['Round(1.015, 2)', 1.01],
+    ['Round(1.025, 2)', 1.02],
+    ['Round(8.835, 2)', 8.84],
+    ['Round(2.4)', 2],
+    ['Round(2.6)', 3],
+    ['Round(-2.6)', -3],
+  ])('%s', (expression, expected) => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`r = ${expression}`);
+    expect(engine._getVariable('r').value).toBe(expected);
+  });
+});

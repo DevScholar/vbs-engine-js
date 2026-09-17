@@ -34,7 +34,27 @@ export const mathFunctions = {
     const num = toNumber(number);
     const decimals = numDecimalPlaces ? Math.floor(toNumber(numDecimalPlaces)) : 0;
     const factor = Math.pow(10, decimals);
-    return { type: 'Double', value: Math.round(num * factor) / factor };
+    const scaled = num * factor;
+
+    // A tie goes to the EVEN neighbour, not upwards: 0.5 -> 0, 1.5 -> 2, 2.5 -> 2.
+    //
+    // Only a tie. The scaled value is deliberately left as the double it is, with no attempt to
+    // recover the decimal the literal was written as: VBScript does not do that either, and
+    // Round(1.015, 2) is the case that says so -- 1.015 * 100 is 101.49999999999999, just under
+    // the tie, and the real engine answers 1.01 rather than the 1.02 a decimal reading gives.
+    const below = Math.floor(scaled);
+    const fraction = scaled - below;
+    let rounded: number;
+    if (fraction > 0.5) {
+      rounded = below + 1;
+    } else if (fraction < 0.5) {
+      rounded = below;
+    } else {
+      // -3 % 2 is -1 in JavaScript, so this reads as odd and steps up to -2, which is right.
+      rounded = below % 2 === 0 ? below : below + 1;
+    }
+
+    return { type: 'Double', value: rounded / factor };
   },
 
   Atn: (number: VbValue): VbValue => {
