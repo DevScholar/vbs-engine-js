@@ -136,7 +136,7 @@ Add `"type": "module"` to your `package.json`:
     "start": "node demo.js"
   },
   "dependencies": {
-    "@devscholar/vbs-engine-js": "^1.1.3"
+    "@devscholar/vbs-engine-js": "^1.1.4"
   }
 }
 ```
