@@ -34,6 +34,7 @@ import {
   VbError,
   VbErrorCodes,
   createVbError,
+  createVbErrorFromHost,
   VbArray,
   createVbArray,
   VbObjectInstance,
@@ -219,7 +220,7 @@ export class StatementExecutor {
         }
         throw error;
       }
-      const vbError = createVbError(440, (error as Error).message);
+      const vbError = createVbErrorFromHost(error);
       stampPosition(vbError);
       this.context.setError(vbError);
       if (this.context.onErrorResumeNext) {

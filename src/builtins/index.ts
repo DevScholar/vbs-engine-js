@@ -1,4 +1,5 @@
 import type { VbContext, VbValue } from '../runtime/index.ts';
+import { createVbError, VbErrorCodes } from '../runtime/index.ts';
 import { stringFunctions } from './string.ts';
 import { mathFunctions, constants } from './math.ts';
 import { dateFunctions } from './date.ts';
@@ -302,7 +303,10 @@ export function registerBuiltins(context: VbContext): void {
         const ax = getObjectFn(path || undefined, className || undefined);
         return { type: 'Object', value: wrapCOMProxy(ax) };
       } catch {
-        throw new Error(`ActiveX component can't get object: '${className || path}'`);
+        throw createVbError(
+          VbErrorCodes.ActiveXComponentCantCreateObject,
+          "ActiveX component can't create object"
+        );
       }
     }
 
@@ -322,7 +326,10 @@ export function registerBuiltins(context: VbContext): void {
           const ax = new axConstructor(className);
           return { type: 'Object', value: wrapCOMProxy(ax) };
         } catch {
-          throw new Error(`ActiveX component can't create object: '${className}'`);
+          throw createVbError(
+            VbErrorCodes.ActiveXComponentCantCreateObject,
+            "ActiveX component can't create object"
+          );
         }
       }
       return { type: 'Object', value: { className, properties: new Map() } };
