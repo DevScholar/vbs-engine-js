@@ -64,8 +64,7 @@ function isVbJsFunctionObject(
 function invalidProcedureCall(name: string) {
   return createVbError(
     VbErrorCodes.InvalidProcedureCall,
-    name ? `Invalid procedure call '${name}'` : 'Invalid procedure call',
-    'Vbscript'
+    name ? `Invalid procedure call '${name}'` : 'Invalid procedure call'
   );
 }
 
@@ -228,8 +227,7 @@ export class ExpressionEvaluator {
       }
       throw createVbError(
         VbErrorCodes.InvalidProcedureCall,
-        `Unknown class: ${className}`,
-        'Vbscript'
+        `Unknown class: ${className}`
       );
     }
 
@@ -251,7 +249,7 @@ export class ExpressionEvaluator {
     }
 
     if (typeof ctor !== 'function' && !(ctor && typeof ctor === 'object')) {
-      throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Not a constructor', 'Vbscript');
+      throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Not a constructor');
     }
 
     const args = node.arguments.map(arg => this.vbToJs(this.evaluate(arg)));
@@ -326,7 +324,7 @@ export class ExpressionEvaluator {
       return this.getObjectProperty(object, propertyName);
     }
 
-    throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
+    throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
   }
 
   private getArrayElement(array: VbArrayValue, indexExpr: Expression): VbValue {
@@ -339,7 +337,7 @@ export class ExpressionEvaluator {
     const obj = objValue.value as VbObjectValueData | null;
 
     if (obj === null) {
-      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
+      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
     }
 
     // If this is a JS function wrapper produced by a previous property access,
@@ -505,13 +503,13 @@ export class ExpressionEvaluator {
     if (callee.type === 'Object' && callee.value !== null) {
       return this.callObjectMethod(callee, callArgs);
     }
-    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call', 'Vbscript');
+    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call');
   }
 
   private callObjectMethod(objValue: VbObjectValue, callArgs: Expression[]): VbValue {
     const obj = objValue.value as VbObjectValueData | null;
     if (obj === null) {
-      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
+      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
     }
 
     if (isVbMethodObject(obj)) {
@@ -533,7 +531,7 @@ export class ExpressionEvaluator {
       return obj.call(...args);
     }
 
-    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call', 'Vbscript');
+    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call');
   }
 
   private vbToJs(value: VbValue): unknown {
@@ -669,7 +667,7 @@ export class ExpressionEvaluator {
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     if (rightNum === 0) {
-      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
     return { type: 'Double', value: leftNum / rightNum };
   }
@@ -681,7 +679,7 @@ export class ExpressionEvaluator {
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     if (rightNum === 0) {
-      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
     return { type: 'Long', value: Math.floor(leftNum / rightNum) };
   }
@@ -693,7 +691,7 @@ export class ExpressionEvaluator {
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     if (rightNum === 0) {
-      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
     return createVbValue(leftNum % rightNum);
   }
@@ -729,7 +727,7 @@ export class ExpressionEvaluator {
   // wrong for this specific combination).
   private checkComparisonOperands(left: VbValue, right: VbValue): void {
     if (left.type === 'Array' || right.type === 'Array') {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch', 'Vbscript');
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
     }
   }
 
@@ -1014,7 +1012,7 @@ export class ExpressionEvaluator {
     } else if (object.type === 'Object') {
       const obj = object.value as VbObjectValueData | null;
       if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
-        throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
+        throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
       }
 
       if (
@@ -1028,7 +1026,7 @@ export class ExpressionEvaluator {
         obj[propertyName] = jsValue;
       }
     } else {
-      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required', 'Vbscript');
+      throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
     }
   }
 
@@ -1058,7 +1056,7 @@ export class ExpressionEvaluator {
       if (op === '+') return { type: 'Double', value: l + r };
       if (op === '-') return { type: 'Double', value: l - r };
       if (op === '*') return { type: 'Double', value: l * r };
-      if (r === 0) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      if (r === 0) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
       return { type: 'Long', value: Math.floor(l / r) };
     }
     const l = this.toLongLongBigInt(left);
@@ -1067,7 +1065,7 @@ export class ExpressionEvaluator {
     if (op === '-') return { type: 'LongLong', value: l - r };
     if (op === '*') return { type: 'LongLong', value: l * r };
     if (r === BigInt(0))
-      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero', 'Vbscript');
+      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     return { type: 'LongLong', value: l / r };
   }
 }

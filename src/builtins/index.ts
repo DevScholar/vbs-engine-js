@@ -391,6 +391,16 @@ export function registerBuiltins(context: VbContext): void {
       if (lowerName === 'source') {
         return { type: 'String', value: context.err.source };
       }
+      if (lowerName === 'helpfile') {
+        return { type: 'String', value: context.err.helpFile };
+      }
+      if (lowerName === 'helpcontext') {
+        return { type: 'Long', value: context.err.helpContext };
+      }
+      if (lowerName === 'lastdllerror') {
+        // Not wired to any real DLL loader; VBScript reports 0 when unused.
+        return { type: 'Long', value: 0 };
+      }
       return { type: 'Empty', value: undefined };
     },
     setProperty: (name: string, value: VbValue): void => {
@@ -401,6 +411,10 @@ export function registerBuiltins(context: VbContext): void {
         context.err.description = String(value.value ?? '');
       } else if (lowerName === 'source') {
         context.err.source = String(value.value ?? '');
+      } else if (lowerName === 'helpfile') {
+        context.err.helpFile = String(value.value ?? '');
+      } else if (lowerName === 'helpcontext') {
+        context.err.helpContext = Number(value.value) || 0;
       }
     },
     hasMethod: (name: string): boolean => {
@@ -418,10 +432,18 @@ export function registerBuiltins(context: VbContext): void {
       }
       if (lowerName === 'raise') {
         return {
-          func: (number: VbValue, source?: VbValue, description?: VbValue): VbValue => {
+          func: (
+            number: VbValue,
+            source?: VbValue,
+            description?: VbValue,
+            helpFile?: VbValue,
+            helpContext?: VbValue
+          ): VbValue => {
             context.err.number = Number(number.value) || 0;
             context.err.source = source ? String(source.value ?? '') : '';
             context.err.description = description ? String(description.value ?? '') : '';
+            context.err.helpFile = helpFile ? String(helpFile.value ?? '') : '';
+            context.err.helpContext = helpContext ? Number(helpContext.value) || 0 : 0;
             return { type: 'Empty', value: undefined };
           },
         };

@@ -179,7 +179,7 @@ export class Interpreter {
     try {
       ast = parse(code);
     } catch {
-      throw createVbError(1002, 'Syntax error', 'Vbscript');
+      throw createVbError(1002, 'Syntax error');
     }
     const evaluator = new ExpressionEvaluator(this.context);
     return evaluator.evaluateProgram(ast);

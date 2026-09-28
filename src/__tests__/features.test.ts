@@ -1041,3 +1041,59 @@ describe('Runtime error position', () => {
     expect(engine.error!.column).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The MSScriptControl-style error surface (engine.error) vs the IE/WSH-style
+// thrown native Error (executeStatementThrows)
+// ---------------------------------------------------------------------------
+describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
+  it('stamps the localized source on a runtime error', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement('x = 1/0');
+    expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
+    expect(engine.error!.number).toBe(11);
+  });
+
+  it('stamps the compile source on a parse error', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement('x = )');
+    expect(engine.error).not.toBeNull();
+  });
+
+  it('surfaces Err.Raise help file and context back to the script', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement('On Error Resume Next');
+    engine.executeStatement('Err.Raise 5, "Src", "Desc", "x.hlp", 3');
+    engine.executeStatement('a = Err.HelpFile');
+    engine.executeStatement('b = Err.HelpContext');
+    expect(engine._getVariable('a').value).toBe('x.hlp');
+    expect(engine._getVariable('b').value).toBe(3);
+  });
+
+  it('throws an HRESULT-bearing native Error for division by zero', () => {
+    const engine = new VbsEngine();
+    let caught: Error & { number: number; description: string } | null = null;
+    try {
+      engine.executeStatementThrows('x = 1/0');
+    } catch (e) {
+      caught = e as Error & { number: number; description: string };
+    }
+    expect(caught).not.toBeNull();
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught!.name).toBe('Error');
+    expect(caught!.number).toBe(-2146828277); // 0x800A000B
+    expect(caught!.message).toBe('Division by zero');
+    expect(caught!.message).toBe(caught!.description);
+  });
+
+  it('still populates engine.error even when throwing', () => {
+    const engine = new VbsEngine();
+    try {
+      engine.executeStatementThrows('x = CInt("abc")');
+    } catch {
+      /* expected */
+    }
+    expect(engine.error!.number).toBe(13);
+    expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
+  });
+});

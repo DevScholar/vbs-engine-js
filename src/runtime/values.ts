@@ -209,7 +209,7 @@ export function toBoolean(value: VbValue): boolean {
   // (`If Null Then`, `While Null`, etc.) can actually suppress it, matching
   // real VBScript behavior. Found via Wine's own vbscript.dll conformance
   // suite, dlls/vbscript/tests/lang.vbs.
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null', 'Vbscript');
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'String') {
     const str = value.value;
     if (str === '') return false;
@@ -267,7 +267,7 @@ export function parseVbNumericString(trimmed: string): number | null {
  */
 export function toNumber(value: VbValue): number {
   if (value.type === 'Empty') return 0;
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null', 'Vbscript');
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'Boolean') return value.value ? -1 : 0;
   if (
     value.type === 'Integer' ||
@@ -286,13 +286,13 @@ export function toNumber(value: VbValue): number {
     const str = value.value.trim();
     if (str === '') return 0;
     const num = parseVbNumericString(str);
-    if (num === null) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`, 'Vbscript');
+    if (num === null) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`);
     return num;
   }
   if (value.type === 'Date') {
     return value.value.getTime();
   }
-  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Number`, 'Vbscript');
+  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Number`);
 }
 
 /**
@@ -342,7 +342,7 @@ export function toVbDate(value: VbValue): Date {
     const str = value.value;
     const date = new Date(str);
     if (isNaN(date.getTime())) {
-      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Date`, 'Vbscript');
+      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Date`);
     }
     return date;
   }
@@ -351,7 +351,7 @@ export function toVbDate(value: VbValue): Date {
     const baseDate = new Date(1899, 11, 30);
     return new Date(baseDate.getTime() + serial * 86400000);
   }
-  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`, 'Vbscript');
+  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`);
 }
 
 /**

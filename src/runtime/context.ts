@@ -44,10 +44,18 @@ export class VbContext {
   public optionExplicit: boolean = false;
   public onErrorResumeNext: boolean = false;
   public lastError: VbError | null = null;
-  public err: { number: number; description: string; source: string } = {
+  public err: {
+    number: number;
+    description: string;
+    source: string;
+    helpFile: string;
+    helpContext: number;
+  } = {
     number: 0,
     description: '',
     source: '',
+    helpFile: '',
+    helpContext: 0,
   };
   public currentInstance: VbObjectInstance | null = null;
   public inPropertyGet: boolean = false;
@@ -121,6 +129,8 @@ export class VbContext {
     this.err.number = error.number;
     this.err.description = error.description;
     this.err.source = error.source;
+    this.err.helpFile = error.helpFile ?? '';
+    this.err.helpContext = error.helpContext ?? 0;
   }
 
   clearError(): void {
@@ -128,6 +138,8 @@ export class VbContext {
     this.err.number = 0;
     this.err.description = '';
     this.err.source = '';
+    this.err.helpFile = '';
+    this.err.helpContext = 0;
   }
 
   declareVariable(name: string, value: VbValue = VbEmpty): void {
@@ -162,7 +174,7 @@ export class VbContext {
     }
 
     if (this.optionExplicit) {
-      throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
+      throw new VbError(500, `Variable is undefined: '${name}'`);
     }
     return VbEmpty;
   }
@@ -181,7 +193,7 @@ export class VbContext {
     if (this.optionExplicit && !this.currentScope.has(name)) {
       const lowerName = name.toLowerCase();
       if (!(lowerName in globalThis)) {
-        throw new VbError(500, `Variable is undefined: '${name}'`, 'Vbscript');
+        throw new VbError(500, `Variable is undefined: '${name}'`);
       }
     }
 

@@ -3,6 +3,7 @@ import type { Token } from '../lexer/token.ts';
 import { Parser, globalParserCache } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
+import { VbError, toHresult } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
 import { initializeBrowserEngine } from '../browser/index.ts';
 import { VBArray } from '../runtime/vbarray-wrapper.ts';
@@ -85,18 +86,29 @@ export interface BrowserEngineOptions {
 
 /**
  * Error information from script execution.
+ *
+ * This mirrors the MSScriptControl `ScriptControl.Error` object (KB Q184742):
+ * a pure error code (not an HRESULT) plus the source string and position fields.
+ * The IE/WSH-style HRESULT shape is a separate surface — see
+ * {@link VbsEngine.executeStatementThrows}.
  */
 export interface VbsError {
-  /** Error number/code */
+  /** Error number/code (pure VBScript code, e.g. 11 for division by zero) */
   number: number;
   /** Error description */
   description: string;
-  /** Source line number where error occurred */
+  /** Component that raised the error ("Microsoft VBScript runtime error" etc.) */
+  source: string;
+  /** Source line number where error occurred (1-based) */
   line?: number;
   /** Source column where error occurred */
   column?: number;
-  /** Source text where error occurred */
+  /** Source text of the offending line (compile errors only) */
   text?: string;
+  /** Help file name, populated only for user-raised errors */
+  helpFile?: string;
+  /** Help context id, populated only for user-raised errors */
+  helpContext?: number;
 }
 
 /**
@@ -306,22 +318,56 @@ export class VbsEngine {
   executeStatement(statement: string): void {
     this.clearError();
     try {
-      // Try to get from cache first
-      let program = globalParserCache.get(statement);
-
-      if (!program) {
-        // Parse and cache
-        const lexer = new Lexer(statement);
-        const tokens = lexer.tokenize();
-        const parser = new Parser(tokens);
-        program = parser.parse();
-        globalParserCache.set(statement, program);
-      }
-
-      this.interpreter.run(program);
+      this.executeStatementInternal(statement);
     } catch (err) {
       this.handleError(err);
     }
+  }
+
+  /**
+   * Executes a statement and rethrows any VBScript error as a native JavaScript
+   * `Error`, mirroring the IE/WSH cross-language `catch(e)` surface rather than
+   * the MSScriptControl-style `engine.error` member.
+   *
+   * The thrown object is a genuine `Error` instance where `name === 'Error'`,
+   * `message === description`, and `number` is the HRESULT encoding
+   * (`0x800A0000 | code`) of the VBScript error — the shape JScript receives
+   * when it catches a VBScript runtime error.
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   engine.executeStatementThrows('x = 1/0');
+   * } catch (e) {
+   *   e.number; // -2146828277 (0x800A000B)
+   *   e.message; // "Division by zero"
+   * }
+   * ```
+   */
+  executeStatementThrows(statement: string): void {
+    this.clearError();
+    try {
+      this.executeStatementInternal(statement);
+    } catch (err) {
+      this.handleError(err);
+      throw this.toHostError(err);
+    }
+  }
+
+  private executeStatementInternal(statement: string): void {
+    // Try to get from cache first
+    let program = globalParserCache.get(statement);
+
+    if (!program) {
+      // Parse and cache
+      const lexer = new Lexer(statement);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      program = parser.parse();
+      globalParserCache.set(statement, program);
+    }
+
+    this.interpreter.run(program);
   }
 
   /**
@@ -459,20 +505,24 @@ export class VbsEngine {
 
   private handleError(err: unknown): void {
     if (!(err instanceof Error)) {
-      this.lastError = { number: -1, description: String(err) };
+      this.lastError = { number: -1, description: String(err), source: '' };
       return;
     }
 
-    // VbError carries the real VBScript code and the engine's own table already holds them
-    // (TypeMismatch 13, DivisionByZero 11, ObjectRequired 424, ...). Only a non-VbError still
-    // has nothing better than -1.
+    // VbError carries the real VBScript code, source, and position. A plain parse
+    // Error carries only the token it stopped on. Either way the fields below map
+    // onto the MSScriptControl-style VbsError surface.
     const raised = err as Error & {
       number?: unknown;
+      source?: unknown;
+      helpFile?: unknown;
+      helpContext?: unknown;
       token?: Token;
       line?: unknown;
       column?: unknown;
     };
     const number = typeof raised.number === 'number' ? raised.number : -1;
+    const source = typeof raised.source === 'string' ? raised.source : '';
 
     // A parse error carries the token it stopped on; a runtime error was stamped with its
     // statement's position on the way out. Either way VbsError's declared line and column can
@@ -483,9 +533,41 @@ export class VbsEngine {
         ? { line: raised.line, column: typeof raised.column === 'number' ? raised.column : 0 }
         : undefined);
 
-    this.lastError = at
-      ? { number, description: err.message, line: at.line, column: at.column }
-      : { number, description: err.message };
+    this.lastError = {
+      number,
+      description: err.message,
+      source,
+      ...(at ? { line: at.line, column: at.column } : {}),
+      ...(typeof raised.helpFile === 'string' ? { helpFile: raised.helpFile } : {}),
+      ...(typeof raised.helpContext === 'number' ? { helpContext: raised.helpContext } : {}),
+    };
+  }
+
+  /**
+   * Convert a caught internal error into the IE/WSH-style native `Error` that a
+   * JavaScript host would see in its own `catch`. Mirrors JScript catching a
+   * VBScript runtime error: `instanceof Error`, `name === 'Error'`,
+   * `message === description`, and `number` as an HRESULT.
+   */
+  private toHostError(err: unknown): Error & { number: number; description: string } {
+    if (err instanceof VbError) {
+      const hostError = new Error(err.description) as Error & {
+        number: number;
+        description: string;
+      };
+      hostError.name = 'Error';
+      hostError.number = toHresult(err.number);
+      hostError.description = err.description;
+      return hostError;
+    }
+    const hostError = new Error(err instanceof Error ? err.message : String(err)) as Error & {
+      number: number;
+      description: string;
+    };
+    hostError.name = 'Error';
+    hostError.number = toHresult(-1);
+    hostError.description = hostError.message;
+    return hostError;
   }
 
   private syncFunctionsToGlobalThis(): void {

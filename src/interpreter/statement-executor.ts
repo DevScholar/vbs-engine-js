@@ -219,7 +219,7 @@ export class StatementExecutor {
         }
         throw error;
       }
-      const vbError = VbError.fromError(error as Error);
+      const vbError = createVbError(440, (error as Error).message);
       stampPosition(vbError);
       this.context.setError(vbError);
       if (this.context.onErrorResumeNext) {
@@ -407,8 +407,7 @@ export class StatementExecutor {
     if (collection.type !== 'Array' && collection.type !== 'Object') {
       throw createVbError(
         VbErrorCodes.TypeMismatch,
-        'Type mismatch: expected array or collection',
-        'Vbscript'
+        'Type mismatch: expected array or collection'
       );
     }
 
