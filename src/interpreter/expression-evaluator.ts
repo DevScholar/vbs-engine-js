@@ -18,7 +18,6 @@ import type {
   VbObjectValue,
   VbObjectValueData,
   VbArrayValue,
-  VbBooleanValue,
   VbLongValue,
 } from '../runtime/index.ts';
 import { VbContext, VbObjectInstance } from '../runtime/index.ts';

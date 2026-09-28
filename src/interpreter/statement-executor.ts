@@ -936,7 +936,7 @@ export class StatementExecutor {
           self.context.propertyGetName = memberNode.name.name.toLowerCase();
           self.context.pushScope();
           self.context.declareVariable(memberNode.name.name, VbEmpty);
-          let result: VbValue = VbEmpty;
+          let result: VbValue;
           try {
             self.executeBlockStatement(memberNode.body);
             result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
