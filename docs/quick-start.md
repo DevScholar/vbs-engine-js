@@ -48,7 +48,7 @@ Create `index.html`:
     `;
 
     try {
-      interpreter.execute(vbsCode);
+      interpreter.executeStatement(vbsCode);
       document.getElementById('output').textContent = 'VBScript executed successfully!';
     } catch (error) {
       document.getElementById('output').textContent = 'Error: ' + error.message;
@@ -116,9 +116,8 @@ const vbsCode = `
 `;
 
 try {
-  const result = interpreter.execute(vbsCode);
+  interpreter.executeStatement(vbsCode);
   console.log('VBScript executed successfully!');
-  console.log('Result:', result);
 } catch (error) {
   console.error('Error:', error.message);
 }
@@ -137,7 +136,7 @@ Add `"type": "module"` to your `package.json`:
     "start": "node demo.js"
   },
   "dependencies": {
-    "@devscholar/vbs-engine-js": "^0.0.6"
+    "@devscholar/vbs-engine-js": "^1.1.3"
   }
 }
 ```

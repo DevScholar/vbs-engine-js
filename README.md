@@ -21,7 +21,8 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 | Method | Description |
 |--------|-------------|
 | `addCode(code: string)` | Adds script code to the engine (function/class definitions) |
-| `executeStatement(statement: string)` | Executes a single VBScript statement |
+| `executeStatement(statement: string)` | Executes a VBScript statement; captures errors in `engine.error` |
+| `executeStatementThrows(statement: string)` | Executes a statement and rethrows the error as a native JS `Error` with an HRESULT `number` (IE/WSH `catch` style) |
 | `run(procedureName: string, ...args)` | Calls a function and returns the result |
 | `eval(expression: string)` | Evaluates an expression and returns the result |
 | `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |
@@ -32,7 +33,7 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `error` | `VbsError \| null` | The last error that occurred, or null |
+| `error` | `VbsError \| null` | The last error that occurred, or null. Mirrors MSScriptControl's `Error` object: `number` (pure code), `description`, `source`, `line`, `column`, `text`, `helpFile`, `helpContext` |
 
 ### Example Usage
 
@@ -146,8 +147,9 @@ engine.executeStatement(`
 
 ```typescript
 interface VbsEngineOptions {
-  mode?: 'general' | 'browser';  // Default: 'general'
+  mode?: 'general' | 'browser' | 'auto';  // Default: 'auto'
   injectGlobalThis?: boolean;    // Default: true
+  injectVBArrayToGlobalThis?: boolean; // Default: true
   maxExecutionTime?: number;     // Default: -1 (unlimited)
   
   // Browser mode only:

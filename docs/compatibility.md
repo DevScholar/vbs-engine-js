@@ -245,8 +245,8 @@ This document tracks the compatibility between this VBScript engine implementati
 | GetRef | ✔️ | |
 | GetLocale | ✔️ | Uses Intl API to detect browser locale |
 | SetLocale | ✔️ | Sets locale, returns LCID |
-| CreateObject | ⛔ | COM objects unavailable in browser |
-| GetObject | ⛔ | COM objects unavailable in browser |
+| CreateObject | ✔️ | Delegates to the host's `ActiveXObject`; see COM Objects below |
+| GetObject | ✔️ | Delegates to the host's `GetObject`; see COM Objects below |
 | LoadPicture | ✔️ | Returns stub IPictureDisp object |
 | RGB | ✔️ | Returns RGB color value |
 | QBColor | ✔️ | Returns legacy color value |
@@ -266,10 +266,11 @@ This document tracks the compatibility between this VBScript engine implementati
 | Number | ✔️ | |
 | Description | ✔️ | |
 | Source | ✔️ | |
+| HelpFile | ✔️ | Read/write `String`, default `""` (no help source); only set when `Err.Raise` passes a helpfile argument. No `.hlp` loading — WinHelp was removed from modern Windows |
+| HelpContext | ✔️ | Read/write `Long`, default `0` (no help source); only set when `Err.Raise` passes a helpcontext argument. No `.hlp` loading |
+| LastDllError | ✔️ | Returns 0 (no DLL loader wired) |
 | Clear | ✔️ | |
-| Raise | ✔️ | |
-| HelpContext | ⛔ | Windows Help system |
-| HelpFile | ⛔ | Windows Help system |
+| Raise | ✔️ | Supports `number, source, description, helpfile, helpcontext` |
 
 ### RegExp Object
 
@@ -445,18 +446,33 @@ directly without wrapping.
 
 ## COM Objects
 
-All COM objects features are intentionally not implemented due to browser security restrictions.
+`CreateObject` and `GetObject` delegate to the JavaScript host's `ActiveXObject` /
+`GetObject`, so their availability depends on the environment:
 
-These functions rely on the JavaScript environment's native `ActiveXObject` support. In Internet Explorer, this allows creating COM objects including FileSystemObject, Word.Application, Excel.Application, etc. However, modern JavaScript environments (Chrome, Firefox, Edge, Node.js) do not support ActiveXObject. The author of this project may create a separate project in the future to implement polyfills for common COM objects (such as FileSystemObject, WScript.Shell, etc.) in modern JavaScript environments. This is beyond the scope of this VBScript engine project.
+- **Internet Explorer** — native `ActiveXObject` is present, so COM objects
+  (FileSystemObject, Word.Application, Excel.Application, WScript.Shell, etc.)
+  work directly.
+- **Node.js on Windows** — wire up
+  [`@devscholar/node-ps1-dotnet`](https://www.npmjs.com/package/@devscholar/node-ps1-dotnet)
+  to provide `ActiveXObject`/`GetObject` before running scripts (see the README's
+  "COM / ActiveX Integration" section).
+- **Other browsers (Chrome, Firefox, Edge, modern Node.js)** — no `ActiveXObject`,
+  so `CreateObject` returns a dummy object and `GetObject` returns `Nothing`.
+
+The concrete COM automation classes (FileSystemObject, WScript.Shell, etc.) are
+not polyfilled by this engine; they are supplied by the host through the two
+functions above.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| FileSystemObject | ⛔ | Browser security |
-| Drive Object | ⛔ | Browser security |
-| Folder Object | ⛔ | Browser security |
-| File Object | ⛔ | Browser security |
-| TextStream | ⛔ | Browser security |
-| Dictionary Object | ⛔ | Browser security |
+| CreateObject | ✔️ | Delegates to host `ActiveXObject` |
+| GetObject | ✔️ | Delegates to host `GetObject` |
+| FileSystemObject | ⛔ | Requires host COM backend |
+| Drive Object | ⛔ | Requires host COM backend |
+| Folder Object | ⛔ | Requires host COM backend |
+| File Object | ⛔ | Requires host COM backend |
+| TextStream | ⛔ | Requires host COM backend |
+| Dictionary Object | ⛔ | Requires host COM backend |
 
 ---
 
