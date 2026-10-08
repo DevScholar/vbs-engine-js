@@ -476,6 +476,69 @@ functions above.
 
 ---
 
+## WSH Host (`WScript`) and `run-script`
+
+The engine itself does not inject a `WScript` object. Like `ActiveXObject`/`GetObject`,
+it is supplied by the host through `globalThis` — present if the host provides it,
+absent otherwise. The `run-script` CLI (this package's `bin`) provides a
+cscript/wscript-style host on top of this, so scripts written for Windows Script
+Host run with minimal changes.
+
+### `WScript` host object
+
+Injected by the host as `globalThis.WScript`, exposing the standard WSH surface:
+
+| Member | Status | Notes |
+|--------|--------|-------|
+| `WScript.Echo` | ✔️ | Writes to stdout in cscript mode; joined with spaces |
+| `WScript.Quit n` | ✔️ | Throws a `WScriptQuitSignal` to unwind; `run-script` maps it to the process exit code |
+| `WScript.Sleep ms` | ✔️ | Synchronous sleep |
+| `WScript.Arguments` | ✔️ | `Count`, `(n)`, `Item(n)`, `Named`, `Unnamed` |
+| `WScript.Arguments.Named("x")` / `.Exists("x")` | ✔️ | Named args from `/name:value` and `.wsf` `<runtime>` |
+| `WScript.StdOut` / `StdErr` | ✔️ | `Write` / `WriteLine` / `WriteBlankLines` |
+| `WScript.StdIn` | ✔️ | `ReadLine` / `ReadAll` (synchronous) |
+| `WScript.ScriptName` / `ScriptFullName` | ✔️ | |
+| `WScript.FullName` / `Path` / `Version` / `BuildVersion` | ✔️ | Host paths and a fixed `5.812` version string |
+| `WScript.Interactive` | ✔️ | `false` under `//B` |
+| `WScript.CreateObject` / `GetObject` | ✔️ | Delegate to the host's `ActiveXObject`/`GetObject` |
+
+`WScript` is implemented as a plain object exposing the engine's `VbObjectValueData`
+protocol (`getProperty`/`hasMethod`/`getMethod`). Default-property invocation
+(`WScript.Arguments(0)`, `WScript.Arguments.Named("x")`) is supported by the
+engine's member-call dispatch.
+
+### `run-script` CLI
+
+```
+run-script script.vbs [//options] [script-args...]
+run-script script.wsf //job:Job1 [//options] [script-args...]
+```
+
+| Option | Meaning |
+|--------|---------|
+| `//nologo` | Suppress the banner |
+| `//job:<id>` | Select a `<job>` in a `.wsf` |
+| `//B` / `//I` | Batch (non-interactive) / interactive mode |
+| `//E:<engine>` | Target engine (VBScript only for now) |
+| `--gui-mode=cscript\|wscript` | Drives `WScript.Echo` (console vs GUI) |
+
+Named script arguments use WSH's `/name:value` form; bare words are positional.
+`WScript.Quit n` sets the process exit code.
+
+### Windows Script File (`.wsf`)
+
+`run-script` parses `.wsf` files (via `fast-xml-parser`), supporting:
+
+| Element | Status | Notes |
+|---------|--------|-------|
+| `<package>` / `<job>` | ✔️ | Multiple jobs; single job without `<package>` |
+| `<script language="VBScript">` | ✔️ | Inline text, CDATA, and `src="..."` |
+| `<runtime>` | ✔️ | `<named>`, `<unnamed>`, `<description>`, `<example>`; feeds `WScript.Arguments` and `ShowUsage` |
+| `<object>` / `<reference>` / `<resource>` | ⚠️ | `<object id progid>` is hoisted into an implicit `Set <id> = CreateObject(progid)` before scripts run; `<reference>` is parsed but its typelib/constant loading is not yet performed |
+| `<script language="JScript">` | ✔️ | Executed via the host JS engine in the global context (`vm.runInThisContext`); top-level `var`/`function` become `globalThis` properties, so VBScript and JScript share one global scope |
+
+---
+
 ## Events
 
 | Event | Status | Notes |

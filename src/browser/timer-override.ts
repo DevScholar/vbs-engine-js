@@ -15,7 +15,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
     delay?: unknown,
     languageOrArg?: unknown,
     ...args: unknown[]
-  ): number {
+  ): ReturnType<typeof setTimeout> {
     if (typeof handler === 'string') {
       const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
       const actualDelay = typeof delay === 'number' ? delay : 0;
@@ -51,7 +51,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
 
     return originalSetTimeout.call(
       window,
-      handler as TimerHandler,
+      handler as (...a: unknown[]) => void,
       delay as number | undefined,
       ...[languageOrArg, ...args].filter(a => a !== undefined)
     );
@@ -62,7 +62,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
     delay?: unknown,
     languageOrArg?: unknown,
     ...args: unknown[]
-  ): number {
+  ): ReturnType<typeof setInterval> {
     if (typeof handler === 'string') {
       const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
       const actualDelay = typeof delay === 'number' ? delay : 0;
@@ -98,7 +98,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
 
     return originalSetInterval.call(
       window,
-      handler as TimerHandler,
+      handler as (...a: unknown[]) => void,
       delay as number | undefined,
       ...[languageOrArg, ...args].filter(a => a !== undefined)
     );

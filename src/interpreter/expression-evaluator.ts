@@ -530,6 +530,21 @@ export class ExpressionEvaluator {
       return obj.call(...args);
     }
 
+    // Default-property invocation: `obj(args)` where obj exposes a `default` (or
+    // `item`) method. This is the mechanism behind VBScript's default-member call
+    // — `WScript.Arguments(0)`, `Collection(1)`, `dict("key")`, etc. The bare-
+    // Identifier form (`variable(0)`) is already handled in evaluateCallInternal's
+    // Identifier branch; this covers member expressions like `WScript.Arguments(0)`
+    // whose callee evaluates to a VbObjectValueData carrying getMethod/hasMethod.
+    if (typeof obj.hasMethod === 'function' && typeof obj.getMethod === 'function') {
+      const defaultName = obj.hasMethod('default') ? 'default' : obj.hasMethod('item') ? 'item' : null;
+      if (defaultName) {
+        const method = obj.getMethod(defaultName);
+        const args = callArgs.map(arg => this.evaluate(arg));
+        return method.func.call(obj, ...args);
+      }
+    }
+
     throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call');
   }
 
