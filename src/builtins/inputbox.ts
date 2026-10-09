@@ -192,7 +192,11 @@ function showNativeInputBox(message: string, title: string, defaultText: string)
       `display dialog ${JSON.stringify(message)} default answer ${JSON.stringify(defaultText)}` +
       (title ? ` with title ${JSON.stringify(title)}` : '');
     const out = String(execFileSync('osascript', ['-e', script], { encoding: 'utf8' }));
-    const m = /text returned:(.*?)(?:,|$)/.exec(out);
+    // osascript prints `button returned:X, text returned:Y\n` — the trailing
+    // newline defeats a non-greedy `.*?` + `$` here, and a user value containing a
+    // comma would truncate at the first `,`. A greedy `.*` to end-of-line avoids
+    // both (it stops short of the newline), and an empty answer yields ''.
+    const m = /text returned:(.*)/.exec(out);
     return m ? m[1]!.trim() : '';
   }
 
