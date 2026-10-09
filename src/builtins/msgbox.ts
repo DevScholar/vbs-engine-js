@@ -668,14 +668,30 @@ function showNativeMsgBox(
     execFileSync('zenity', ['--info', '--title', title, '--text', message], { stdio: 'inherit' });
     return BUTTON_LABEL_TO_RESULT[labels[0]!] ?? MsgBoxConstants.vbCancel;
   }
+
+  // Two or three buttons → `--question`, which renders real bottom buttons (not a
+  // list). Zenity's button contract (verified empirically on 4.0.1):
+  //   OK button        → exit 0, no stdout
+  //   Cancel button    → exit 1, no stdout
+  //   --extra-button   → exit 1, prints its label to stdout
+  // So the first label goes on OK, the second on Cancel, an optional third on
+  // --extra-button; the result is decoded from exit code + stdout.
+  const args = ['--question', '--title', title, '--text', message];
+  args.push('--ok-label', labels[0]!);
+  if (labels.length >= 2) args.push('--cancel-label', labels[1]!);
+  if (labels.length >= 3) args.push('--extra-button', labels[2]!);
+  // `--default-cancel` focuses the Cancel button; otherwise OK is the default.
+  if (defaultButtonIndex(defaultButton, labels.length) === 1) args.push('--default-cancel');
+
   try {
-    const out = execFileSync(
-      'zenity',
-      ['--list', '--title', title, '--text', message, '--column=', ...labels],
-      { encoding: 'utf8' }
-    );
-    return BUTTON_LABEL_TO_RESULT[String(out).trim()] ?? MsgBoxConstants.vbCancel;
-  } catch {
-    return getDefaultResult(buttonType, defaultButton);
+    execFileSync('zenity', args, { encoding: 'utf8' });
+    return BUTTON_LABEL_TO_RESULT[labels[0]!] ?? MsgBoxConstants.vbCancel;
+  } catch (e) {
+    const stdout = String((e as { stdout?: unknown }).stdout ?? '').trim();
+    if (stdout !== '') {
+      // Extra button clicked (its label was echoed to stdout).
+      return BUTTON_LABEL_TO_RESULT[stdout] ?? getDefaultResult(buttonType, defaultButton);
+    }
+    return BUTTON_LABEL_TO_RESULT[labels[1]!] ?? MsgBoxConstants.vbCancel;
   }
 }
