@@ -1,4 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
+import { getExecFileSync, psQuote, runPowerShellDialog } from './gui.ts';
 
 export const MsgBoxConstants = {
   vbOKOnly: 0,
@@ -135,171 +136,47 @@ function mapButtonToResult(button: string, buttonType: MsgBoxButtonType): number
   }
 }
 
+/** Ordered button labels for each MsgBox button type (left-to-right in the dialog). */
+export function getButtonLabels(buttonType: MsgBoxButtonType): string[] {
+  switch (buttonType) {
+    case 'OK':
+      return ['OK'];
+    case 'OKCancel':
+      return ['OK', 'Cancel'];
+    case 'AbortRetryIgnore':
+      return ['Abort', 'Retry', 'Ignore'];
+    case 'YesNoCancel':
+      return ['Yes', 'No', 'Cancel'];
+    case 'YesNo':
+      return ['Yes', 'No'];
+    case 'RetryCancel':
+      return ['Retry', 'Cancel'];
+  }
+}
+
+/** Maps a button label (e.g. "Yes") to its MsgBox return value (vbYes). */
+export const BUTTON_LABEL_TO_RESULT: Record<string, number> = {
+  OK: MsgBoxConstants.vbOK,
+  Cancel: MsgBoxConstants.vbCancel,
+  Abort: MsgBoxConstants.vbAbort,
+  Retry: MsgBoxConstants.vbRetry,
+  Ignore: MsgBoxConstants.vbIgnore,
+  Yes: MsgBoxConstants.vbYes,
+  No: MsgBoxConstants.vbNo,
+};
+
+/** 0 → first button, 256 → second, 512 → third, clamped to the button count. */
+export function defaultButtonIndex(defaultButton: number, count: number): number {
+  const idx = Math.floor(defaultButton / 256);
+  return Math.min(Math.max(0, idx), count - 1);
+}
+
 function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): string {
-  let options = '';
-  let defaultLabel = '';
-  switch (buttonType) {
-    case 'OK':
-      options = '[O] OK';
-      defaultLabel = 'O';
-      break;
-    case 'OKCancel':
-      if (defaultButton === 256) {
-        options = '[O] OK / [C] Cancel';
-        defaultLabel = 'O';
-      } else {
-        options = '[O] OK / [C] Cancel';
-        defaultLabel = 'C';
-      }
-      break;
-    case 'YesNo':
-      if (defaultButton === 256) {
-        options = '[Y] Yes / [N] No';
-        defaultLabel = 'Y';
-      } else {
-        options = '[Y] Yes / [N] No';
-        defaultLabel = 'N';
-      }
-      break;
-    case 'YesNoCancel':
-      if (defaultButton === 512) {
-        options = '[Y] Yes / [N] No / [C] Cancel';
-        defaultLabel = 'C';
-      } else if (defaultButton === 256) {
-        options = '[Y] Yes / [N] No / [C] Cancel';
-        defaultLabel = 'Y';
-      } else {
-        options = '[Y] Yes / [N] No / [C] Cancel';
-        defaultLabel = 'N';
-      }
-      break;
-    case 'RetryCancel':
-      if (defaultButton === 256) {
-        options = '[R] Retry / [C] Cancel';
-        defaultLabel = 'R';
-      } else {
-        options = '[R] Retry / [C] Cancel';
-        defaultLabel = 'C';
-      }
-      break;
-    case 'AbortRetryIgnore':
-      if (defaultButton === 512) {
-        options = '[A] Abort / [R] Retry / [I] Ignore';
-        defaultLabel = 'I';
-      } else if (defaultButton === 256) {
-        options = '[A] Abort / [R] Retry / [I] Ignore';
-        defaultLabel = 'R';
-      } else {
-        options = '[A] Abort / [R] Retry / [I] Ignore';
-        defaultLabel = 'A';
-      }
-      break;
-  }
+  const labels = getButtonLabels(buttonType);
+  const index = defaultButtonIndex(defaultButton, labels.length);
+  const defaultLabel = labels[index]!.charAt(0);
+  const options = labels.map(l => `[${l.charAt(0)}] ${l}`).join(' / ');
   return options + ` (default is "${defaultLabel}"): `;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _getInputPrompt(buttonType: MsgBoxButtonType): string {
-  let prompt = '';
-  switch (buttonType) {
-    case 'OK':
-      prompt = '[OK]';
-      break;
-    case 'OKCancel':
-      prompt = '[O]K / [C]ancel';
-      break;
-    case 'YesNo':
-      prompt = '[Y]es / [N]o';
-      break;
-    case 'YesNoCancel':
-      prompt = '[Y]es / [N]o / [C]ancel';
-      break;
-    case 'RetryCancel':
-      prompt = '[R]etry / [C]ancel';
-      break;
-    case 'AbortRetryIgnore':
-      prompt = '[A]bort / [R]etry / [I]gnore';
-      break;
-  }
-  return prompt;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _readFromConsole(): Promise<string | null> {
-  return new Promise(resolve => {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Node.js specific
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const readline = require('readline');
-    const rl = readline.createInterface({
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - Node.js specific
-      input: process.stdin,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - Node.js specific
-      output: process.stdout,
-    });
-    rl.question('', (answer: string) => {
-      rl.close();
-      resolve(answer || null);
-    });
-  });
-}
-
-function _syncReadFromConsole(): string | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Node.js specific
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Node.js specific
-    const chunks: Buffer[] = [];
-
-    while (true) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - Node.js specific
-      const buffer = Buffer.alloc(1024);
-      let bytesRead = 0;
-      try {
-        bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
-      } catch {
-        return null;
-      }
-      if (bytesRead === 0) {
-        break;
-      }
-      const chunk = buffer.subarray(0, bytesRead);
-      chunks.push(chunk);
-      if (chunk.includes(10)) {
-        break;
-      }
-    }
-
-    if (chunks.length === 0) {
-      return null;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Node.js specific
-    return Buffer.concat(chunks)
-      .toString('utf8')
-      .replace(/\r?\n$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function _writeToConsole(text: string): void {
-  try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Node.js specific
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs');
-    fs.writeSync(1, text);
-  } catch {
-    console.log(text);
-  }
 }
 
 export interface MsgBoxOptions {
@@ -307,24 +184,25 @@ export interface MsgBoxOptions {
   confirm?: (message: string) => boolean | undefined;
   prompt?: (message: string, defaultValue: string) => string | null;
   console?: (message: string) => void;
-  readline?: () => Promise<string | null>;
+  /** Synchronous line read; returns null on EOF. The host supplies this. */
+  readline?: () => string | null;
+  /**
+   * Native GUI dialog hook. Receives the parsed button/icon config and must return
+   * the chosen button's VBScript result code (MsgBoxConstants.vb*). When present it
+   * takes precedence over the console/readline fallback, matching real WSH where
+   * MsgBox is always a blocking modal dialog (in both cscript and wscript).
+   */
+  gui?: (args: {
+    message: string;
+    title: string | null;
+    buttonType: MsgBoxButtonType;
+    iconType: MsgBoxIconType;
+    defaultButton: number;
+  }) => number;
 }
 
 export function createMsgBox(options?: MsgBoxOptions) {
-  return function (
-    _context: {
-      functionRegistry: {
-        register: (
-          name: string,
-          func: (...args: VbValue[]) => VbValue,
-          options?: { isSub: boolean }
-        ) => void;
-      };
-    },
-    promptVal: VbValue,
-    buttons?: VbValue,
-    title?: VbValue
-  ): VbValue {
+  return function (promptVal: VbValue, buttons?: VbValue, title?: VbValue): VbValue {
     const message = String(promptVal.value ?? promptVal);
     const buttonsVal = buttons ? Number(buttons.value ?? buttons) : 0;
     const titleStr = title ? String(title.value ?? title) : null;
@@ -334,6 +212,11 @@ export function createMsgBox(options?: MsgBoxOptions) {
     const buttonOptions = getButtonOptions(buttonType, defaultButton);
 
     const finalPrompt = fullPrompt + '\n' + buttonOptions;
+
+    if (options?.gui) {
+      const result = options.gui({ message, title: titleStr, buttonType, iconType, defaultButton });
+      return { type: 'Integer', value: result };
+    }
 
     if (options?.alert && buttonType === 'OK') {
       options.alert(finalPrompt);
@@ -369,56 +252,35 @@ export function createMsgBox(options?: MsgBoxOptions) {
 
     if (options?.readline) {
       const readline = options.readline;
-      async function getInput(): Promise<VbValue> {
-        while (true) {
-          const input = await readline();
-          if (input === null) {
-            return { type: 'Integer', value: MsgBoxConstants.vbCancel };
-          }
-          const trimmed = input.trim().toLowerCase();
-          if (trimmed === '') {
-            const result = getDefaultResult(buttonType, defaultButton);
-            return { type: 'Integer', value: result };
-          }
-          const result = mapButtonToResult(input, buttonType);
-          if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
-            return { type: 'Integer', value: result };
-          }
-          if (options?.console) {
-            options.console(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
-          } else {
-            console.log(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
-          }
+      while (true) {
+        const input = readline();
+        if (input === null) {
+          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        }
+        const trimmed = input.trim().toLowerCase();
+        if (trimmed === '') {
+          return { type: 'Integer', value: getDefaultResult(buttonType, defaultButton) };
+        }
+        const result = mapButtonToResult(input, buttonType);
+        if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
+          return { type: 'Integer', value: result };
+        }
+        if (options?.console) {
+          options.console(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+        } else {
+          console.log(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
         }
       }
-      return getInput() as unknown as VbValue;
     }
 
     return { type: 'Integer', value: MsgBoxConstants.vbCancel };
   };
 }
 
-function getDefaultResult(buttonType: MsgBoxButtonType, defaultButton: number): number {
-  switch (buttonType) {
-    case 'OK':
-      return MsgBoxConstants.vbOK;
-    case 'OKCancel':
-      return defaultButton === 256 ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel;
-    case 'YesNo':
-      return defaultButton === 256 ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo;
-    case 'YesNoCancel':
-      if (defaultButton === 512) return MsgBoxConstants.vbCancel;
-      if (defaultButton === 256) return MsgBoxConstants.vbYes;
-      return MsgBoxConstants.vbNo;
-    case 'RetryCancel':
-      return defaultButton === 256 ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel;
-    case 'AbortRetryIgnore':
-      if (defaultButton === 512) return MsgBoxConstants.vbIgnore;
-      if (defaultButton === 256) return MsgBoxConstants.vbRetry;
-      return MsgBoxConstants.vbAbort;
-    default:
-      return MsgBoxConstants.vbCancel;
-  }
+export function getDefaultResult(buttonType: MsgBoxButtonType, defaultButton: number): number {
+  const labels = getButtonLabels(buttonType);
+  const index = defaultButtonIndex(defaultButton, labels.length);
+  return BUTTON_LABEL_TO_RESULT[labels[index]!] ?? MsgBoxConstants.vbOK;
 }
 
 function isValidExplicitButton(input: string, buttonType: MsgBoxButtonType): boolean {
@@ -590,9 +452,19 @@ export function registerMsgBox(context: {
       if (buttonType === 'OK') {
         if (typeof alert !== 'undefined') {
           alert(fullPrompt);
+        } else if (typeof process !== 'undefined' && getExecFileSync() !== null) {
+          return {
+            type: 'Integer',
+            value: showNativeMsgBox(
+              message,
+              titleStr ?? 'Windows Script Host',
+              buttonType,
+              iconType,
+              defaultButton
+            ),
+          };
         } else {
-          _writeToConsole(fullPrompt + '\n[Press Enter]');
-          _syncReadFromConsole();
+          console.log(fullPrompt);
         }
         return { type: 'Integer', value: MsgBoxConstants.vbOK };
       }
@@ -698,25 +570,112 @@ export function registerMsgBox(context: {
         }
       }
 
-      // Node.js interactive fallback using synchronous stdin
-      _writeToConsole(finalPrompt);
-      while (true) {
-        const input = _syncReadFromConsole();
-        if (input === null) {
-          _writeToConsole('\n');
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
-        }
-        const trimmed = input.trim().toLowerCase();
-        if (trimmed === '') {
-          return { type: 'Integer', value: getDefaultResult(buttonType, defaultButton) };
-        }
-        const result = mapButtonToResult(trimmed, buttonType);
-        if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
-          return { type: 'Integer', value: result };
-        }
-        _writeToConsole(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+      // Browser-less (Node) host: prefer a native GUI dialog (matching real WSH,
+      // where MsgBox is always a blocking modal dialog, even under cscript). If no
+      // platform backend is available, fall back to a non-interactive console line.
+      if (typeof process !== 'undefined' && getExecFileSync() !== null) {
+        return {
+          type: 'Integer',
+          value: showNativeMsgBox(
+            message,
+            titleStr ?? 'Windows Script Host',
+            buttonType,
+            iconType,
+            defaultButton
+          ),
+        };
       }
+      console.log(finalPrompt);
+      return { type: 'Integer', value: MsgBoxConstants.vbCancel };
     },
     { isSub: false }
   );
+}
+
+// --- Native GUI dialog backend (Node only) -----------------------------------
+// Real WSH shows MsgBox as a blocking modal dialog under BOTH cscript and wscript;
+// it never degrades to a console prompt. In a Node host (which has no `alert` /
+// `window.confirm`), we reach for a platform dialog: PowerShell MessageBox on
+// Windows, osascript on macOS, zenity on Unix. The backend is fetched lazily via
+// `process.getBuiltinModule` so the browser build never pulls in node:child_process.
+
+/** Windows MessageBoxButtons / MessageBoxIcon / MessageBoxDefaultButton names. */
+const MSGBOX_BUTTONS: Record<MsgBoxButtonType, string> = {
+  OK: 'OK',
+  OKCancel: 'OKCancel',
+  AbortRetryIgnore: 'AbortRetryIgnore',
+  YesNoCancel: 'YesNoCancel',
+  YesNo: 'YesNo',
+  RetryCancel: 'RetryCancel',
+};
+
+const MSGBOX_ICONS: Record<Exclude<MsgBoxIconType, null>, string> = {
+  Critical: 'Error',
+  Question: 'Question',
+  Exclamation: 'Warning',
+  Information: 'Information',
+};
+
+/** Maps a MessageBox.Show DialogResult name back to a VBScript result code. */
+const DIALOG_RESULT_TO_VB: Record<string, number> = {
+  OK: MsgBoxConstants.vbOK,
+  Cancel: MsgBoxConstants.vbCancel,
+  Abort: MsgBoxConstants.vbAbort,
+  Retry: MsgBoxConstants.vbRetry,
+  Ignore: MsgBoxConstants.vbIgnore,
+  Yes: MsgBoxConstants.vbYes,
+  No: MsgBoxConstants.vbNo,
+};
+
+/** Shows a native MsgBox dialog; returns the chosen VBScript result code. */
+function showNativeMsgBox(
+  message: string,
+  title: string,
+  buttonType: MsgBoxButtonType,
+  iconType: MsgBoxIconType,
+  defaultButton: number
+): number {
+  const execFileSync = getExecFileSync()!;
+  const labels = getButtonLabels(buttonType);
+
+  if (process.platform === 'win32') {
+    const icon = iconType
+      ? `[System.Windows.Forms.MessageBoxIcon]::${MSGBOX_ICONS[iconType]}`
+      : '[System.Windows.Forms.MessageBoxIcon]::None';
+    const defIndex = defaultButtonIndex(defaultButton, labels.length);
+    const def = `[System.Windows.Forms.MessageBoxDefaultButton]::Button${defIndex + 1}`;
+    const body =
+      `$r=[System.Windows.Forms.MessageBox]::Show($owner, ${psQuote(message)}, ${psQuote(title)}, ` +
+      `[System.Windows.Forms.MessageBoxButtons]::${MSGBOX_BUTTONS[buttonType]}, ${icon}, ${def}); ` +
+      'Write-Output $r.ToString()';
+    const out = runPowerShellDialog(body);
+    return DIALOG_RESULT_TO_VB[out.trim()] ?? MsgBoxConstants.vbCancel;
+  }
+
+  if (process.platform === 'darwin') {
+    const defLabel = labels[defaultButtonIndex(defaultButton, labels.length)]!;
+    const buttons = labels.map(l => `"${l}"`).join(', ');
+    const script =
+      `display dialog ${JSON.stringify(message)} buttons {${buttons}} default button "${defLabel}"` +
+      (title ? ` with title ${JSON.stringify(title)}` : '');
+    const out = execFileSync('osascript', ['-e', script], { encoding: 'utf8' });
+    const m = /button returned:(.+)/.exec(String(out));
+    return BUTTON_LABEL_TO_RESULT[(m?.[1] ?? defLabel).trim()] ?? MsgBoxConstants.vbCancel;
+  }
+
+  // Unix-like, non-macOS.
+  if (labels.length === 1) {
+    execFileSync('zenity', ['--info', '--title', title, '--text', message], { stdio: 'inherit' });
+    return BUTTON_LABEL_TO_RESULT[labels[0]!] ?? MsgBoxConstants.vbCancel;
+  }
+  try {
+    const out = execFileSync(
+      'zenity',
+      ['--list', '--title', title, '--text', message, '--column=', ...labels],
+      { encoding: 'utf8' }
+    );
+    return BUTTON_LABEL_TO_RESULT[String(out).trim()] ?? MsgBoxConstants.vbCancel;
+  } catch {
+    return getDefaultResult(buttonType, defaultButton);
+  }
 }

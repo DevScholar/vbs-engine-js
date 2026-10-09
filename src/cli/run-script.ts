@@ -26,6 +26,8 @@ import { VbsEngine } from '../core/index.ts';
 import { createWScript, WScriptQuitSignal, type WshEnvironment } from '../host/wscript.ts';
 import { parseWsf, type WsfJob } from '../host/wsf.ts';
 import { runJScript } from '../host/jscript.ts';
+import { createMsgBox, getDefaultResult } from '../builtins/msgbox.ts';
+import { createInputBox } from '../builtins/inputbox.ts';
 
 interface CliOptions {
   file: string;
@@ -55,7 +57,9 @@ function syncSleep(ms: number): void {
 function resolveGuiDialog(): (message: string, title?: string) => void {
   if (process.platform === 'win32') {
     return (message: string, title?: string): void => {
-      const ps = `[System.Windows.Forms.MessageBox]::Show(${JSON.stringify(message)}, ${JSON.stringify(title ?? 'Windows Script Host')})`;
+      const ps =
+        `Add-Type -AssemblyName System.Windows.Forms; ` +
+        `[void][System.Windows.Forms.MessageBox]::Show(${JSON.stringify(message)}, ${JSON.stringify(title ?? 'Windows Script Host')})`;
       execFileSync('powershell', ['-NoProfile', '-Command', ps], { stdio: 'inherit' });
     };
   }
@@ -71,11 +75,16 @@ function resolveGuiDialog(): (message: string, title?: string) => void {
 
   // Unix-like, non-macOS.
   return (message: string, title?: string): void => {
-    execFileSync('zenity', ['--info', '--title', title ?? 'Windows Script Host', '--text', message], {
-      stdio: 'inherit',
-    });
+    execFileSync(
+      'zenity',
+      ['--info', '--title', title ?? 'Windows Script Host', '--text', message],
+      {
+        stdio: 'inherit',
+      }
+    );
   };
 }
+
 
 /** Synchronous line read from fd 0; returns null on EOF. */
 function syncReadLine(): string | null {
@@ -87,7 +96,11 @@ function syncReadLine(): string | null {
       try {
         bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
       } catch {
-        return chunks.length ? Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '') : null;
+        return chunks.length
+          ? Buffer.concat(chunks)
+              .toString('utf8')
+              .replace(/\r?\n$/, '')
+          : null;
       }
       if (bytesRead === 0) {
         break;
@@ -99,7 +112,9 @@ function syncReadLine(): string | null {
       }
     }
     if (chunks.length === 0) return null;
-    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    return Buffer.concat(chunks)
+      .toString('utf8')
+      .replace(/\r?\n$/, '');
   } catch {
     return null;
   }
@@ -167,9 +182,7 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   if (!opts.file) {
-    console.error(
-      'Usage: run-script script.vbs [//options] [script-args...]'
-    );
+    console.error('Usage: run-script script.vbs [//options] [script-args...]');
     process.exit(1);
   }
   return opts;
@@ -328,6 +341,19 @@ async function main(): Promise<void> {
   (globalThis as Record<string, unknown>).WScript = wscriptObject;
 
   const engine = new VbsEngine({ mode: 'general' });
+
+  // MsgBox and InputBox are engine built-ins and already show a native GUI dialog
+  // in a Node host (their default registration does so). The only thing this CLI
+  // host adds is `//B` batch mode, where real WSH suppresses alerts/input prompts
+  // entirely: override them to return the default button (MsgBox) / empty string
+  // (InputBox) without showing a dialog.
+  if (cli.batch) {
+    engine._registerFunction(
+      'MsgBox',
+      createMsgBox({ gui: args => getDefaultResult(args.buttonType, args.defaultButton) })
+    );
+    engine._registerFunction('InputBox', createInputBox({ gui: () => '' }));
+  }
 
   try {
     // `<object id=... progid=.../>` declarations are hoisted by real WSH into an
