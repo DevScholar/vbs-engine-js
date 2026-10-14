@@ -1,5 +1,17 @@
 import type { VbValue } from '../runtime/index.ts';
-import { serialToDate, toNumber, toString, toVbDate } from '../runtime/index.ts';
+import { createVbError, serialToDate, toNumber, toString, toVbDate, VbErrorCodes } from '../runtime/index.ts';
+
+/**
+ * The date argument of DateValue and TimeValue, which take a date or a string only: a number, a Boolean
+ * or Empty is a type mismatch there even though CDate reads them, and Null is error 94.
+ */
+function toVbDateArgument(value: VbValue): Date {
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
+  if (value.type !== 'String' && value.type !== 'Date') {
+    throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`);
+  }
+  return toVbDate(value);
+}
 
 export const dateFunctions = {
   Now: (): VbValue => {
@@ -217,12 +229,12 @@ export const dateFunctions = {
   },
 
   DateValue: (date: VbValue): VbValue => {
-    const d = toVbDate(date);
+    const d = toVbDateArgument(date);
     return { type: 'Date', value: new Date(d.getFullYear(), d.getMonth(), d.getDate()) };
   },
 
   TimeValue: (time: VbValue): VbValue => {
-    const d = toVbDate(time);
+    const d = toVbDateArgument(time);
     return { type: 'Date', value: new Date(1899, 11, 30, d.getHours(), d.getMinutes(), d.getSeconds()) };
   },
 

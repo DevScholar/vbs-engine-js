@@ -340,10 +340,12 @@ export function toString(value: VbValue): string {
  */
 export function toVbDate(value: VbValue): Date {
   if (value.type === 'Date') return value.value;
+  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'String') {
     const str = value.value;
-    const date = parseVbDate(str, getCurrentBCP47Locale()) ?? new Date(str);
-    if (isNaN(date.getTime())) {
+    // Only what parseVbDate reads, so that IsDate answers True for exactly the strings CDate accepts.
+    const date = parseVbDate(str, getCurrentBCP47Locale());
+    if (date === null) {
       throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Date`);
     }
     return date;

@@ -1249,3 +1249,200 @@ describe('Dates as VBScript writes, reads and compares them', () => {
     expect(engine.error?.number).toBe(13);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A date string as vbscript.dll reads it
+// ---------------------------------------------------------------------------
+// Every answer below was read off vbscript.dll (cscript //E:vbscript) under the locale named in the test.
+// CDate and IsDate now share one parser, so IsDate can no longer answer False about a string CDate takes.
+describe('A date string as vbscript.dll reads it', () => {
+  function answer(locale: number, expression: string): unknown {
+    const engine = new VbsEngine();
+    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`);
+    if (engine.error) return `error ${engine.error.number}`;
+    return engine.eval('r');
+  }
+
+  function isDate(locale: number, text: string): unknown {
+    return answer(locale, `IsDate(${JSON.stringify(text)})`);
+  }
+
+  /** The day a string stands for, free of how the locale writes it back. */
+  function parsed(locale: number, text: string): string {
+    const engine = new VbsEngine();
+    engine.executeStatement(
+      `SetLocale ${locale}\nOn Error Resume Next\nd = CDate(${JSON.stringify(text)})\n` +
+        `r = Year(d) & "/" & Month(d) & "/" & Day(d)`
+    );
+    return String(engine.eval('r'));
+  }
+
+  const monthNameCases: [number, string, boolean][] = [
+    [1033, '1 Jan 2026', true],
+    [1033, 'January 1, 2026', true],
+    [1033, '1 Janu 2026', true],
+    [1033, '1 Ja 2026', false],
+    [1033, '1 Janx 2026', false],
+    [1031, '1 Januar 2026', true],
+    [1031, '1 JANUAR 2026', true],
+    [1031, '1 January 2026', false],
+    [1031, '1 Mar 2026', false],
+    [1031, '1 März 2026', true],
+    [1036, '1 janvier 2026', true],
+    [1036, '1 févr. 2026', true],
+    [1036, '1 January 2026', false],
+    [1049, '1 янв 2026', true],
+    [1049, '1 января 2026', true],
+    [1049, '1 Jan 2026', false],
+    [2052, '1 Jan 2026', true],
+    [2052, '1 一月 2026', false],
+  ];
+
+  for (const [locale, text, expected] of monthNameCases) {
+    it(`names the month: IsDate(${JSON.stringify(text)}) is ${expected} under ${locale}`, () => {
+      expect(isDate(locale, text)).toBe(expected);
+    });
+  }
+
+  const rejectedCases: [number, string][] = [
+    [1033, 'Tue Sep 29 2026'],
+    [1033, '2026-09-29T10:30:00'],
+    [1033, '2026-09-29T10:30:00Z'],
+    [1033, '29.09.2026'],
+    [1033, '24:00'],
+    [1033, '10:60'],
+    [1033, 'abc'],
+    [1033, ''],
+    [1042, '29.9.26'],
+  ];
+
+  for (const [locale, text] of rejectedCases) {
+    it(`is no date: IsDate(${JSON.stringify(text)}) is false under ${locale}`, () => {
+      expect(isDate(locale, text)).toBe(false);
+    });
+  }
+
+  const currentYear = new Date().getFullYear();
+  const valueCases: [number, string, unknown][] = [
+    [1033, 'CStr(CDate("Jan 2026"))', '1/1/2026'],
+    [1033, 'CStr(CDate("1 Jan"))', `1/1/${currentYear}`],
+    [1033, 'CStr(CDate("1 Jan 26"))', '1/1/2026'],
+    [1031, 'CStr(CDate("1 Jan 26"))', '01.01.2026'],
+    [1033, 'CStr(CDate("1/2"))', `1/2/${currentYear}`],
+    [1031, 'CStr(CDate("1/2"))', `01.02.${currentYear}`],
+    [1033, 'CStr(CDate("13/1"))', `1/13/${currentYear}`],
+    [1033, 'CStr(CDate("13:30 PM"))', '1:30:00 PM'],
+    [1031, 'CStr(CDate("13:30 PM"))', '13:30:00'],
+    [1033, 'CStr(CDate("0:30 PM"))', '12:30:00 PM'],
+    [1033, 'CStr(CDate("12:30 AM"))', '12:30:00 AM'],
+    [1033, 'CStr(CDate("Sep 29 2026 10:30 PM"))', '9/29/2026 10:30:00 PM'],
+  ];
+
+  for (const [locale, expression, expected] of valueCases) {
+    it(`reads ${expression} as ${JSON.stringify(expected)} under ${locale}`, () => {
+      expect(answer(locale, expression)).toBe(expected);
+    });
+  }
+
+  // The day a string stands for, where CStr would also show CLDR's month padding rather than Windows'
+  // bare month (see the note on the separator and padding below).
+  const parsedCases: [number, string, string][] = [
+    [2052, '1 Jan 26', '2001/1/26'],
+    [2052, '9/29/2026', '2026/9/29'],
+    [2052, '29/09/2026', '2026/9/29'],
+    [1041, '9/29/26', '2026/9/29'],
+    [1042, '1 Jan 26', '2001/1/26'],
+    [1028, '9/29/2026', '2026/9/29'],
+    [1038, '9/29/26', '2026/9/29'],
+    [1031, 'Sep 29 2026 10:30 PM', '2026/9/29'],
+    // The locale's own date markers rather than separators (measured: vbscript.dll reads all of these).
+    [2052, '2026年9月29日', '2026/9/29'],
+    [1028, '2026年9月29日', '2026/9/29'],
+    [1041, '2026年9月29日', '2026/9/29'],
+    [1042, '2026年9月29日', '2026/9/29'],
+    [1042, '2026년 9월 29일', '2026/9/29'],
+    [2052, '2026年9月29日 10:30', '2026/9/29'],
+  ];
+
+  for (const [locale, text, expected] of parsedCases) {
+    it(`reads ${JSON.stringify(text)} as ${expected} under ${locale}`, () => {
+      expect(parsed(locale, text)).toBe(expected);
+    });
+  }
+
+  // Each locale reads its own markers, plus the ideographic form: Korean reads "2026年9月29日" as well
+  // as "2026년 9월 29일", while Chinese and Japanese read only the ideographic one.
+  const markerCases: [number, string, boolean][] = [
+    [2052, '2026年9月29日', true],
+    [1028, '2026年9月29日', true],
+    [1041, '2026年9月29日', true],
+    [1042, '2026年9月29日', true],
+    [1042, '2026년 9월 29일', true],
+    [2052, '2026년 9월 29일', false],
+    [1041, '2026년 9월 29일', false],
+    [1033, '2026年9月29日', false],
+    [1031, '2026年9月29日', false],
+  ];
+
+  for (const [locale, text, expected] of markerCases) {
+    it(`marker date: IsDate(${JSON.stringify(text)}) is ${expected} under ${locale}`, () => {
+      expect(isDate(locale, text)).toBe(expected);
+    });
+  }
+
+  it('still pads the month where Windows pads it', () => {
+    expect(answer(1031, 'CStr(CDate("Sep 29 2026 10:30 PM"))')).toBe('29.09.2026 22:30:00');
+  });
+
+  // Known divergence, left as it is: formatVbDate builds the date from CLDR (Intl), whose Chinese short
+  // date pads the month where Windows' NLS data does not (2026/09/29 against 2026/9/29). The same CLDR
+  // source gives ko-KR "." where Windows writes "-". Reading a date is unaffected; this is CStr only.
+  it('writes the Chinese short date with CLDR padding, not Windows', () => {
+    expect(answer(2052, 'CStr(CDate(46294.4375))')).toBe('2026/09/29 10:30:00');
+    expect(answer(1042, 'CStr(CDate(46294.4375))')).toBe('2026. 09. 29. 오전 10:30:00');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DateValue and TimeValue take a date or a string only
+// ---------------------------------------------------------------------------
+// vbscript.dll answers a type mismatch for a number, a Boolean or Empty here even though CDate reads
+// them, and error 94 for Null.
+describe('DateValue and TimeValue take a date or a string only', () => {
+  function errorNumber(locale: number, statement: string): number {
+    const engine = new VbsEngine();
+    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\n${statement}\nen = Err.Number`);
+    return Number(engine.eval('en'));
+  }
+
+  function answer(locale: number, expression: string): unknown {
+    const engine = new VbsEngine();
+    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`);
+    return engine.error ? `error ${engine.error.number}` : engine.eval('r');
+  }
+
+  const rejected: [string, number][] = [
+    ['x = DateValue(0)', 13],
+    ['x = DateValue(46294.4375)', 13],
+    ['x = DateValue(True)', 13],
+    ['x = DateValue(Empty)', 13],
+    ['x = TimeValue(0)', 13],
+    ['x = TimeValue(True)', 13],
+    ['x = DateValue(Null)', 94],
+    ['x = TimeValue(Null)', 94],
+    ['x = CDate(Null)', 94],
+  ];
+
+  for (const [statement, expected] of rejected) {
+    it(`answers error ${expected} for ${statement}`, () => {
+      expect(errorNumber(1033, statement)).toBe(expected);
+    });
+  }
+
+  it('still reads a date and a string', () => {
+    expect(answer(1033, 'CStr(DateValue(CDate(1)))')).toBe('12/31/1899');
+    expect(answer(1033, 'CStr(TimeValue(CDate(1.5)))')).toBe('12:00:00 PM');
+    expect(answer(1033, 'CStr(DateValue("10:30:00"))')).toBe('12:00:00 AM');
+    expect(answer(1031, 'CStr(DateValue("10:30:00"))')).toBe('00:00:00');
+  });
+});
