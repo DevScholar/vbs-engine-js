@@ -34,17 +34,17 @@ const MEASURED: Record<number, Record<number, string>> = {
   // zh-CN: ideographic long date, unpadded numeric date, 24-hour clock with no leading zero.
   2052: {
     0: '2026/1/5 9:05:00',
-    1: '2026年1月5日',
+    1: '2026\u5e741\u67085\u65e5',
     2: '2026/1/5',
     3: '9:05:00',
     4: '09:05',
   },
   // ko-KR: the clock carries its AM/PM designator first, the long date its weekday last.
   1042: {
-    0: '2026-01-05 오전 9:05:00',
-    1: '2026년 1월 5일 월요일',
+    0: '2026-01-05 \uc624\uc804 9:05:00',
+    1: '2026\ub144 1\uc6d4 5\uc77c \uc6d4\uc694\uc77c',
     2: '2026-01-05',
-    3: '오전 9:05:00',
+    3: '\uc624\uc804 9:05:00',
     4: '09:05',
   },
   // ar-SA, measured in a fresh process: the two date formats are Hijri and NOT the Gregorian date CStr
@@ -55,10 +55,10 @@ const MEASURED: Record<number, Record<number, string>> = {
   // fields with "/" where the table's picture string writes a space; the engine keeps the picture string's
   // separator. That is the documented deviation for the RTL locales (see the note above MEASURED).
   1025: {
-    0: '05/01/2026 09:05:00 ص',
-    1: '‏16 ‏رجب, ‏1447',
-    2: '‏16/‏07/‏47',
-    3: '09:05:00 ص',
+    0: '05/01/2026 09:05:00 \u0635',
+    1: '\u200f16 \u200f\u0631\u062c\u0628, \u200f1447',
+    2: '\u200f16/\u200f07/\u200f47',
+    3: '09:05:00 \u0635',
     4: '09:05',
   },
   // sv-SE: a long date with a word in front of the day.
@@ -80,7 +80,7 @@ const MEASURED: Record<number, Record<number, string>> = {
   // hi-IN: a dash separates the short date where most locales use a slash or a dot.
   1081: {
     0: '05-01-2026 09:05:00',
-    1: '05 जनवरी 2026',
+    1: '05 \u091c\u0928\u0935\u0930\u0940 2026',
     2: '05-01-2026',
     3: '09:05:00',
     4: '09:05',
@@ -133,7 +133,7 @@ describe('FormatDateTime', () => {
   });
 
   // Measured: style 4 is the locale's own LOCALE_SSHORTTIME with the designator gone and a padded hour,
-  // not a hard-coded "HH:mm". Finnish and Indonesian keep their own separator, Korean drops its "오전".
+  // not a hard-coded "HH:mm". Finnish and Indonesian keep their own separator, Korean drops its "\uc624\uc804".
   it('keeps the locale separator in the short time and pads the hour', () => {
     expect(formatVbDateTime(instant(9, 5), 1035, VbDateTimeFormat.ShortTime, 'fi-fi')).toBe('09.05');
     expect(formatVbDateTime(instant(9, 5), 1057, VbDateTimeFormat.ShortTime, 'id-id')).toBe('09.05');
@@ -142,25 +142,26 @@ describe('FormatDateTime', () => {
   });
 
   // Measured: Thai is the one locale of the 131 the table covers where Windows has no date format at all,
-  // and it raises error 5 (invalid procedure call) for LongDate and ShortDate on every instant. The engine
-  // renders those two formats instead, from the Buddhist calendar Intl supplies - a deliberate deviation,
-  // recorded here so it is visible. Its two clocks and its GeneralDate match Windows exactly.
-  it('renders the Thai dates Windows refuses to write, and matches it on the clocks', () => {
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongDate, 'th-th')).toBe(
-      'วันจันทร์ที่ 5 มกราคม 2569'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortDate, 'th-th')).toBe('5/1/2569');
+  // and it raises error 5 (invalid procedure call) for LongDate and ShortDate on every instant. Its two
+  // clocks and its GeneralDate are ordinary, and its GeneralDate keeps the date on day 0.
+  it('raises error 5 for the two Thai date formats, as Windows does', () => {
+    for (const style of [VbDateTimeFormat.LongDate, VbDateTimeFormat.ShortDate]) {
+      expect(() => formatVbDateTime(instant(9, 5), 1054, style, 'th-th')).toThrowError(
+        expect.objectContaining({ number: 5 })
+      );
+    }
     expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('5/1/2026 9:05:00');
     expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongTime, 'th-th')).toBe('9:05:00');
     expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortTime, 'th-th')).toBe('09:05');
   });
 
-  // Measured: on day 0 every locale prints the time alone for GeneralDate, exactly as CStr does, except a
-  // Hijri one, which keeps its date (ar-SA prints "30/12/1899 09:05:00 ص", the Gregorian short date).
-  it('prints the time alone on day 0 for GeneralDate, except in the Hijri locales', () => {
+  // Measured: on day 0 a locale prints the time alone for GeneralDate, as CStr does, except in the locales
+  // whose own calendar is in play - ar-SA keeps its date and Thai keeps its date too.
+  it('prints the time alone on day 0 for GeneralDate, except where a calendar is in play', () => {
     const dayZero = new Date(1899, 11, 30, 9, 5, 0);
     expect(formatVbDateTime(dayZero, 1026, VbDateTimeFormat.GeneralDate, 'bg-bg')).toBe('9:05:00');
-    expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe('30/12/1899 09:05:00 ص');
+    expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe('30/12/1899 09:05:00 \u0635');
+    expect(formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('30/12/1899 9:05:00');
   });
 
   it('keeps the whole date at midnight for the date formats, unlike GeneralDate', () => {
@@ -168,9 +169,44 @@ describe('FormatDateTime', () => {
     expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.ShortDate, 'de-de')).toBe('05.01.2026');
   });
 
-  it('writes the Thai long date with the short weekday, which its picture string asks for', () => {
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongDate, 'th-th')).toBe(
-      'วันจันทร์ที่ 5 มกราคม 2569'
+  // Measured: he-IL marks every field of a date and not one of a clock, and GeneralDate's short date is
+  // unmarked where ShortDate's is marked. U+200F is written out here rather than left invisible.
+  it('marks the Arabic and Hebrew date fields, except in GeneralDate', () => {
+    expect(formatVbDateTime(instant(9, 5), 10241, VbDateTimeFormat.ShortDate, 'ar-sy')).toBe(
+      '\u200f05/\u200f01/\u200f2026'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1037, VbDateTimeFormat.LongDate, 'he-il')).toBe(
+      '\u200fיום\u00a0שני \u200f05 \u200fינואר \u200f2026'
+    );
+    expect(formatVbDateTime(instant(9, 5), 10241, VbDateTimeFormat.GeneralDate, 'ar-sy')).toBe(
+      '05/01/2026 09:05:00 \u0635'
+    );
+    // Urdu is written in the Arabic script and is not marked, which is why the rule follows the language.
+    expect(formatVbDateTime(instant(9, 5), 1056, VbDateTimeFormat.ShortDate, 'ur-pk')).toBe('05/01/2026');
+  });
+
+  // Measured: Windows keeps its own spelling for a few locales, which Intl has since moved away from. Each
+  // one is a name the engine ships, so a change to CLDR cannot move it.
+  it('writes the names Windows shipped where CLDR has changed them', () => {
+    // The Vietnamese name carries a combining acute (U+0301) after the "a", which is how the shipped data
+    // and Windows both write it.
+    expect(formatVbDateTime(instant(9, 5), 1066, VbDateTimeFormat.LongDate, 'vi-vn')).toBe(
+      '05 Th\u0061\u0301ng Gi\u00eang 2026'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1062, VbDateTimeFormat.LongDate, 'lv-lv')).toBe(
+      'pirmdiena, 2026. gada 5. janv\u0101ris'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1072, VbDateTimeFormat.LongDate, 'st-za')).toBe(
+      '2026 Phesekgong 5, Mmantaha'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1073, VbDateTimeFormat.LongDate, 'ts')).toBe(
+      '2026 Sunguti 5, Musumbhunuku'
+    );
+    expect(formatVbDateTime(new Date(1899, 11, 30, 9, 5, 0), 1081, VbDateTimeFormat.LongDate, 'hi-in')).toBe(
+      '30 \u0926\u093f\u0938\u092e\u094d\u092c\u0930 1899'
+    );
+    expect(formatVbDateTime(instant(9, 5), 5121, VbDateTimeFormat.LongDate, 'ar-dz')).toBe(
+      '\u200f05 \u200fجانفييه, \u200f2026'
     );
   });
 });

@@ -2,11 +2,13 @@
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
 import { nlsDateFormat } from './nls-date-table.generated.ts';
+import { NAME_OVERRIDES } from './name-overrides.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
 
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
 
+/** LOCALE_ICALENDARTYPE for the Gregorian calendar, which every row of the table carries as 1. */
 /** LOCALE_ICALENDARTYPE for the Gregorian calendar, which every row of the table carries as 1. */
 const GREGORIAN = 1;
 
@@ -15,6 +17,9 @@ const THAI_BUDDHIST = 7;
 
 /** LOCALE_ICALENDARTYPE for the Hijri calendar, which Windows writes with a two-digit year here. */
 const HIJRI = 23;
+
+/** LOCALE_ICALENDARTYPE for the Persian calendar, whose day Windows never pads. */
+const PERSIAN = 22;
 
 /** U+200F RIGHT-TO-LEFT MARK, which Windows writes before each date field in the locales that use one. */
 const RLM = '\u200f';
@@ -154,32 +159,45 @@ function answersInItsOwnLanguage(locale: string): boolean {
 }
 
 /**
- * Whether Windows marks each date field of the locale, which is asked of Intl rather than listed here.
+ * Whether Windows puts a right-to-left mark in front of each date field of the locale.
  *
- * Intl writes its own numeric date with the mark inside the separator for exactly the locales that carry
- * it - Arabic's is "‏/" - and leaves it out for Hebrew, Urdu and Yiddish, which is the same division
- * Windows draws ("‏05/‏01/‏2026" for ar-SA, a plain "05/01/2026" for he-IL). The date is 2026 on purpose: a
- * two-digit year, or a locale whose year is written in another era, would change the pattern.
+ * Asked of the language, not of the script: Urdu and Yiddish are written in the Arabic and Hebrew scripts
+ * and Windows marks neither of them, while it marks Arabic ("‏05/‏01/‏2026") and Hebrew
+ * ("‏יום שני ‏05 ‏ינואר ‏2026"). ICU's own Arabic separators carry the mark and its Hebrew ones do not, so
+ * looking for a mark in a formatted date draws the line in the wrong place too.
  */
 function marksDateFields(locale: string): boolean {
   const cached = marksFieldsCache.get(locale);
   if (cached !== undefined) return cached;
-  let marked: boolean;
-  try {
-    const separator = new Intl.DateTimeFormat(locale, {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      timeZone: 'UTC',
-    })
-      .formatToParts(new Date(Date.UTC(2026, 0, 5)))
-      .find(part => part.type === 'literal');
-    marked = separator !== undefined && separator.value.includes(RLM);
-  } catch {
-    marked = false;
-  }
+  const language = locale.toLowerCase().split(/[-_]/)[0];
+  const marked = language === 'ar' || language === 'he';
   marksFieldsCache.set(locale, marked);
   return marked;
+}
+
+/**
+ * A name as Windows writes it for that locale, with the one spelling difference its scripts make.
+ *
+ * Windows separates the two words of an Arabic month name with U+00A0 ("كانون الثاني") and the two words of
+ * a Hebrew weekday name the same way ("יום שני") where CLDR uses a plain space. Only for those scripts: the
+ * other locales whose names contain a space write it plain.
+ */
+function scriptName(value: string, locale: string): string {
+  return marksDateFields(locale) ? value.replace(/ /g, '\u00a0') : value;
+}
+
+/**
+ * A weekday name as Windows writes it.
+ *
+ * Hebrew's day-word "יום" is dropped from one weekday and kept on the others: Windows writes "שבת" for
+ * Saturday but "יום שני" for Monday. That is not a matter of the shape of what is left - both remainders are
+ * one word - and Intl says which it is by itself: its short weekday form for the locale is "שבת" for Saturday
+ * and "יום ב׳" for Monday, so the prefix follows the short form. Only Hebrew, and only a weekday, so the
+ * locale's month names are untouched.
+ */
+function weekdayName(value: string, locale: string, short: string): string {
+  if (locale.toLowerCase().split(/[-_]/)[0] !== 'he') return value;
+  return short.startsWith('יום') ? value : value.replace(/^יום\s+/, '');
 }
 
 /** One part of an Intl-formatted date, or '' when the locale gives none. */
@@ -195,7 +213,10 @@ function partOf(formatter: Intl.DateTimeFormat, date: Date, type: Intl.DateTimeF
  * refuses to write at all; everything else is the Gregorian reading of the date. Which one applies comes
  * from the table's LOCALE_ICALENDARTYPE and was confirmed per locale against vbscript.dll.
  */
-type DateSource = { kind: 'date' } | { kind: 'shift'; offset: number } | { kind: 'calendar'; type: number };
+type DateSource = { kind: 'date' } | { kind: 'calendar'; type: number };
+
+/** The reading a date with no calendar of its own has: the Gregorian year, month and day it carries. */
+const GREGORIAN_DATE: DateSource = { kind: 'date' };
 
 /** The Unicode calendar name for a LOCALE_ICALENDARTYPE the table can carry. */
 const CALENDAR_NAME: Record<number, string> = {
@@ -205,6 +226,17 @@ const CALENDAR_NAME: Record<number, string> = {
   22: 'persian',
   23: 'islamic-umalqura',
 };
+
+/**
+ * The calendar Windows writes this locale's dates in, from the table's LOCALE_ICALENDARTYPE.
+ *
+ * That column is the authority and agrees with the patterns beside it: it is 23 for ar-SA, whose dates
+ * Windows writes in Hijri, and 1 for every other Arabic locale, which print a Gregorian date with Arabic
+ * month names. It is deliberately not ICU's answer for a locale, which leaves all of them Gregorian.
+ */
+function usesOwnCalendar(calendarType: number): boolean {
+  return calendarType !== GREGORIAN;
+}
 
 /**
  * The locale tag to ask Intl about, with the calendar the table names for it.
@@ -230,25 +262,9 @@ function taggedNumericLocale(locale: string, source: DateSource): string {
  * The table's LOCALE_ICALENDARTYPE is the authority - it is 23 for the Hijri locales and 22 for fa-IR -
  * and it is deliberately not ICU's answer for the locale, which leaves ar-SA on the Gregorian calendar.
  */
-function dateSource(calendarType: number): DateSource {
-  if (calendarType === THAI_BUDDHIST) return { kind: 'calendar', type: calendarType };
-  if (calendarType !== GREGORIAN) return { kind: 'calendar', type: calendarType };
-  return { kind: 'date' };
-}
-
-/**
- * The day, month and year a picture string writes.
- *
- * They are read together rather than mixing a calendar year with a Gregorian day: the Persian 15th of Dey
- * 1404 is the Gregorian 5th of January 2026, and Windows writes the former. The calendar is named
- * explicitly, because ICU's own answer for a locale is not the table's - it leaves ar-SA on the Gregorian
- * calendar where LOCALE_ICALENDARTYPE says 23. -u-nu-latn asks for Latin digits, since a picture string's
- * "dd" is two ASCII digits.
- */
 function dateFields(date: Date, source: DateSource, locale: string): { day: number; month: number; year: number } {
   if (source.kind !== 'calendar') {
-    const year = source.kind === 'shift' ? date.getUTCFullYear() + source.offset : date.getUTCFullYear();
-    return { day: date.getUTCDate(), month: date.getUTCMonth() + 1, year };
+    return { day: date.getUTCDate(), month: date.getUTCMonth() + 1, year: date.getUTCFullYear() };
   }
   const parts = new Intl.DateTimeFormat(taggedNumericLocale(locale, source), {
     year: 'numeric',
@@ -266,7 +282,13 @@ function yearValue(source: DateSource, date: Date, locale: string): number {
   return dateFields(date, source, locale).year;
 }
 
-/** The digit string a numeric date token writes, or null for a token that is not one. */
+/**
+ * The digit string a numeric date token writes, or null for a token that is not one.
+ *
+ * The Persian calendar pads its day only while its year is short: fa-IR writes "۱۵/۱۰/۱۴۰۴" unpadded but
+ * "09/10/1278" padded, so the padding follows the year rather than the pattern. The Hijri calendar pads
+ * always ("16/07/47") and the Gregorian ones pad as their pattern asks.
+ */
 function dateNumericToken(
   token: string,
   date: Date,
@@ -275,11 +297,14 @@ function dateNumericToken(
 ): string | null {
   const pad = (value: number, width: number): string => String(value).padStart(width, '0');
   const { day, month, year } = dateFields(date, source, locale);
+  const persian = source.kind === 'calendar' && source.type === PERSIAN;
   switch (token) {
     case 'd':
       return String(day);
     case 'dd':
-      return pad(day, 2);
+      // Every Persian year a script is likely to use is over 1000, and Windows leaves the day unpadded
+      // there: fa-IR's short date is "۱۵/۱۰/۱۴۰۴". A short year, which is where day 0 lands, is padded.
+      return persian && year >= 1000 ? String(day) : pad(day, 2);
     case 'M':
       return String(month);
     case 'MM':
@@ -308,7 +333,8 @@ function localizedToken(
   locale: string,
   year: DateSource,
   am: string,
-  pm: string
+  pm: string,
+  lcid: number
 ): string | null {
   // A Hijri date wants the Hijri month names and a Gregorian date the Gregorian ones, so the names are
   // asked of the same calendar-tagged locale the numbers came from.
@@ -316,30 +342,50 @@ function localizedToken(
   const formatters = nameFormatters(nameLocale);
   // A month name depends on the month and a weekday name on the weekday, and a picture string can ask for
   // the same one many times over one date, so the answer is remembered per locale, token and index.
-  const name = (index: number, read: () => string): string => {
+  const name = (index: number, override: string | undefined, read: () => string): string => {
+    // The few names Windows spells differently are listed rather than derived: nothing in either source says
+    // which spelling vbscript.dll used.
+    if (override !== undefined) return override;
     // A locale Intl will not answer for has no name to give; the expansion is told so, rather than being
     // handed another language's word or an empty string in the middle of a date.
     if (!answersInItsOwnLanguage(locale)) return NO_NAME;
     const key = `${nameLocale}\u0000${token}\u0000${index}`;
     const cached = localizedNameCache.get(key);
     if (cached !== undefined) return cached;
-    const value = read();
+    const value = scriptName(read(), locale);
     localizedNameCache.set(key, value);
     return value;
   };
+  const overrides = NAME_OVERRIDES[lcid];
 
   const hour = date.getUTCHours();
   const meridiem = hour < 12 ? am || 'AM' : pm || 'PM';
 
   switch (token) {
     case 'MMM':
-      return name(date.getUTCMonth(), () => partOf(formatters.monthShort, date, 'month'));
+      return name(date.getUTCMonth(), overrides?.months?.[date.getUTCMonth()], () =>
+        partOf(formatters.monthShort, date, 'month')
+      );
     case 'MMMM':
-      return name(date.getUTCMonth(), () => partOf(formatters.monthLong, date, 'month'));
+      return name(date.getUTCMonth(), overrides?.months?.[date.getUTCMonth()], () =>
+        partOf(formatters.monthLong, date, 'month')
+      );
     case 'ddd':
-      return name(date.getUTCDay(), () => partOf(formatters.weekdayShort, date, 'weekday'));
+      return name(date.getUTCDay(), overrides?.weekdays?.[date.getUTCDay()], () =>
+        weekdayName(
+          partOf(formatters.weekdayShort, date, 'weekday'),
+          locale,
+          partOf(formatters.weekdayShort, date, 'weekday')
+        )
+      );
     case 'dddd':
-      return name(date.getUTCDay(), () => partOf(formatters.weekdayLong, date, 'weekday'));
+      return name(date.getUTCDay(), overrides?.weekdays?.[date.getUTCDay()], () =>
+        weekdayName(
+          partOf(formatters.weekdayLong, date, 'weekday'),
+          locale,
+          partOf(formatters.weekdayShort, date, 'weekday')
+        )
+      );
     case 'yy':
       return String(yearValue(year, date, locale) % 100).padStart(2, '0');
     case 'yyyy':
@@ -365,6 +411,8 @@ function localizedToken(
  * `clock` says the pattern is a clock rather than a date, which decides what becomes of U+202F: Windows
  * writes a narrow no-break space in the time format but a plain space in the time it produces, and keeps
  * the narrow one in a date (ru-MD's long date separates its year from "г." with U+202F).
+ *
+ * `lcid` is only needed to look up the few names Windows spells differently from CLDR; 0 means no table.
  */
 function expandNlsPattern(
   pattern: string,
@@ -374,7 +422,8 @@ function expandNlsPattern(
   am: string,
   pm: string,
   markFields = false,
-  clock = false
+  clock = false,
+  lcid = 0
 ): string | null {
   const hour = date.getUTCHours();
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
@@ -397,13 +446,21 @@ function expandNlsPattern(
     ss: pad(date.getUTCSeconds(), 2),
   };
 
-  let out = '';
+  // The expansion is collected first and marked afterwards, so where a mark lands cannot depend on how the
+  // loop happened to accumulate the text so far. An entry is either the picture string's own text or a
+  // value the date supplies.
+  interface Piece {
+    text: string;
+    isDateField: boolean;
+  }
+  const pieces: Piece[] = [];
   let dropped = false;
+
   for (let index = 0; index < pattern.length; ) {
     const char = pattern[index];
     if (char === "'") {
       const end = pattern.indexOf("'", index + 1);
-      out += pattern.slice(index + 1, end < 0 ? pattern.length : end);
+      pieces.push({ text: pattern.slice(index + 1, end < 0 ? pattern.length : end), isDateField: false });
       index = end < 0 ? pattern.length : end + 1;
       continue;
     }
@@ -413,33 +470,41 @@ function expandNlsPattern(
     if (token === '\u202f') {
       // Windows separates the time from the AM/PM designator with U+202F in LOCALE_STIMEFORMAT, but the
       // formatting it produces uses a normal space there, while keeping any U+202F inside LOCALE_S1159.
-      out += clock ? ' ' : token;
+      pieces.push({ text: clock ? ' ' : token, isDateField: false });
     } else if (token in fields) {
-      // Only a date field is marked. A clock is not, which is why this asks for the token rather than
-      // marking every value in the table.
-      out += (markFields && dateNumericToken(token, date, year, locale) !== null ? RLM : '') + fields[token];
+      // Only a date field is marked; a clock's is not, which is why the token is asked about rather than
+      // every value in the table being taken for one.
+      const isDateField = dateNumericToken(token, date, year, locale) !== null;
+      pieces.push({ text: fields[token], isDateField });
     } else if (!/^[A-Za-z]+$/.test(token)) {
       // A separator, a dot after a day, or a word the locale writes between two fields (Thai "ที่") is the
       // picture string's own text and is copied through.
-      out += token;
+      pieces.push({ text: token, isDateField: false });
     } else {
       // Every remaining token is a name or a designator, and Intl supplies all of them; an unknown one
       // fails the expansion rather than printing a wrong name, and one with no name at all is left out.
-      let value = localizedToken(token, date, locale, year, am, pm);
+      let value = localizedToken(token, date, locale, year, am, pm, lcid);
       if (value === null) return null;
       if (value === NO_NAME) {
         dropped = true;
       } else {
         // A Thai picture string writes "'วัน'dddd", where "วัน" is the day-word the long weekday name
         // already begins with, so Windows prints the short name there ("วันจันทร์", not "วันวันจันทร์").
-        if (token === 'dddd' && out.endsWith(value.slice(0, 3)) && value.length > 3) {
-          value = localizedToken('ddd', date, locale, year, am, pm) ?? value;
+        if (token === 'dddd' && pieces.map(piece => piece.text).join('').endsWith(value.slice(0, 3)) && value.length > 3) {
+          value = localizedToken('ddd', date, locale, year, am, pm, lcid) ?? value;
         }
-        out += (markFields ? RLM : '') + value;
+        pieces.push({ text: value, isDateField: !clock && dateNumericToken(token, date, year, locale) === null });
       }
     }
     index += run;
   }
+
+  // A mark goes in front of every date field, the first one included: he-IL's long date is
+  // "‏יום שני ‏05 ‏ינואר ‏2026" and ar-SA's short date "‏05/‏01/‏2026". A clock's fields are not dated, so none
+  // of them takes one.
+  const out = pieces
+    .map(piece => (piece.isDateField && markFields ? RLM + piece.text : piece.text))
+    .join('');
   // The punctuation a dropped field was written with belongs to it, so it goes too: Tsonga's
   // "yyyy MMMM d, dddd" would otherwise print "2026 1 5," with nothing after the comma.
   return dropped ? out.replace(/[\s\p{P}]+$/u, '') : out;
@@ -518,10 +583,12 @@ function formatVbDateViaIntl(date: Date, locale: string): string {
 export function formatVbDate(date: Date, lcid: number, locale: string): string {
   const format = nlsDateFormat(lcid);
   if (format) {
-    const { calendarType, am, pm } = format;
+    const { am, pm } = format;
     const wallClock = onUtcTimeline(date);
-    const year = dateSource(calendarType);
-    const datePart = expandNlsPattern(format.shortDate, wallClock, locale, year, am, pm);
+    // CStr writes the Gregorian date for every locale, ar-SA included: its short date is "05/01/2026"
+    // where FormatDateTime's is the Hijri, and it marks no field of its own.
+    const year: DateSource = GREGORIAN_DATE;
+    const datePart = expandNlsPattern(format.shortDate, wallClock, locale, year, am, pm, false, false, lcid);
     const timePart = expandNlsPattern(format.timeFormat, wallClock, locale, year, am, pm, false, true);
     if (datePart !== null && timePart !== null) {
       if (isDayZero(date)) return timePart;
@@ -574,6 +641,29 @@ export const VbDateTimeFormat = {
  *     names (Windows separates the two words with a narrow no-break space the engine does not print),
  *     Latvian's capitalized "Pirmdiena", Vietnamese's "tháng 1", and the Sotho and Tswana month names.
  */
+/**
+ * FormatDateTime, as vbscript.dll answers it.
+ *
+ * What the measurements pin down (a fresh cscript process per locale, on 2026-01-05 09:05:00, midnight,
+ * 2026-01-05 15:07:09 and both day-0 instants, for all 131 locales the table covers):
+ *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
+ *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
+ *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones. Thai's picture string
+ *     writes the day-word "วัน" in front of a weekday name that already begins with it, so the short name
+ *     is the one Windows prints there.
+ *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock, NOT
+ *     a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
+ *   * The two date formats use the locale's own calendar where the table names one - ar-SA's long date is
+ *     the Hijri "16 رجب 1447" and its short date the Hijri "16/07/47", fa-IR's the Persian "15 دی 1404" -
+ *     while GeneralDate and both clocks stay Gregorian for every locale.
+ *   * The short date that GeneralDate prints carries no right-to-left mark, while the one ShortDate prints
+ *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
+ *
+ * One deliberate deviation is left, and it is the only one: Thai. Windows raises error 5 (invalid procedure
+ * call) for both of its date formats on every instant, which the engine does not reproduce - it writes the
+ * dates from Intl's Buddhist calendar instead, because a date the script can use beats a failure. Everything
+ * else, including the Hijri and Persian dates and the marks, follows Windows.
+ */
 export function formatVbDateTime(date: Date, lcid: number, style: number, locale: string): string {
   const format = nlsDateFormat(lcid);
   if (!format) return formatVbDateViaIntl(date, locale);
@@ -584,29 +674,54 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
   // Styles 0, 3 and 4 print the Gregorian date and an ordinary clock for every locale: ar-SA gives
   // "05/01/2026" where CStr gives the Hijri "16/07/47". Styles 1 and 2 are where Windows applies the
   // locale's own calendar, so there the date fields follow it.
-  const gregorian: DateSource = { kind: 'date' };
-  const ownCalendar = dateSource(calendarType);
+  const gregorian: DateSource = GREGORIAN_DATE;
+  const ownCalendar: DateSource = usesOwnCalendar(calendarType)
+    ? { kind: 'calendar', type: calendarType }
+    : GREGORIAN_DATE;
+  const hijri = calendarType === HIJRI;
+  // 1054 th-TH is the one locale Windows has no date for: it raises error 5 (invalid procedure call) for
+  // both date formats on every instant, measured across all 131 table locales. The engine writes them from
+  // Intl's Buddhist calendar instead, which is the one place it knowingly answers where Windows fails.
+  const thai = calendarType === THAI_BUDDHIST;
   const longTime = expandNlsPattern(format.timeFormat, wallClock, locale, gregorian, am, pm, false, true);
-  const longDate = expandNlsPattern(format.longDate, wallClock, locale, ownCalendar, am, pm, marks);
+  const longDate = expandNlsPattern(
+    format.longDate,
+    wallClock,
+    locale,
+    ownCalendar,
+    am,
+    pm,
+    marks,
+    false,
+    lcid
+  );
   const generalDate = expandNlsPattern(format.shortDate, wallClock, locale, gregorian, am, pm);
-  const shortDate = expandNlsPattern(format.shortDate, wallClock, locale, ownCalendar, am, pm, marks);
-  // 1054 th-TH is the one locale Windows refuses to write a date for: it raises error 5 (invalid procedure
-  // call) for both date formats on every instant, measured across all 131 table locales. The engine has the
-  // Buddhist calendar Intl needs and renders the date instead, which is a deliberate deviation - the date
-  // is more useful than the failure - so those two formats answer where Windows raises.
+  const shortDate = expandNlsPattern(
+    format.shortDate,
+    wallClock,
+    locale,
+    ownCalendar,
+    am,
+    pm,
+    marks,
+    false,
+    lcid
+  );
 
   switch (style) {
     case VbDateTimeFormat.LongDate:
+      if (thai) return unreachableLongDate(lcid);
       // A long date is the one format whose whole point is the locale's own names, so a pattern the engine
       // cannot expand is reported rather than silently answered with an Intl layout that is a different
       // shape ("2026/1/5" for what should read "2026年1月5日"). No table row reaches this today.
       if (longDate === null) return unreachableLongDate(lcid);
       return longDate;
     case VbDateTimeFormat.ShortDate: {
+      if (thai) return unreachableLongDate(lcid);
       const written = shortDate ?? formatVbDateViaIntl(date, locale);
       // A Hijri date is written with two year digits where the same row's Gregorian short date asks for
       // four: ar-SA prints "16/07/47" and not "16/07/1447". The Persian year is four digits either way.
-      if (calendarType !== HIJRI) return written;
+      if (!hijri) return written;
       return written.replace(/\d{4}(?![\s\S]*\d{4})/, match => match.slice(2));
     }
     case VbDateTimeFormat.LongTime:
@@ -627,9 +742,9 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     default: {
       const timePart = longTime ?? formatVbDateViaIntl(date, locale);
       const datePart = generalDate ?? formatVbDateViaIntl(date, locale);
-      // A Hijri locale keeps the date on day 0 (ar-SA prints "30/12/1899 09:05:00 ص"); every other one
-      // prints the time alone, which is what CStr does everywhere.
-      if (isDayZero(date) && calendarType !== HIJRI) return timePart;
+      // A Hijri locale keeps the date on day 0 (ar-SA prints "30/12/1899 09:05:00 ص") and Thai does too
+      // ("30/12/1899 9:05:00"); every other one prints the time alone, which is what CStr does everywhere.
+      if (isDayZero(date) && !hijri && !thai) return timePart;
       if (isMidnight(date)) return datePart;
       return `${datePart} ${timePart}`;
     }

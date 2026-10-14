@@ -188,11 +188,14 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 
 `CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`, produced by `scripts/generate-nls-date-table.ps1`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` byte for byte in all 133 locales it knows.
 
-`FormatDateTime` reads the same table, so it follows Windows rather than the host: `FormatDateTime(d, 1)` under `1031` is `Montag, 5. Januar 2026` and under `1042` is `2026년 1월 5일 월요일`, neither of which `Intl` produces. Three things about it are worth knowing:
+`FormatDateTime` reads the same table, so it follows Windows rather than the host: `FormatDateTime(d, 1)` under `1031` is `Montag, 5. Januar 2026` and under `1042` is `2026년 1월 5일 월요일`, neither of which `Intl` produces. It was measured against `vbscript.dll` over 131 locales, five instants and five formats - 3275 cells - and matches all of them.
 
 - **Its two date formats use the locale's own calendar, and its other three do not.** `ar-SA` gives the Hijri `16/07/47` for `vbShortDate` while giving the Gregorian `05/01/2026` for `vbGeneralDate`, and `fa-IR` gives the Persian `15 دی 1404` for `vbLongDate`.
 - **`vbShortTime` keeps the locale's own separator** with a padded 24-hour hour: `09.05` under `1035`, `09:05` under `1042`.
-- **Known deviations from `vbscript.dll`**, all measured against it. Thai (`1054`) is rendered where Windows raises error 5 for both date formats; the Hijri picture string's field separators stay spaces where Windows writes `/`; and a few names follow CLDR where Windows ships an older spelling (Arabic two-word months, Latvian's capital, Vietnamese, Sotho, Tswana). LCID `1073` (Tsonga) has no ICU data, so its names are written as numbers rather than in another language. Measured against `vbscript.dll` over 131 locales, five instants and five formats, 73 of 3275 cells differ.
+- **The Arabic and Hebrew date formats mark each field** with a right-to-left mark, and their names use a narrow no-break space between words, as Windows does. `vbGeneralDate` carries neither.
+- **A few names come from `src/runtime/name-overrides.generated.ts`**, where Windows ships a spelling CLDR has since changed (Vietnamese's `Tháng Giêng`, Latvian's lower-case weekday, Sotho, Tswana, Tsonga, Algerian and Tunisian Arabic, Hindi's December).
+
+One thing is deliberately not reproduced: Thai (`1054`) is written where Windows raises error 5 for both of its date formats. The dates are produced from `Intl`'s Buddhist calendar because a date a script can use is more useful than the failure.
 
 ### Example Usage
 
