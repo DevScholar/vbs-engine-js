@@ -155,7 +155,44 @@ localeToLcid.forEach((lcid, locale) => {
   lcidToLocale.set(lcid, locale);
 });
 
-let currentLocale: string | null = null;
+/**
+ * The locale of the engine that is currently running.
+ *
+ * A script host runs one script at a time, so the engine installs its own state around each call. Two
+ * engines in one process can then hold different locales, and one engine's SetLocale is no longer
+ * visible to another - which it was while this was a single module-level variable, shared by every
+ * engine in the process.
+ */
+export interface LocaleState {
+  locale: string | null;
+}
+
+let ambientLocaleState: LocaleState | null = null;
+/** Used only when a builtin is called with no engine running; no script can reach this. */
+let detachedLocale: string | null = null;
+
+/** Runs `body` with `state` installed as the locale of the engine that is running. */
+export function withLocaleState<T>(state: LocaleState, body: () => T): T {
+  const previous = ambientLocaleState;
+  ambientLocaleState = state;
+  try {
+    return body();
+  } finally {
+    ambientLocaleState = previous;
+  }
+}
+
+function currentLocale(): string | null {
+  return ambientLocaleState === null ? detachedLocale : ambientLocaleState.locale;
+}
+
+function rememberLocale(locale: string): void {
+  if (ambientLocaleState === null) {
+    detachedLocale = locale;
+  } else {
+    ambientLocaleState.locale = locale;
+  }
+}
 
 function normalizeLocale(locale: string): string {
   return locale.toLowerCase().replace(/_/g, '-');
@@ -171,8 +208,9 @@ function findLocaleKey(normalized: string): string | undefined {
 }
 
 function getBrowserLocale(): string {
-  if (currentLocale) {
-    return currentLocale;
+  const chosen = currentLocale();
+  if (chosen) {
+    return chosen;
   }
 
   const browserLocale = Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
@@ -205,7 +243,7 @@ export function setLocale(lcid: VbValue): VbValue {
     const localeStr = String(lcid.value).toLowerCase();
     const key = findLocaleKey(localeStr);
     if (key) {
-      currentLocale = key;
+      rememberLocale(key);
       return { type: 'Long', value: localeToLcid.get(key) ?? 1033 };
     }
     return getLocale();
@@ -213,7 +251,7 @@ export function setLocale(lcid: VbValue): VbValue {
 
   const locale = lcidToLocale.get(lcidValue);
   if (locale) {
-    currentLocale = locale;
+    rememberLocale(locale);
     return { type: 'Long', value: lcidValue };
   }
 

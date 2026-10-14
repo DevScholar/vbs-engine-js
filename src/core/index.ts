@@ -5,6 +5,8 @@ import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbError, toHresult } from '../runtime/index.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
+import { withLocaleState } from '../builtins/locale.ts';
+import type { LocaleState } from '../builtins/locale.ts';
 import { initializeBrowserEngine } from '../browser/index.ts';
 import { VBArray } from '../runtime/vbarray-wrapper.ts';
 
@@ -200,6 +202,8 @@ export class VbsEngine {
   private options: Required<VbsEngineOptions>;
   private browserCleanup: (() => void) | null = null;
   private lastError: VbsError | null = null;
+  /** This engine's own locale, installed while its code runs (see withLocaleState). */
+  private readonly localeState: LocaleState = { locale: null };
 
   constructor(options: VbsEngineOptions = {}) {
     const resolvedMode = resolveMode(options.mode);
@@ -318,7 +322,7 @@ export class VbsEngine {
   executeStatement(statement: string): void {
     this.clearError();
     try {
-      this.executeStatementInternal(statement);
+      withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
       this.handleError(err);
     }
@@ -347,7 +351,7 @@ export class VbsEngine {
   executeStatementThrows(statement: string): void {
     this.clearError();
     try {
-      this.executeStatementInternal(statement);
+      withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
       this.handleError(err);
       throw this.toHostError(err);
@@ -390,7 +394,7 @@ export class VbsEngine {
       const funcRegistry = context.functionRegistry;
 
       const vbArgs = args.map(arg => jsToVb(arg));
-      const result = funcRegistry.call(procedureName, vbArgs);
+      const result = withLocaleState(this.localeState, () => funcRegistry.call(procedureName, vbArgs));
 
       return vbToJs(result);
     } catch (err) {
@@ -463,7 +467,7 @@ export class VbsEngine {
   eval(expression: string): unknown {
     this.clearError();
     try {
-      const result = this.interpreter.evaluate(expression);
+      const result = withLocaleState(this.localeState, () => this.interpreter.evaluate(expression));
       return vbToJs(result);
     } catch (err) {
       this.handleError(err);

@@ -1446,3 +1446,37 @@ describe('DateValue and TimeValue take a date or a string only', () => {
     expect(answer(1031, 'CStr(DateValue("10:30:00"))')).toBe('00:00:00');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Two engines in one process hold their own locale
+// ---------------------------------------------------------------------------
+// The locale used to be one module-level variable, so SetLocale in one engine was visible to every
+// other engine in the process, and to every engine created afterwards.
+describe('Two engines in one process hold their own locale', () => {
+  it('keeps a fresh engine on the host locale after another engine called SetLocale', () => {
+    const before = new VbsEngine();
+    before.executeStatement('r = GetLocale()');
+    const hostLocale = before.eval('r');
+
+    const german = new VbsEngine();
+    german.executeStatement('SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))');
+    expect(german.eval('r')).toBe('05.01.2026');
+
+    const after = new VbsEngine();
+    after.executeStatement('r = GetLocale()');
+    expect(after.eval('r')).toBe(hostLocale);
+  });
+
+  it('lets each engine keep reading its own locale', () => {
+    const english = new VbsEngine();
+    english.executeStatement('SetLocale 1033\nr = CStr(DateSerial(2026, 1, 5))');
+    expect(english.eval('r')).toBe('1/5/2026');
+
+    const german = new VbsEngine();
+    german.executeStatement('SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))');
+    expect(german.eval('r')).toBe('05.01.2026');
+
+    english.executeStatement('r = CStr(DateSerial(2026, 1, 5))');
+    expect(english.eval('r')).toBe('1/5/2026');
+  });
+});
