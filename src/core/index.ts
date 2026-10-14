@@ -139,6 +139,18 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
    */
   hostIntegration?: boolean;
   /**
+   * How an error surfaces when the *host* runs script that no JavaScript call asked for: an inline
+   * event attribute, a timer handler, a script element. In IE the error reaches the page as a real
+   * JavaScript error, which `window.onerror` and `catch` can see; in WSH the host prints it and sets an
+   * exit code. This picks the first; `false` papers over it in `engine.error` instead.
+   *
+   * It does not touch `executeStatement`, which never throws, or `executeStatementThrows`, which always
+   * does: when JavaScript asks for the script to run, the method that was called says how an error
+   * surfaces, and both outlets stay available. `engine.error` is set either way, as a record.
+   * @default true
+   */
+  useJsError?: boolean;
+  /**
    * When true (default), JavaScript globals from globalThis are automatically
    * shared with VBScript, and VBScript functions/variables are injected
    * into globalThis for bidirectional interoperability.
@@ -243,6 +255,7 @@ export class VbsEngine {
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
       hostIntegration,
+      useJsError: options.useJsError ?? true,
       // Kept on: an isolated engine still reads host globals. This option only decides whether the
       // engine publishes its own functions and variables, and that is the part that collides.
       injectGlobalThis: hostIntegration && (options.injectGlobalThis ?? true),
@@ -390,6 +403,18 @@ export class VbsEngine {
     } catch (err) {
       this.handleError(err);
       throw this.toHostError(err);
+    }
+  }
+
+  /**
+   * Runs script the host asked for rather than a JavaScript caller: an inline event attribute, a timer
+   * handler, a script element. Nobody chose one of the two error outlets, so `useJsError` does.
+   */
+  executeHostScript(code: string): void {
+    if (this.options.useJsError) {
+      this.executeStatementThrows(code);
+    } else {
+      this.executeStatement(code);
     }
   }
 

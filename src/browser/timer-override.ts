@@ -28,7 +28,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
             if (funcRegistry?.has(handler)) {
               engine.run(handler);
             } else {
-              engine.executeStatement(handler);
+              engine.executeHostScript(handler);
             }
           },
           actualDelay
@@ -42,7 +42,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
           if (funcRegistry?.has(handler)) {
             engine.run(handler);
           } else {
-            engine.executeStatement(handler);
+            engine.executeHostScript(handler);
           }
         },
         actualDelay
@@ -75,7 +75,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
             if (funcRegistry?.has(handler)) {
               engine.run(handler);
             } else {
-              engine.executeStatement(handler);
+              engine.executeHostScript(handler);
             }
           },
           actualDelay
@@ -89,7 +89,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
           if (funcRegistry?.has(handler)) {
             engine.run(handler);
           } else {
-            engine.executeStatement(handler);
+            engine.executeHostScript(handler);
           }
         },
         actualDelay
