@@ -124,6 +124,21 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
    */
   maxExecutionTime?: number;
   /**
+   * Whether this engine integrates with the host it is running in, the way a script host does in IE or
+   * WSH: it may own the document, install the `vbscript:` handler, replace the host's eval and timers,
+   * and publish its functions and variables into the host's global object.
+   *
+   * A host has one of these, so the first engine constructed with it claims it for the process. Every
+   * later engine is isolated instead, and cannot ask to integrate: with two engines both writing host
+   * globals, binding the same event names and installing the same protocol handler, they fight, and one
+   * engine's `SetLocale` was visible to the other. An isolated engine keeps reading host globals - that
+   * is harmless - and keeps calling any object handed to it with `addObject`.
+   *
+   * Like the host it stands for, the choice is final: it is fixed when the engine is constructed.
+   * @default true, unless an engine already claimed it in this process
+   */
+  hostIntegration?: boolean;
+  /**
    * When true (default), JavaScript globals from globalThis are automatically
    * shared with VBScript, and VBScript functions/variables are injected
    * into globalThis for bidirectional interoperability.
@@ -190,6 +205,20 @@ function determineMode(): VbsEngineMode {
   return 'general';
 }
 
+/** A process has one host, the way IE has one window and WSH one process. */
+let hostIntegrationClaimed = false;
+
+/**
+ * The first engine to ask for host integration gets it; every later engine is isolated and cannot ask
+ * for it. An engine that opts out does not consume the claim, so it can still be taken by a later one.
+ */
+function resolveHostIntegration(requested: boolean | undefined): boolean {
+  if (hostIntegrationClaimed) return false;
+  if (requested === false) return false;
+  hostIntegrationClaimed = true;
+  return true;
+}
+
 function resolveMode(mode: VbsEngineMode | undefined): VbsEngineMode {
   if (mode === undefined || mode === 'auto') {
     return determineMode();
@@ -206,18 +235,24 @@ export class VbsEngine {
   private readonly localeState: LocaleState = { locale: null };
 
   constructor(options: VbsEngineOptions = {}) {
+    // Host integration decides what the engine may own before anything else is resolved: the options
+    // below only choose what to do with it.
+    const hostIntegration = resolveHostIntegration(options.hostIntegration);
     const resolvedMode = resolveMode(options.mode);
 
     this.options = {
       maxExecutionTime: options.maxExecutionTime ?? -1,
-      injectGlobalThis: options.injectGlobalThis ?? true,
-      mode: resolvedMode,
-      parseScriptElement: options.parseScriptElement ?? true,
-      parseInlineEventAttributes: options.parseInlineEventAttributes ?? true,
-      parseEventSubNames: options.parseEventSubNames ?? true,
-      overrideJsEvalFunctions: options.overrideJsEvalFunctions ?? true,
-      parseVbsProtocol: options.parseVbsProtocol ?? true,
-      injectVBArrayToGlobalThis: options.injectVBArrayToGlobalThis ?? true,
+      hostIntegration,
+      // Kept on: an isolated engine still reads host globals. This option only decides whether the
+      // engine publishes its own functions and variables, and that is the part that collides.
+      injectGlobalThis: hostIntegration && (options.injectGlobalThis ?? true),
+      mode: hostIntegration ? resolvedMode : 'general',
+      parseScriptElement: hostIntegration && (options.parseScriptElement ?? true),
+      parseInlineEventAttributes: hostIntegration && (options.parseInlineEventAttributes ?? true),
+      parseEventSubNames: hostIntegration && (options.parseEventSubNames ?? true),
+      overrideJsEvalFunctions: hostIntegration && (options.overrideJsEvalFunctions ?? true),
+      parseVbsProtocol: hostIntegration && (options.parseVbsProtocol ?? true),
+      injectVBArrayToGlobalThis: hostIntegration && (options.injectVBArrayToGlobalThis ?? true),
     };
 
     this.interpreter = new Interpreter();
