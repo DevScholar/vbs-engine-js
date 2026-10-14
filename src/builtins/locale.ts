@@ -1,4 +1,5 @@
 import type { VbValue } from '../runtime/index.ts';
+import { LCID_TO_LOCALE } from './locale-data.generated.ts';
 
 const localeToLcid: Map<string, number> = new Map([
   ['af', 1078],
@@ -150,9 +151,18 @@ const localeToLcid: Map<string, number> = new Map([
   ['zu', 1077],
 ]);
 
-const lcidToLocale: Map<number, string> = new Map();
-localeToLcid.forEach((lcid, locale) => {
-  lcidToLocale.set(lcid, locale);
+// Windows' own name for each LCID, generated from LCIDToLocaleName (scripts/generate-locale-names.ps1).
+// Inverting the hand-written map instead gave several LCIDs the wrong locale: the names for 1070 and
+// 1072 ("sb", "sx") resolve to nothing, so both were read as the host locale, and 2108 was read as
+// Scottish Gaelic rather than Irish.
+const lcidToLocale: Map<number, string> = new Map(LCID_TO_LOCALE);
+
+// Every generated name has to resolve back to its LCID, or GetLocale() after SetLocale(n) would fall
+// back to the default. Keys that already exist stay first, so today's spelling keeps winning.
+LCID_TO_LOCALE.forEach((locale, lcid) => {
+  if (!localeToLcid.has(locale)) {
+    localeToLcid.set(locale, lcid);
+  }
 });
 
 /**
