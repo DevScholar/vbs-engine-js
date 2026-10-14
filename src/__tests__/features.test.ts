@@ -1394,13 +1394,26 @@ describe('A date string as vbscript.dll reads it', () => {
     expect(answer(1031, 'CStr(CDate("Sep 29 2026 10:30 PM"))')).toBe('29.09.2026 22:30:00');
   });
 
-  // Known divergence, left as it is: formatVbDate builds the date from CLDR (Intl), whose Chinese short
-  // date pads the month where Windows' NLS data does not (2026/09/29 against 2026/9/29). The same CLDR
-  // source gives ko-KR "." where Windows writes "-". Reading a date is unaffected; this is CStr only.
-  it('writes the Chinese short date with CLDR padding, not Windows', () => {
-    expect(answer(2052, 'CStr(CDate(46294.4375))')).toBe('2026/09/29 10:30:00');
-    expect(answer(1042, 'CStr(CDate(46294.4375))')).toBe('2026. 09. 29. 오전 10:30:00');
-  });
+  // CStr now comes from Windows NLS, shipped as data, so these are the strings vbscript.dll itself
+  // prints. Measured with cscript for 5 January 2026 09:05:00 (single-digit day, month and hour, so
+  // padding cannot hide) and for 29 September 2026 10:30:00.
+  const cstrCases: [number, string, string][] = [
+    [2052, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026/1/5 9:05:00'],
+    [1028, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026/1/5 上午 09:05:00'],
+    [1042, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026-01-05 오전 9:05:00'],
+    [1049, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '05.01.2026 9:05:00'],
+    [1031, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '05.01.2026 09:05:00'],
+    [1033, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '1/5/2026 9:05:00 AM'],
+    [1038, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026. 01. 05. 9:05:00'],
+    [2052, 'CStr(CDate(46294.4375))', '2026/9/29 10:30:00'],
+    [1042, 'CStr(CDate(46294.4375))', '2026-09-29 오전 10:30:00'],
+  ];
+
+  for (const [locale, expression, expected] of cstrCases) {
+    it(`writes ${expression} as ${JSON.stringify(expected)} under ${locale}`, () => {
+      expect(answer(locale, expression)).toBe(expected);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

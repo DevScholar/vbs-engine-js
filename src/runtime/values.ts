@@ -1,6 +1,6 @@
 import { createVbError, VbErrorCodes } from './errors.ts';
 import { dateToSerial, formatVbDate, parseVbDate, serialToDate } from './vb-date.ts';
-import { getCurrentBCP47Locale } from '../builtins/locale.ts';
+import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 /**
  * Represents all possible VBScript value types.
@@ -319,7 +319,7 @@ export function toString(value: VbValue): string {
     return String(value.value);
   }
   if (value.type === 'Date') {
-    return formatVbDate(value.value, getCurrentBCP47Locale());
+    return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());
   }
   if (value.type === 'Object') {
     return value.value === null ? 'Nothing' : '[object]';

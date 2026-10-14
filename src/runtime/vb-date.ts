@@ -1,6 +1,8 @@
 // VBScript dates are OLE Automation dates: a day count from 30 December 1899, with the time of day as
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
+import { nlsDateFormat } from './nls-date-table.generated.ts';
+
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
 
@@ -47,10 +49,76 @@ function unpaddedDayMonth(locale: string): boolean {
 }
 
 /**
- * CStr of a date, as VBScript writes it: the short date and the long time of the locale, without the date
- * when it is day 0 (30 December 1899) and without the time at midnight.
+ * Expands a Windows picture string, the way vbscript.dll writes a date. Returns null for a pattern with
+ * a token this does not expand, so the caller can fall back to Intl.
  */
-export function formatVbDate(date: Date, locale: string): string {
+function expandNlsPattern(
+  pattern: string,
+  date: Date,
+  calendarType: number,
+  am: string,
+  pm: string
+): string | null {
+  let year = date.getFullYear();
+  // The Thai Buddhist calendar is the only one vbscript.dll applies to the year it prints: it ignores
+  // UmAlQura (ar-SA) and Persian (fa-IR) even though GetDateFormatEx applies both. Year(), Month() and
+  // Day() stay Gregorian everywhere.
+  if (calendarType === 7) year += 543;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hour = date.getHours();
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const pad = (value: number, width: number): string => String(value).padStart(width, '0');
+  const fields: Record<string, string> = {
+    d: String(day),
+    dd: pad(day, 2),
+    M: String(month),
+    MM: pad(month, 2),
+    y: String(year % 100),
+    yy: pad(year % 100, 2),
+    yyyy: pad(year, 4),
+    h: String(hour12),
+    hh: pad(hour12, 2),
+    H: String(hour),
+    HH: pad(hour, 2),
+    m: String(date.getMinutes()),
+    mm: pad(date.getMinutes(), 2),
+    s: String(date.getSeconds()),
+    ss: pad(date.getSeconds(), 2),
+    t: (hour < 12 ? am || 'AM' : pm || 'PM').charAt(0),
+    tt: hour < 12 ? am || 'AM' : pm || 'PM',
+  };
+
+  let out = '';
+  for (let index = 0; index < pattern.length; ) {
+    const char = pattern[index];
+    if (char === "'") {
+      const end = pattern.indexOf("'", index + 1);
+      out += pattern.slice(index + 1, end < 0 ? pattern.length : end);
+      index = end < 0 ? pattern.length : end + 1;
+      continue;
+    }
+    let run = 1;
+    while (pattern[index + run] === char) run++;
+    const token = char.repeat(run);
+    if (token === '\u202f') {
+      // Windows separates the time from the AM/PM designator with U+202F in LOCALE_STIMEFORMAT, but the
+      // formatting it produces uses a normal space there, while keeping any U+202F inside LOCALE_S1159.
+      out += ' ';
+    } else if (token in fields) {
+      out += fields[token];
+    } else if (/^[A-Za-z]+$/.test(token)) {
+      return null;
+    } else {
+      out += token;
+    }
+    index += run;
+  }
+  return out;
+}
+
+/** The Intl-based date, kept for a locale with no NLS row and for patterns this cannot expand. */
+function formatVbDateViaIntl(date: Date, locale: string): string {
   const padding = unpaddedDayMonth(locale) ? 'numeric' : '2-digit';
   const datePart = new Intl.DateTimeFormat(locale, { year: 'numeric', month: padding, day: padding }).format(date);
   const hour12 = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hour12 === true;
@@ -64,6 +132,28 @@ export function formatVbDate(date: Date, locale: string): string {
   if (isDayZero(date)) return timePart;
   if (isMidnight(date)) return datePart;
   return `${datePart} ${timePart}`;
+}
+
+/**
+ * CStr of a date, as VBScript writes it: the locale's short date and long time, without the date when it
+ * is day 0 (30 December 1899) and without the time at midnight.
+ *
+ * The patterns come from Windows NLS, shipped as data (see nls-date-table.generated.ts), because a
+ * browser has no NLS to ask and CLDR disagrees with it: the two agree for 46 of the 133 locales the
+ * engine knows when Intl is left to choose the layout itself.
+ */
+export function formatVbDate(date: Date, lcid: number, locale: string): string {
+  const format = nlsDateFormat(lcid);
+  if (format) {
+    const datePart = expandNlsPattern(format.shortDate, date, format.calendarType, format.am, format.pm);
+    const timePart = expandNlsPattern(format.timeFormat, date, format.calendarType, format.am, format.pm);
+    if (datePart !== null && timePart !== null) {
+      if (isDayZero(date)) return timePart;
+      if (isMidnight(date)) return datePart;
+      return `${datePart} ${timePart}`;
+    }
+  }
+  return formatVbDateViaIntl(date, locale);
 }
 
 // ---------------------------------------------------------------------------

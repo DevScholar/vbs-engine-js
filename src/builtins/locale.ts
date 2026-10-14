@@ -240,10 +240,13 @@ function getBrowserLocale(): string {
   return 'en';
 }
 
+/** The LCID of the locale the engine is running under. */
+export function currentLcid(): number {
+  return localeToLcid.get(getBrowserLocale()) ?? 1033;
+}
+
 export function getLocale(): VbValue {
-  const locale = getBrowserLocale();
-  const lcid = localeToLcid.get(locale) ?? 1033;
-  return { type: 'Long', value: lcid };
+  return { type: 'Long', value: currentLcid() };
 }
 
 export function setLocale(lcid: VbValue): VbValue {
