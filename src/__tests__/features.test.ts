@@ -1439,6 +1439,37 @@ describe('DateValue and TimeValue take a date or a string only', () => {
     });
   }
 
+  // Which types these two accept is a type rule, not locale data: measured on a Chinese Windows, the
+  // same tuple comes back for all 133 locales. German and Chinese agree here even though the two
+  // disagree about which *strings* are dates, so this guards the claim in the #6 review comment.
+  it('answers the same under every locale', () => {
+    const expected = '13|13|13|94|13|13|94|0';
+    for (const locale of [1031, 2052, 1033, 1049]) {
+      const answers = [
+        errorNumber(locale, 'x = DateValue(0)'),
+        errorNumber(locale, 'x = DateValue(True)'),
+        errorNumber(locale, 'x = DateValue(Empty)'),
+        errorNumber(locale, 'x = DateValue(Null)'),
+        errorNumber(locale, 'x = TimeValue(0)'),
+        errorNumber(locale, 'x = TimeValue(True)'),
+        errorNumber(locale, 'x = TimeValue(Null)'),
+        errorNumber(locale, 'x = CDate(0)'),
+      ].join('|');
+      expect(answers, `locale ${locale}`).toBe(expected);
+    }
+  });
+
+  it('reads CDate(True) as day -1 and IsDate as False, under every locale', () => {
+    for (const locale of [1031, 2052, 1033, 1049]) {
+      const engine = new VbsEngine();
+      engine.executeStatement(
+        `SetLocale ${locale}\nOn Error Resume Next\nx = CDate(True)\n` +
+          `r = (CDbl(x) = -1) & "|" & IsDate(0) & "|" & IsDate(True) & "|" & IsDate(Empty) & "|" & IsDate(Null)`
+      );
+      expect(engine.eval('r'), `locale ${locale}`).toBe('True|False|False|False|False');
+    }
+  });
+
   it('still reads a date and a string', () => {
     expect(answer(1033, 'CStr(DateValue(CDate(1)))')).toBe('12/31/1899');
     expect(answer(1033, 'CStr(TimeValue(CDate(1.5)))')).toBe('12:00:00 PM');
