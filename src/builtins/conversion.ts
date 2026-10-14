@@ -1,6 +1,16 @@
 import type { VbValue } from '../runtime/index.ts';
-import { toNumber, toString, toBoolean, toVbDate, isEmpty, isNull, isNumeric, parseVbDate } from '../runtime/index.ts';
-import { getCurrentCurrency, getCurrentBCP47Locale } from './locale.ts';
+import {
+  toNumber,
+  toString,
+  toBoolean,
+  toVbDate,
+  isEmpty,
+  isNull,
+  isNumeric,
+  parseVbDate,
+  formatVbDateTime,
+} from '../runtime/index.ts';
+import { currentLcid, getCurrentCurrency, getCurrentBCP47Locale } from './locale.ts';
 
 export const conversionFunctions = {
   CBool: (expression: VbValue): VbValue => {
@@ -180,35 +190,10 @@ export const conversionFunctions = {
   FormatDateTime: (date: VbValue, namedFormat?: VbValue): VbValue => {
     const d = date.type === 'Date' ? (date.value as Date) : new Date(toString(date));
     const format = namedFormat ? Math.floor(toNumber(namedFormat)) : 0;
-    const locale = getCurrentBCP47Locale();
-
-    let result: string;
-    switch (format) {
-      case 0:
-        result = d.toLocaleString(locale);
-        break;
-      case 1:
-        result = d.toLocaleDateString(locale, {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        break;
-      case 2:
-        result = d.toLocaleDateString(locale);
-        break;
-      case 3:
-        result = d.toLocaleTimeString(locale);
-        break;
-      case 4:
-        result = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-        break;
-      default:
-        result = d.toLocaleString();
-    }
-
-    return { type: 'String', value: result };
+    return {
+      type: 'String',
+      value: formatVbDateTime(d, currentLcid(), format, getCurrentBCP47Locale()),
+    };
   },
 
   Hex: (number: VbValue): VbValue => {
