@@ -148,6 +148,8 @@ engine.executeStatement(`
 ```typescript
 interface VbsEngineOptions {
   mode?: 'general' | 'browser' | 'auto';  // Default: 'auto'
+  hostIntegration?: boolean;     // Default: true for the first engine in a process, false after
+  useJsError?: boolean;          // Default: true
   injectGlobalThis?: boolean;    // Default: true
   injectVBArrayToGlobalThis?: boolean; // Default: true
   maxExecutionTime?: number;     // Default: -1 (unlimited)
@@ -164,7 +166,9 @@ interface VbsEngineOptions {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `mode` | `'general' \| 'browser'` | `'auto'` | Engine mode. Auto-detects based on environment: `'browser'` in browser, `'general'` in Node.js. Use `'browser'` for web applications |
-| `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript |
+| `hostIntegration` | `boolean` | first engine `true` | Whether the engine may own the host, as it does in IE or WSH. A host has one of these, so the first engine to ask claims it and every later engine is isolated and cannot ask: it does not own the document, install the `vbscript:` handler, replace the host's `eval` and timers, or publish its functions into the host global. It still reads host globals and still calls objects given to `addObject`. Fixed at construction |
+| `useJsError` | `boolean` | `true` | How an error surfaces when the host runs script no JavaScript call asked for (an inline event attribute, a timer handler). `true` throws a real JavaScript error, which the page can catch; `false` leaves it in `engine.error`. `executeStatement` and `executeStatementThrows` are unaffected: the method called decides |
+| `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript. Reads of host globals are unaffected; this only decides whether the engine publishes its own functions and variables, and it is forced off for an isolated engine |
 | `injectVBArrayToGlobalThis` | `boolean` | `true` | Expose VBArray as `globalThis.VBArray` for legacy code compatibility |
 | `maxExecutionTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |
 | `parseScriptElement` | `boolean` | `true` | Automatically process `<script type="text/vbscript">` tags (browser mode) |
@@ -172,6 +176,17 @@ interface VbsEngineOptions {
 | `parseEventSubNames` | `boolean` | `true` | Auto-bind event handlers from Sub names like `Button1_OnClick` (browser mode) |
 | `parseVbsProtocol` | `boolean` | `true` | Handle `vbscript:` protocol in links (browser mode) |
 | `overrideJsEvalFunctions` | `boolean` | `true` | Override JS eval functions (`eval`,`setTimeout`,`setInterval`) to support VBScript (browser mode) |
+
+### Dates and locale
+
+Dates are OLE Automation dates: a day count from 30 December 1899, with the time of day as the fraction.
+
+`CStr` of a date, `CDate` and `IsDate` are measured against `vbscript.dll` rather than guessed at. Two things are worth knowing when reading code that touches dates:
+
+- **Which strings are dates follows the locale**, because that is what `SetLocale` is for: `IsDate("29.09.2026")` is `True` under `1031` and `False` under `1033`, and month names come from the locale (English names are read only for Chinese, Japanese and Korean, whose own names `vbscript.dll` does not match).
+- **Which types are dates does not.** `DateValue` and `TimeValue` take a date or a string only: a number, a Boolean or Empty is error 13 there and `Null` is error 94, in every locale. Only `CDate` reads numbers, Booleans and Empty.
+
+`CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`, produced by `scripts/generate-nls-date-table.ps1`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` byte for byte in all 133 locales it knows.
 
 ### Example Usage
 
