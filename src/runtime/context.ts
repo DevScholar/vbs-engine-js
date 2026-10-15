@@ -148,6 +148,16 @@ export class VbContext {
   }
 
   getVariable(name: string): VbValue {
+    // The name a Property Get is filling in is its own local, and not the property of the same name: reading
+    // it through the instance would run the property again, which is an endless recursion. A Property Get
+    // that hands back an object is what shows it, since `Set Linked = New Other` asks for the value first
+    // and a fresh cscript answers TypeName(first.Linked) with the class name where this used to overflow the
+    // stack.
+    if (this.inPropertyGet && name.toLowerCase() === this.propertyGetName) {
+      const local = this.currentScope.get(name);
+      if (local) return local.value;
+    }
+
     if (this.currentInstance) {
       if (this.currentInstance.hasProperty(name)) {
         return this.currentInstance.getProperty(name);

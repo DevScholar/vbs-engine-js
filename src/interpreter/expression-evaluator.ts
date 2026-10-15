@@ -14,6 +14,7 @@ import type {
   VbWithObjectExpression,
 } from '../ast/index.ts';
 import type { VbValue, VbObjectValue, VbObjectValueData, VbArrayValue } from '../runtime/index.ts';
+import { isVbClassInstance } from '../runtime/index.ts';
 import { VbContext, VbObjectInstance } from '../runtime/index.ts';
 import {
   createVbValue,
@@ -329,11 +330,13 @@ export class ExpressionEvaluator {
     if (node.callee.type === 'Identifier') {
       const className = node.callee.name;
       const ctorArgs = node.arguments.map(arg => this.evaluate(arg));
-      try {
-        const instance = this.context.classRegistry.createInstance(className, ctorArgs);
-        return { type: 'Object', value: instance };
-      } catch {
-        // Not a VBScript class — fall through to globalThis lookup below.
+      if (this.context.classRegistry.has(className)) {
+        // The initializer's own failure is the script's failure, so it is not caught here: only a name that
+        // is no registered class falls through to the host lookup below.
+        return {
+          type: 'Object',
+          value: this.context.classRegistry.createInstance(className, ctorArgs),
+        };
       }
       const ctor = (globalThis as Record<string, unknown>)[className];
       if (typeof ctor === 'function') {
@@ -343,7 +346,8 @@ export class ExpressionEvaluator {
           value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args),
         };
       }
-      throw createVbError(VbErrorCodes.InvalidProcedureCall, `Unknown class: ${className}`);
+      // A class that is nowhere is error 506, measured: `result = New NoSuchClass` answers 506.
+      throw createVbError(VbErrorCodes.ClassNotDefined, `Class not defined: ${className}`);
     }
 
     // Dotted path (e.g. New Forms.Form, New NS.Sub.Class): evaluate the
@@ -482,6 +486,24 @@ export class ExpressionEvaluator {
         Object.prototype.hasOwnProperty.call(obj, 'classInfo')) &&
       typeof obj.getProperty === 'function'
     ) {
+      // A class instance answers 438 for a member it does not have, and for a Private member reached from
+      // outside the class, which a fresh cscript shows for first.NoSuchMember and for first.hiddenCount
+      // alike. A host object keeps the older, lenient reading.
+      if (isVbClassInstance(obj)) {
+        const instance = obj as unknown as VbObjectInstance;
+        if (!instance.isMemberVisible(propertyName, this.context.currentInstance)) {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            `Object doesn't support this property or method: '${propertyName}'`
+          );
+        }
+        if (!instance.hasMethod(propertyName) && !instance.hasMember(propertyName)) {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            `Object doesn't support this property or method: '${propertyName}'`
+          );
+        }
+      }
       if (obj.hasMethod?.(propertyName)) {
         return { type: 'Object', value: { type: 'method', object: obj, method: propertyName } };
       }
@@ -1310,15 +1332,16 @@ export class ExpressionEvaluator {
         const oldValue = this.context.getVariable(node.left.name);
         this.callTerminateIfNeeded(oldValue, value);
       } else if (value.type === 'Object') {
-        // An object needs Set, and assigning one without it is error 450, measured: with
-        // d = CreateObject("Scripting.Dictionary"), "o = d" is 450 and "c = Nothing" is 91, the object
-        // variable that is not set. Passing an object as an argument and reading one are both fine.
+        // An object needs Set, and assigning one without it is error 438 for an object of a class, measured
+        // on a fresh cscript for every shape it can be written in: `x = New Holder`, `x = Maker()`,
+        // `x = held` and `x = items(0)` are all 438, while `x = Nothing` is 91, the object variable that is
+        // not set. Passing an object as an argument and reading one are both fine.
         if (value.value === null) {
-          throw createVbError(91, 'Object variable not set');
+          throw createVbError(VbErrorCodes.ObjectVariableNotSet, 'Object variable not set');
         }
         throw createVbError(
-          VbErrorCodes.InvalidQualifier,
-          'Wrong number of arguments or invalid property assignment'
+          VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+          "Object doesn't support this property or method"
         );
       }
       // An array is copied where it is assigned, which a fresh cscript shows: after b = a, changing b(0) or
@@ -1380,6 +1403,24 @@ export class ExpressionEvaluator {
           Object.prototype.hasOwnProperty.call(obj, 'classInfo')) &&
         typeof obj.setProperty === 'function'
       ) {
+        // Writing a member a class does not have is 438, and so is writing a Private one from outside:
+        // measured, `first.hiddenCount = 5` from script level is 438 and leaves the class's own value alone,
+        // where `first.NoSuchMember = 1` is 438 too.
+        if (isVbClassInstance(obj)) {
+          const instance = obj as unknown as VbObjectInstance;
+          if (!instance.isMemberVisible(propertyName, this.context.currentInstance)) {
+            throw createVbError(
+              VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+              `Object doesn't support this property or method: '${propertyName}'`
+            );
+          }
+          if (!instance.hasMethod(propertyName) && !instance.hasMember(propertyName)) {
+            throw createVbError(
+              VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+              `Object doesn't support this property or method: '${propertyName}'`
+            );
+          }
+        }
         obj.setProperty(propertyName, value, isSet);
       } else {
         const jsValue = this.vbToJs(value);

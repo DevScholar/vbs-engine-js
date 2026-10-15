@@ -100,13 +100,20 @@ This document tracks the compatibility between this VBScript engine implementati
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Class...End Class | ✔️ | |
-| New | ✔️ | |
-| Property Get | ✔️ | |
+| New | ✔️ | `New` on a name that is no class is error 506, "Class not defined" |
+| Public members | ✔️ | A field, a Property or a method reachable from anywhere |
+| Private members | ✔️ | Reachable from inside the same class only, another instance of it included. From outside, reading, writing or calling one is error 438, as it is in Windows |
+| A member the class does not have | ✔️ | Error 438 for a read, a write and a call alike: `first.NoSuchMember`, `first.NoSuchMember = 1` and `first.NoSuchMethod()` |
+| Property Get | ✔️ | Handing back an object works (`Set Linked = inner`), including read inside an expression such as `TypeName(first.Linked)` |
 | Property Let | ✔️ | |
-| Property Set | ✔️ | |
+| Property Set | ✔️ | An object stored this way comes back with `Is` intact |
+| Method argument count | ✔️ | Checked the way a procedure's is: `Describe()` and `Describe("a", "b")` for `Describe(prefix)` are both error 450 |
 | Me | ✔️ | |
 | Initialize Event | ✔️ | Class_Initialize |
-| Terminate Event | ✔️ | Class_Terminate |
+| Terminate Event | ✔️ | Class_Terminate, which runs when the last reference to an instance goes |
+| Assigning an object | ✔️ | Needs `Set`. Without it the assignment is error 438 (`x = New Holder`, `x = Maker()`, `x = held`, `x = items(0)`), and `x = Nothing` is error 91. Passing an object as an argument needs no `Set` |
+| An object in an array | ✔️ | `Set items(0) = New Holder` works, and `items(0).Name` reads and writes through it |
+| Reading an object as text | ✔️ | Error 438: an object of a class has no text of its own, so `CStr(anInstance)` is 438 |
 
 ---
 

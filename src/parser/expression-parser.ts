@@ -82,6 +82,20 @@ export class ExpressionParser {
     return this.parseCall();
   }
 
+  /**
+   * The target of a `Set` statement, which may be an array element or a property: `Set a(0) = x`.
+   *
+   * parseCall() builds a CallExpression for `a(0)` because a call and an array element are written the same
+   * way. As an assignment target it is always the array element, so it is converted the same way a plain
+   * `a(0) = x` is. Without this, `Set items(0) = New Holder` failed with "Invalid assignment target:
+   * CallExpression", which a fresh cscript accepts and then reads back as the object: the same script writes
+   * items(1).Value next and sees it.
+   */
+  parseSetTarget(): Expression {
+    const target = this.parseCall();
+    return callChainToMemberChain(target) ?? target;
+  }
+
   parseMemberExpression(): Expression {
     // The `Call` statement (this method's only caller) can target ANY
     // expression, not just a plain identifier - including a parenthesized

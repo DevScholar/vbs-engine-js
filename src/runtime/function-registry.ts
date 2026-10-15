@@ -21,7 +21,7 @@ export interface VbParameterInfo {
  * The counts a declared procedure accepts, from its own parameter list. Everyone after the first optional
  * parameter may be left out, and a ParamArray takes as many as the caller writes.
  */
-function declaredArity(params: VbParameterInfo[]): readonly [number, number] {
+export function declaredArity(params: VbParameterInfo[]): readonly [number, number] {
   const variadic = params.some(param => param.isParamArray);
   const firstOptional = params.findIndex(param => param.isOptional || param.isParamArray);
   const required = firstOptional < 0 ? params.length : firstOptional;
@@ -49,14 +49,24 @@ export interface VbArgumentRef {
  *
  * Measured: a count that is too low and a count that is too high are the same answer, error 450, for a
  * built-in and for a declared procedure alike. Mid("abc") and Mid("abc", 1, 1, 1) are both 450, and so are
- * One() and One(1, 2) for Function One(value). The message names the procedure, since a script sees it in
- * Err.Description and a long procedure can hold many calls.
+ * One() and One(1, 2) for Function One(value), and a class method is checked the same way. The message names
+ * the procedure, since a script sees it in Err.Description and a long procedure can hold many calls.
  */
-function checkArgumentCount(info: VbFunctionInfo, count: number): void {
-  if (count >= info.minArgs && count <= info.maxArgs) return;
+export function checkArgumentCount(info: VbFunctionInfo, count: number): void {
+  checkArgumentRange(info.name, info.minArgs, info.maxArgs, count);
+}
+
+/** The same check for a class method, which keeps its counts beside its own name. */
+export function checkArgumentRange(
+  name: string,
+  minArgs: number,
+  maxArgs: number,
+  count: number
+): void {
+  if (count >= minArgs && count <= maxArgs) return;
   throw createVbError(
     VbErrorCodes.InvalidQualifier,
-    `Wrong number of arguments or invalid property assignment: '${info.name}'`
+    `Wrong number of arguments or invalid property assignment: '${name}'`
   );
 }
 

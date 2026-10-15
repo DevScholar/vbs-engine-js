@@ -975,14 +975,22 @@ describe('Parenthesis-less member reads', () => {
 // procedure body being no help in finding which one failed. Both throw sites already hold the
 // name, so the test asserts it reaches the description and nothing about the wording around it.
 describe('Invalid procedure call names its target', () => {
-  it.each<[string, string, string]>([
-    ['an identifier', 'Dim v\nv = 1\nv 1, 2', "'v'"],
-    ['a member', 'Class C\nEnd Class\nDim o\nSet o = New C\no.Nope 1', "'o.Nope'"],
-  ])('names %s that could not be called', (_label, source, expected) => {
+  it('names an identifier that could not be called', () => {
     const engine = new VbsEngine();
-    engine.executeStatement(source);
+    engine.executeStatement('Dim v\nv = 1\nv 1, 2');
     expect(engine.error).not.toBeNull();
-    expect(engine.error!.description).toContain(expected);
+    expect(engine.error!.description).toContain("'v'");
+  });
+
+  // A member a class does not have is error 438 rather than an invalid procedure call, measured on a fresh
+  // cscript: `o.Nope 1`, `o.Nope()` and `result = o.Nope` are all 438 for a class instance. The description
+  // still names the member, which is what a script needs to find the line that asked for it.
+  it('names the member a class does not have', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement('Class C\nEnd Class\nDim o\nSet o = New C\no.Nope 1');
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.number).toBe(438);
+    expect(engine.error!.description).toContain('Nope');
   });
 });
 

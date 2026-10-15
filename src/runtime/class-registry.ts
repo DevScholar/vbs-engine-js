@@ -9,12 +9,16 @@ export interface VbProperty {
   get?: VbPropertyGetter;
   let?: VbPropertySetter;
   set?: VbPropertySetter;
+  /** A Private member, which only code inside the same class may reach. */
+  isPrivate?: boolean;
 }
 
 export interface VbMethodInfo {
   name: string;
   func: (...args: VbValue[]) => VbValue;
   isSub: boolean;
+  /** A Private member, which only code inside the same class may reach. */
+  isPrivate?: boolean;
 }
 
 /** A plain-object factory for native built-in classes (like Collection). */
@@ -105,6 +109,39 @@ export class VbObjectInstance {
 
   hasMethod(name: string): boolean {
     return this.classInfo.methods.has(name.toLowerCase());
+  }
+
+  /**
+   * Whether the instance has a member of this name at all, private ones included.
+   *
+   * Windows answers error 438 for a member a class does not have, and error 438 for a Private one reached
+   * from outside as well, so the two are told apart only to describe them: `first.NoSuchMember`,
+   * `first.NoSuchMethod()` and, from outside the class, `first.hiddenCount` are all 438.
+   */
+  hasMember(name: string): boolean {
+    const lowerName = name.toLowerCase();
+    return (
+      this.properties.has(lowerName) ||
+      this.propertyAccessors.has(lowerName) ||
+      this.classInfo.methods.has(lowerName) ||
+      (this.prototype?.hasMember(name) ?? false)
+    );
+  }
+
+  /**
+   * Whether the running code may reach a member, which a Private one allows only inside the same class.
+   *
+   * VBScript's Private inside a class means "inside this class", so another instance of the same class
+   * reaches it too. Measured: with `Private hiddenCount` in class Holder, `first.hiddenCount` from script
+   * level is error 438 while a method of Holder reads and writes it freely.
+   */
+  isMemberVisible(name: string, caller: VbObjectInstance | null): boolean {
+    const lowerName = name.toLowerCase();
+    const accessor = this.propertyAccessors.get(lowerName);
+    const method = this.classInfo.methods.get(lowerName);
+    const isPrivate = accessor?.isPrivate === true || method?.isPrivate === true;
+    if (!isPrivate) return true;
+    return caller !== null && caller.classInfo === this.classInfo;
   }
 
   setPropertiesFromObject(obj: Record<string, unknown>): void {

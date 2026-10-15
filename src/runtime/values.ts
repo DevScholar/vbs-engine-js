@@ -328,6 +328,21 @@ export function toNumber(value: VbValue): number {
   );
 }
 
+/**
+ * Whether a value is an object of a VBScript class, told apart from a host object and from this engine's own
+ * native objects (the Collection) by the class information and the member lookup every instance carries.
+ * Read structurally so that this module need not import the class registry, which imports this one.
+ */
+export function isVbClassInstance(value: unknown): boolean {
+  const candidate = value as { classInfo?: unknown; isMemberVisible?: unknown } | null;
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof candidate?.classInfo === 'object' &&
+    typeof candidate?.isMemberVisible === 'function'
+  );
+}
+
 /** The scale a Currency holds its amount at: a count of ten-thousandths, which is four decimal places. */
 export const CURRENCY_SCALE = 10n ** BigInt(CURRENCY_DIGITS);
 
@@ -518,7 +533,17 @@ export function toString(value: VbValue): string {
     return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());
   }
   if (value.type === 'Object') {
-    return value.value === null ? 'Nothing' : '[object]';
+    if (value.value === null) return 'Nothing';
+    // An object of a class has no text of its own, and asking it for one is error 438: measured,
+    // CStr(anInstance) answers 438 on a fresh cscript, where the engine used to answer "[object]". A host
+    // object keeps the older reading, since its text is the host's business.
+    if (isVbClassInstance(value.value)) {
+      throw createVbError(
+        VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+        "Object doesn't support this property or method"
+      );
+    }
+    return '[object]';
   }
   if (value.type === 'Array') {
     return '[array]';

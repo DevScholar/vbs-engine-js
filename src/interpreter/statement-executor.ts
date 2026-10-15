@@ -40,6 +40,9 @@ import {
   VbObjectInstance,
   VbClass,
   type VbProperty,
+  type VbParameterInfo,
+  declaredArity,
+  checkArgumentRange,
 } from '../runtime/index.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 
@@ -54,6 +57,17 @@ import { ExpressionEvaluator } from './expression-evaluator.ts';
 function toConditionBoolean(value: VbValue): boolean {
   if (value.type === 'Null') return false;
   return toBoolean(value);
+}
+
+/** The parameter list of a class member as the argument counts are read from it. */
+function classParameterInfo(params: import('../ast/index.ts').VbParameter[]): VbParameterInfo[] {
+  return params.map(param => ({
+    name: param.name.name,
+    byRef: param.byRef,
+    isArray: param.isArray,
+    isOptional: param.isOptional,
+    isParamArray: param.isParamArray,
+  }));
 }
 
 export class ControlFlowSignal extends Error {
@@ -848,11 +862,13 @@ export class StatementExecutor {
         for (const decl of member.declarations) {
           cls.properties.set(decl.id.name.toLowerCase(), {
             name: decl.id.name,
+            isPrivate: member.visibility === 'private',
           });
         }
       } else if (member.type === 'VbSubStatement') {
         const memberNode = member;
         const memberName = member.name.name.toLowerCase();
+        const memberArity = declaredArity(classParameterInfo(memberNode.params));
 
         if (memberName === 'class_initialize') {
           initializeFunc = {
@@ -912,7 +928,9 @@ export class StatementExecutor {
 
         cls.methods.set(memberName, {
           name: member.name.name,
+          isPrivate: memberNode.visibility === 'private',
           func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
+            checkArgumentRange(member.name.name, memberArity[0], memberArity[1], args.length);
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
@@ -938,9 +956,12 @@ export class StatementExecutor {
         });
       } else if (member.type === 'VbFunctionStatement') {
         const memberNode = member;
+        const memberArity = declaredArity(classParameterInfo(memberNode.params));
         cls.methods.set(member.name.name.toLowerCase(), {
           name: member.name.name,
+          isPrivate: memberNode.visibility === 'private',
           func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
+            checkArgumentRange(member.name.name, memberArity[0], memberArity[1], args.length);
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
@@ -972,7 +993,10 @@ export class StatementExecutor {
       } else if (member.type === 'VbPropertyGetStatement') {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
-        const existing = cls.properties.get(propName) || { name: member.name.name };
+        const existing = cls.properties.get(propName) || {
+          name: member.name.name,
+          isPrivate: memberNode.visibility === 'private',
+        };
         existing.get = function (this: VbObjectInstance): VbValue {
           const prevInstance = self.context.currentInstance;
           const prevInPropertyGet = self.context.inPropertyGet;
@@ -1008,7 +1032,10 @@ export class StatementExecutor {
       } else if (member.type === 'VbPropertyLetStatement') {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
-        const existing = cls.properties.get(propName) || { name: member.name.name };
+        const existing = cls.properties.get(propName) || {
+          name: member.name.name,
+          isPrivate: memberNode.visibility === 'private',
+        };
         existing.let = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
           self.context.currentInstance = this;
@@ -1038,7 +1065,10 @@ export class StatementExecutor {
       } else if (member.type === 'VbPropertySetStatement') {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
-        const existing = cls.properties.get(propName) || { name: member.name.name };
+        const existing = cls.properties.get(propName) || {
+          name: member.name.name,
+          isPrivate: memberNode.visibility === 'private',
+        };
         existing.set = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
           self.context.currentInstance = this;

@@ -61,6 +61,8 @@ export const VbErrorCodes = {
   InvalidProcedureCall: 5,
   ObjectRequired: 424,
   ObjectVariableNotSet: 91,
+  /** `New` on a name that is no class, measured as error 506 on a fresh cscript. */
+  ClassNotDefined: 506,
   ActiveXComponentCantCreateObject: 429,
   ObjectDoesntSupportPropertyOrMethod: 438,
   VariableNotDefined: 500,

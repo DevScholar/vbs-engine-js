@@ -100,7 +100,7 @@ export class StatementsParser {
 
   parseSetStatement(): Statement {
     const setToken = this.state.advance();
-    const left = this.exprParser.parseCallExpression();
+    const left = this.exprParser.parseSetTarget();
     this.state.expect(TokenType.Eq);
     const right = this.exprParser.parseExpression();
 
