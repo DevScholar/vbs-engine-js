@@ -135,6 +135,30 @@ const CELLS: ReadonlyArray<readonly [string, string]> = [
   ['Join(Array("a", "b"), "-")', 'a-b'],
   ['UCase("aBc")', 'ABC'],
   ['LCase("aBc")', 'abc'],
+  // Escape and Unescape, whose percent encoding Windows shares cell for cell with the JavaScript host's own
+  // functions of the same name. Measured: a space is %20, a tilde is %7E, and a character above 255 is
+  // %uXXXX rather than the UTF-8 bytes, which is why Unescape("%E6%97%A5") answers two Latin-1 characters
+  // instead of the one character that was encoded.
+  ['Escape("a b")', 'a%20b'],
+  ['Escape("a+b")', 'a+b'],
+  ['Escape("%")', '%25'],
+  ['Escape("a/b")', 'a/b'],
+  ['Escape("~")', '%7E'],
+  ['Escape("@")', '@'],
+  ['Escape(ChrW(26085))', '%u65E5'],
+  ['Escape(ChrW(233))', '%E9'],
+  ['"[" & Escape("") & "]"', '[]'],
+  ['Escape(Empty)', ''],
+  ['Escape(5)', '5'],
+  ['Escape(Null)', 'ERR 94'],
+  ['Unescape("a%20b")', 'a b'],
+  ['Unescape("a+b")', 'a+b'],
+  ['Unescape("%E6%97%A5")', '\u00e6\u0097\u00a5'],
+  ['Unescape("%u65E5")', '\u65e5'],
+  ['"[" & Unescape("%") & "]"', '[%]'],
+  ['Unescape("%zz")', '%zz'],
+  ['Unescape("%25")', '%'],
+  ['Unescape(Null)', 'ERR 94'],
 ];
 
 function answer(expression: string): unknown {

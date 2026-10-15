@@ -1273,8 +1273,25 @@ export class ExpressionEvaluator {
 
     if (node.left.type === 'Identifier') {
       if (isSet) {
+        // Set takes an object and nothing else, measured on a fresh cscript: Set o = 5, Set o = "abc",
+        // Set o = Empty, Set o = Null and even Set o = Array(1, 2) are all error 424, while
+        // Set o = Nothing is the one way to empty a variable that holds an object.
+        if (value.type !== 'Object') {
+          throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
+        }
         const oldValue = this.context.getVariable(node.left.name);
         this.callTerminateIfNeeded(oldValue, value);
+      } else if (value.type === 'Object') {
+        // An object needs Set, and assigning one without it is error 450, measured: with
+        // d = CreateObject("Scripting.Dictionary"), "o = d" is 450 and "c = Nothing" is 91, the object
+        // variable that is not set. Passing an object as an argument and reading one are both fine.
+        if (value.value === null) {
+          throw createVbError(91, 'Object variable not set');
+        }
+        throw createVbError(
+          VbErrorCodes.InvalidQualifier,
+          'Wrong number of arguments or invalid property assignment'
+        );
       }
       // An array is copied where it is assigned, which a fresh cscript shows: after b = a, changing b(0) or
       // erasing b leaves a as it was.

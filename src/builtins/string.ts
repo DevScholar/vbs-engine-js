@@ -418,6 +418,20 @@ export const stringFunctions = {
     return { type: 'String', value: toString(str).replace(/^ +/, '').replace(/ +$/, '') };
   },
 
+  // The percent encoding Windows uses, which the JavaScript host's own Escape and Unescape answer cell for
+  // cell, measured: Escape("a b") is "a%20b", Escape(ChrW(26085)) is "%u65E5" and not the UTF-8 "%E6%97%A5",
+  // and Unescape("%E6%97%A5") is the two Latin-1 characters that form builds from it. A Null is the invalid
+  // use of Null here rather than the Null this family answers back.
+  Escape: (str: VbValue): VbValue => {
+    if (anyNullArgument(str)) nullArgument('Escape');
+    return { type: 'String', value: escape(toString(str)) };
+  },
+
+  Unescape: (str: VbValue): VbValue => {
+    if (anyNullArgument(str)) nullArgument('Unescape');
+    return { type: 'String', value: unescape(toString(str)) };
+  },
+
   Replace: (
     str: VbValue,
     find: VbValue,

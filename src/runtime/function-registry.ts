@@ -1,5 +1,7 @@
 import type { VbValue } from './values.ts';
 import { VbEmpty } from './values.ts';
+import { createVbError, VbErrorCodes } from './errors.ts';
+import { BUILTIN_ARITY } from './builtin-arity.ts';
 
 export type VbFunction = (...args: VbValue[]) => VbValue;
 export type VbSub = (...args: VbValue[]) => void;
@@ -9,6 +11,21 @@ export interface VbParameterInfo {
   name: string;
   byRef: boolean;
   isArray: boolean;
+  /** A parameter the caller may leave out, which is what makes it the first the count may stop at. */
+  isOptional?: boolean;
+  /** A ParamArray, which takes any number of trailing arguments. */
+  isParamArray?: boolean;
+}
+
+/**
+ * The counts a declared procedure accepts, from its own parameter list. Everyone after the first optional
+ * parameter may be left out, and a ParamArray takes as many as the caller writes.
+ */
+function declaredArity(params: VbParameterInfo[]): readonly [number, number] {
+  const variadic = params.some(param => param.isParamArray);
+  const firstOptional = params.findIndex(param => param.isOptional || param.isParamArray);
+  const required = firstOptional < 0 ? params.length : firstOptional;
+  return [required, variadic ? Number.POSITIVE_INFINITY : params.length];
 }
 
 export interface VbFunctionInfo {
@@ -27,6 +44,22 @@ export interface VbArgumentRef {
   setValue?: (value: VbValue) => void;
 }
 
+/**
+ * Refuses a call whose argument count is out of range, with the error Windows uses.
+ *
+ * Measured: a count that is too low and a count that is too high are the same answer, error 450, for a
+ * built-in and for a declared procedure alike. Mid("abc") and Mid("abc", 1, 1, 1) are both 450, and so are
+ * One() and One(1, 2) for Function One(value). The message names the procedure, since a script sees it in
+ * Err.Description and a long procedure can hold many calls.
+ */
+function checkArgumentCount(info: VbFunctionInfo, count: number): void {
+  if (count >= info.minArgs && count <= info.maxArgs) return;
+  throw createVbError(
+    VbErrorCodes.InvalidQualifier,
+    `Wrong number of arguments or invalid property assignment: '${info.name}'`
+  );
+}
+
 export class VbFunctionRegistry {
   private functions: Map<string, VbFunctionInfo> = new Map();
 
@@ -36,12 +69,16 @@ export class VbFunctionRegistry {
     options: Partial<VbFunctionInfo> = {}
   ): void {
     const lowerName = name.toLowerCase();
+    // A declared procedure carries its own counts; a built-in takes the measured ones. A built-in is
+    // registered with no parameter list at all, so an empty one is never read as "takes nothing".
+    const declared = options.params === undefined ? null : declaredArity(options.params);
+    const standard = BUILTIN_ARITY[lowerName];
     this.functions.set(lowerName, {
       name,
       func,
       isSub: options.isSub ?? false,
-      minArgs: options.minArgs ?? 0,
-      maxArgs: options.maxArgs ?? Infinity,
+      minArgs: options.minArgs ?? declared?.[0] ?? standard?.[0] ?? 0,
+      maxArgs: options.maxArgs ?? declared?.[1] ?? standard?.[1] ?? Number.POSITIVE_INFINITY,
       params: options.params ?? [],
       isUserDefined: options.isUserDefined ?? false,
     });
@@ -61,13 +98,7 @@ export class VbFunctionRegistry {
       throw new Error(`Undefined function or sub: ${name}`);
     }
 
-    if (args.length < info.minArgs) {
-      throw new Error(`${name} requires at least ${info.minArgs} argument(s)`);
-    }
-
-    if (args.length > info.maxArgs) {
-      throw new Error(`${name} accepts at most ${info.maxArgs} argument(s)`);
-    }
+    checkArgumentCount(info, args.length);
 
     let result: VbValue;
     if (info.isUserDefined) {
@@ -89,13 +120,7 @@ export class VbFunctionRegistry {
       throw new Error(`Undefined function or sub: ${name}`);
     }
 
-    if (args.length < info.minArgs) {
-      throw new Error(`${name} requires at least ${info.minArgs} argument(s)`);
-    }
-
-    if (args.length > info.maxArgs) {
-      throw new Error(`${name} accepts at most ${info.maxArgs} argument(s)`);
-    }
+    checkArgumentCount(info, args.length);
 
     const values = args.map(arg => arg.value);
 
