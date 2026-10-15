@@ -1,4 +1,4 @@
-<#
+﻿<#
   Generates the Windows NLS date/time table the engine needs to reproduce VBScript's CStr output.
 
   Why a generated table instead of calling ICU at run time:

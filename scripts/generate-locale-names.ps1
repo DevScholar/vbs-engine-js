@@ -1,4 +1,4 @@
-# Reads Windows' own name for every LCID the engine knows (LCIDToLocaleName) and hands it to
+﻿# Reads Windows' own name for every LCID the engine knows (LCIDToLocaleName) and hands it to
 # generate-locale-names.mjs, which keeps a name only where ICU resolves it exactly.
 #
 #   pwsh -File scripts/generate-locale-names.ps1

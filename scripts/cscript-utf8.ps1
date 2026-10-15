@@ -1,4 +1,4 @@
-# cscript-utf8.ps1
+﻿# cscript-utf8.ps1
 #
 # Run cscript and re-emit its output so a UTF-8 terminal renders it correctly.
 #
