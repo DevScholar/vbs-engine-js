@@ -1,9 +1,10 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
   absoluteScaled,
+  CURRENCY_SCALE,
   createVbValue,
   floorScaled,
-  roundScaledToEven,
+  roundScaledToMultiple,
   toCurrencyScaled,
   toNumber,
   toSinglePrecision,
@@ -64,10 +65,14 @@ export const mathFunctions = {
 
   Round: (number: VbValue, numDecimalPlaces?: VbValue): VbValue => {
     const decimals = numDecimalPlaces ? Math.floor(toNumber(numDecimalPlaces)) : 0;
-    // A Currency rounds on its own scale, so the tie goes to the even neighbour without a double in
-    // between: Round(CCur(1.5)) is the Currency 2.
-    if (number.type === 'Currency' && decimals <= 0) {
-      return { type: 'Currency', value: roundScaledToEven(number.value) };
+    // A Currency rounds on its own scale, so a tie goes to the even neighbour with no double in between:
+    // Round(CCur(1.005), 2) is the Currency 1, and Round(CCur(1234.5678), 2) is 1234.57.
+    if (number.type === 'Currency') {
+      const unit =
+        decimals >= 0
+          ? CURRENCY_SCALE / 10n ** BigInt(decimals)
+          : CURRENCY_SCALE * 10n ** BigInt(-decimals);
+      return { type: 'Currency', value: roundScaledToMultiple(number.value, unit) };
     }
     const num = toNumber(number);
     const factor = Math.pow(10, decimals);

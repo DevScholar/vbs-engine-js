@@ -250,8 +250,8 @@ export function formatNlsNumber(
 /** How many significant digits each type keeps. */
 const SIGNIFICANT_DIGITS: Record<'single' | 'double', number> = { single: 7, double: 15 };
 
-/** How many decimal places a Currency keeps. */
-const CURRENCY_DIGITS = 4;
+/** How many decimal places a Currency keeps, which is what its scaled integer counts. */
+export const CURRENCY_DIGITS = 4;
 
 /** Writes a value with a fixed count of significant digits, in an exponent only outside the plain window. */
 function significantText(value: number, significantDigits: number): string {

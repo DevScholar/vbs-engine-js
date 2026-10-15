@@ -1,8 +1,10 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
+  checkLongLongRange,
   createVbError,
   roundHalfToEven,
   toCurrencyScaled,
+  toLongLong,
   toNumber,
   toSinglePrecision,
   toString,
@@ -62,17 +64,18 @@ export const conversionFunctions = {
   CLngLng: (expression: VbValue): VbValue => {
     if (expression.type === 'LongLong') return expression;
     if (expression.type === 'String') {
-      const str = (expression.value as string).trim();
+      // A string that is a whole number is read as one, so a value past what a double counts with is not
+      // rounded on the way in. Anything else, such as "1.5", goes through a number.
+      const written = expression.value.trim();
       try {
-        return { type: 'LongLong', value: BigInt(str) };
+        return { type: 'LongLong', value: checkLongLongRange(BigInt(written)) };
       } catch {
-        const num = parseFloat(str);
-        if (isNaN(num)) throw new Error('Type mismatch: CLngLng');
-        return { type: 'LongLong', value: BigInt(Math.trunc(num)) };
+        const num = parseFloat(written);
+        if (isNaN(num)) throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: CLngLng');
+        return { type: 'LongLong', value: toLongLong(num) };
       }
     }
-    const num = toNumber(expression);
-    return { type: 'LongLong', value: BigInt(Math.trunc(num)) };
+    return { type: 'LongLong', value: toLongLong(toNumber(expression)) };
   },
 
   CSng: (expression: VbValue): VbValue => {

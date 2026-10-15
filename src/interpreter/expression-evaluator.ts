@@ -34,7 +34,9 @@ import {
   serialToDate,
   toCurrencyScaled,
   toSinglePrecision,
+  isPlainNumber,
   checkCurrencyRange,
+  checkLongLongRange,
   CURRENCY_SCALE,
 } from '../runtime/index.ts';
 
@@ -873,6 +875,25 @@ export class ExpressionEvaluator {
     return undefined;
   }
 
+  /**
+   * The two sides of a comparison as scaled Currency amounts, or null when no Currency is involved.
+   *
+   * Measured against a fresh cscript: a comparison with a Currency on one side brings the other side to the
+   * Currency's own scale first. CCur(0.12345) = 0.12345 is True because the Double becomes 0.1235, and
+   * CCur(1) = 1.00001 is True because 1.00001 becomes 1.0000. The comparison itself is then done on the
+   * scaled integers, so two amounts that differ in the fourth decimal are still told apart:
+   * CCur(123456789012.3456) = CCur(123456789012.3457) is False, where comparing two doubles would say True.
+   */
+  private currencyComparison(left: VbValue, right: VbValue): readonly [bigint, bigint] | null {
+    if (left.type === 'Currency' && right.type === 'Currency') return [left.value, right.value];
+    const currencySide = left.type === 'Currency' ? left : right.type === 'Currency' ? right : null;
+    if (currencySide === null) return null;
+    const otherSide = currencySide === left ? right : left;
+    if (!isPlainNumber(otherSide)) return null;
+    const scaled = toCurrencyScaled(toNumber(otherSide));
+    return left.type === 'Currency' ? [currencySide.value, scaled] : [scaled, currencySide.value];
+  }
+
   private equals(left: VbValue, right: VbValue): VbValue {
     this.checkComparisonOperands(left, right);
     if (left.type === 'Empty' && right.type === 'Empty') {
@@ -893,6 +914,10 @@ export class ExpressionEvaluator {
         type: 'Boolean',
         value: toString(left).toLowerCase() === toString(right).toLowerCase(),
       };
+    }
+    const currencyPair = this.currencyComparison(left, right);
+    if (currencyPair !== null) {
+      return { type: 'Boolean', value: currencyPair[0] === currencyPair[1] };
     }
     return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
   }
@@ -915,6 +940,10 @@ export class ExpressionEvaluator {
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) < toString(right) };
     }
+    const currencyPair = this.currencyComparison(left, right);
+    if (currencyPair !== null) {
+      return { type: 'Boolean', value: currencyPair[0] < currencyPair[1] };
+    }
     return { type: 'Boolean', value: toNumber(left) < toNumber(right) };
   }
 
@@ -929,6 +958,10 @@ export class ExpressionEvaluator {
     }
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) <= toString(right) };
+    }
+    const currencyPair = this.currencyComparison(left, right);
+    if (currencyPair !== null) {
+      return { type: 'Boolean', value: currencyPair[0] <= currencyPair[1] };
     }
     return { type: 'Boolean', value: toNumber(left) <= toNumber(right) };
   }
@@ -945,6 +978,10 @@ export class ExpressionEvaluator {
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) > toString(right) };
     }
+    const currencyPair = this.currencyComparison(left, right);
+    if (currencyPair !== null) {
+      return { type: 'Boolean', value: currencyPair[0] > currencyPair[1] };
+    }
     return { type: 'Boolean', value: toNumber(left) > toNumber(right) };
   }
 
@@ -960,6 +997,10 @@ export class ExpressionEvaluator {
     if (left.type === 'String' || right.type === 'String') {
       return { type: 'Boolean', value: toString(left) >= toString(right) };
     }
+    const currencyPair = this.currencyComparison(left, right);
+    if (currencyPair !== null) {
+      return { type: 'Boolean', value: currencyPair[0] >= currencyPair[1] };
+    }
     return { type: 'Boolean', value: toNumber(left) >= toNumber(right) };
   }
 
@@ -973,10 +1014,11 @@ export class ExpressionEvaluator {
         // handling elsewhere in this file. Found via Wine's own vbscript.dll
         // conformance suite, dlls/vbscript/tests/lang.vbs: `getVT(-null)`.
         if (argument.type === 'Null') return VbNull;
-        // A Single and a Currency keep their type through a negation, which a fresh cscript confirms:
-        // TypeName(-CSng(1)) is Single and TypeName(-CCur(1)) is Currency.
+        // A Single, a Currency and a LongLong keep their type through a negation, which a fresh cscript
+        // confirms for the first two: TypeName(-CSng(1)) is Single and TypeName(-CCur(1)) is Currency.
         if (argument.type === 'Single') return { type: 'Single', value: -argument.value };
         if (argument.type === 'Currency') return { type: 'Currency', value: -argument.value };
+        if (argument.type === 'LongLong') return { type: 'LongLong', value: -argument.value };
         return createVbValue(-toNumber(argument));
       case '+':
         if (argument.type === 'Null') return VbNull;
@@ -1195,9 +1237,9 @@ export class ExpressionEvaluator {
     }
     const l = this.toLongLongBigInt(left);
     const r = this.toLongLongBigInt(right);
-    if (op === '+') return { type: 'LongLong', value: l + r };
-    if (op === '-') return { type: 'LongLong', value: l - r };
-    if (op === '*') return { type: 'LongLong', value: l * r };
+    if (op === '+') return { type: 'LongLong', value: checkLongLongRange(l + r) };
+    if (op === '-') return { type: 'LongLong', value: checkLongLongRange(l - r) };
+    if (op === '*') return { type: 'LongLong', value: checkLongLongRange(l * r) };
     if (r === BigInt(0)) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     return { type: 'LongLong', value: l / r };
   }

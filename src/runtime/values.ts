@@ -1,6 +1,6 @@
 import { createVbError, VbErrorCodes } from './errors.ts';
 import { dateToSerial, formatVbDate, parseVbDate, serialToDate } from './vb-date.ts';
-import { formatVbCurrencyText, formatVbNumberText } from './nls-number.ts';
+import { CURRENCY_DIGITS, formatVbCurrencyText, formatVbNumberText } from './nls-number.ts';
 import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 /**
@@ -313,8 +313,8 @@ export function toNumber(value: VbValue): number {
   );
 }
 
-/** The scale a Currency holds its amount at: four decimal places, as an integer count of them. */
-export const CURRENCY_SCALE = 10000n;
+/** The scale a Currency holds its amount at: a count of ten-thousandths, which is four decimal places. */
+export const CURRENCY_SCALE = 10n ** BigInt(CURRENCY_DIGITS);
 
 /** The largest amount a Currency holds, as a scaled integer: 922,337,203,685,477.5807. */
 const CURRENCY_MAX = 9223372036854775807n;
@@ -351,6 +351,50 @@ export function absoluteScaled(scaled: bigint): bigint {
   return scaled < 0n ? -scaled : scaled;
 }
 
+/** The largest whole number a 64 bit integer holds. */
+const LONG_LONG_MAX = 9223372036854775807n;
+
+/** Guards a whole number against the 64 bit range, which is what CLngLng raises Overflow for. */
+export function checkLongLongRange(value: bigint): bigint {
+  if (value > LONG_LONG_MAX || value < -LONG_LONG_MAX - 1n) {
+    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CLngLng');
+  }
+  return value;
+}
+
+/**
+ * A number as a whole 64 bit number: rounded to a whole number, a tie going to the even neighbour, or
+ * Overflow past the range.
+ *
+ * VBScript itself has no CLngLng, so this is the engine's own extension and there is no reference answer to
+ * match. It rounds the way CLng does, because CLng is the 32 bit member of the same family, and its own
+ * documentation calls the type a 64 bit integer.
+ */
+export function toLongLong(number: number): bigint {
+  if (!Number.isFinite(number) || Math.abs(number) >= 9223372036854775808) {
+    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CLngLng');
+  }
+  return BigInt(roundHalfToEven(number));
+}
+
+/**
+ * True for the types that hold a number and nothing else, which are the ones a Currency comparison brings
+ * to its own scale. A String, a Date, a Null and an Object are not among them.
+ */
+export function isPlainNumber(value: VbValue): boolean {
+  return (
+    value.type === 'Integer' ||
+    value.type === 'Long' ||
+    value.type === 'LongLong' ||
+    value.type === 'Double' ||
+    value.type === 'Single' ||
+    value.type === 'Byte' ||
+    value.type === 'Currency' ||
+    value.type === 'Boolean' ||
+    value.type === 'Empty'
+  );
+}
+
 /** A Currency rounded down to a whole unit, which for a negative amount is the neighbour below it. */
 export function floorScaled(scaled: bigint): bigint {
   const wholeUnits = scaled / CURRENCY_SCALE;
@@ -363,17 +407,22 @@ export function truncateScaled(scaled: bigint): bigint {
   return (scaled / CURRENCY_SCALE) * CURRENCY_SCALE;
 }
 
-/** A Currency rounded to a whole unit, a tie going to the even neighbour as Round does. */
-export function roundScaledToEven(scaled: bigint): bigint {
-  const wholeUnits = scaled / CURRENCY_SCALE;
-  const remainder = scaled % CURRENCY_SCALE;
+/**
+ * Rounds a scaled amount to a multiple of a unit, a tie going to the even multiple.
+ *
+ * The unit is what one step of the rounding is worth in scaled units, so a whole amount is a unit of
+ * CURRENCY_SCALE and the second decimal place is a unit of a hundred. A unit of one has nothing to round.
+ */
+export function roundScaledToMultiple(scaled: bigint, unit: bigint): bigint {
+  if (unit <= 1n) return scaled;
+  const lowerSteps = scaled / unit;
+  const remainder = scaled % unit;
   const magnitude = absoluteScaled(remainder);
-  const half = CURRENCY_SCALE / 2n;
-  if (magnitude > half) return (scaled < 0n ? wholeUnits - 1n : wholeUnits + 1n) * CURRENCY_SCALE;
-  if (magnitude < half) return wholeUnits * CURRENCY_SCALE;
-  const evenUnits =
-    wholeUnits % 2n === 0n ? wholeUnits : scaled < 0n ? wholeUnits - 1n : wholeUnits + 1n;
-  return evenUnits * CURRENCY_SCALE;
+  const half = unit / 2n;
+  const nextStep = scaled < 0n ? lowerSteps - 1n : lowerSteps + 1n;
+  if (magnitude > half) return nextStep * unit;
+  if (magnitude < half) return lowerSteps * unit;
+  return (lowerSteps % 2n === 0n ? lowerSteps : nextStep) * unit;
 }
 
 /** The largest magnitude a Single holds. */

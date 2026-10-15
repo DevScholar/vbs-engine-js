@@ -160,3 +160,71 @@ describe('CInt, CLng and CByte round and refuse as VBScript does', () => {
     });
   }
 });
+
+// Rounding a Currency with a fraction count, and comparing a Currency with anything. Measured the same way.
+const CURRENCY_EDGE_CELLS: ReadonlyArray<readonly [string, string]> = [
+  // A Currency rounds on its own scale, so Round(CCur(1.005), 2) reaches the tie and takes the even
+  // neighbour: 1, where two doubles would lose the fifth decimal first and answer 1.01.
+  ['Round(CCur(1.2345), 2)', 'Currency | 1,23'],
+  ['Round(CCur(1.005), 2)', 'Currency | 1'],
+  ['Round(CCur(2.5), 0)', 'Currency | 2'],
+  ['Round(CCur(1.5), 0)', 'Currency | 2'],
+  ['Round(CCur(-1.5), 0)', 'Currency | -2'],
+  ['Round(CCur(1.5), 1)', 'Currency | 1,5'],
+  ['Round(CCur(1234.5678), 2)', 'Currency | 1234,57'],
+  ['Round(CCur(-1234.5678), 2)', 'Currency | -1234,57'],
+  ['Round(CCur(1.00005), 4)', 'Currency | 1,0001'],
+  // A comparison brings the other side to the Currency's own scale, then compares the scaled integers.
+  ['CCur(1) = 1', 'Boolean | True'],
+  ['CCur(0.12345) = 0.12345', 'Boolean | True'],
+  ['CCur(1) = 1.00001', 'Boolean | True'],
+  ['CCur(123456789012.3456) = CCur(123456789012.3457)', 'Boolean | False'],
+  ['CCur(123456789012.3456) < CCur(123456789012.3457)', 'Boolean | True'],
+  ['1 = CCur(1)', 'Boolean | True'],
+  ['CCur(2) > 1.9999', 'Boolean | True'],
+  ['CCur(-0.00005) < 0', 'Boolean | True'],
+  ['TypeName(CCur(1) = 1)', 'String | Boolean'],
+];
+
+describe('a Currency rounds and compares on its own scale', () => {
+  for (const [expression, expected] of CURRENCY_EDGE_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(typed(expression)).toBe(expected);
+    });
+  }
+});
+
+// CLngLng and the LongLong type are the engine's own extension. This vbscript.dll has no such function at
+// all: a direct call raises error 500 and a call through Eval raises error 13, so there is no reference
+// answer to hold these cells against. They pin the rules the engine chose for itself: the rounding CLng
+// uses, since CLng is the 32 bit member of the same family, the 64 bit range, and a type that survives
+// arithmetic.
+const EXTENSION_CELLS: ReadonlyArray<readonly [string, string]> = [
+  ['CLngLng(1)', 'LongLong | 1'],
+  ['CLngLng(1.5)', 'LongLong | 2'],
+  ['CLngLng(2.5)', 'LongLong | 2'],
+  ['CLngLng(0.5)', 'LongLong | 0'],
+  ['CLngLng(-1.5)', 'LongLong | -2'],
+  ['CLngLng(-2.5)', 'LongLong | -2'],
+  ['CLngLng(1.4)', 'LongLong | 1'],
+  ['CLngLng("123")', 'LongLong | 123'],
+  ['CLngLng("1.5")', 'LongLong | 2'],
+  ['CLngLng(Empty)', 'LongLong | 0'],
+  ['CLngLng(CCur(1.5))', 'LongLong | 2'],
+  ['CLngLng(1000000000000000000)', 'LongLong | 1000000000000000000'],
+  ['CLngLng(1E+19)', 'ERR 6'],
+  ['CLngLng(1) + 1', 'LongLong | 2'],
+  ['CLngLng(1) + CSng(1)', 'Double | 2'],
+  ['CLngLng(1) + CDbl(1)', 'Double | 2'],
+  ['CLngLng(1) + CCur(1)', 'Double | 2'],
+  ['-CLngLng(1)', 'LongLong | -1'],
+  ['CLngLng(9000000000000000000) + CLngLng(9000000000000000000)', 'ERR 6'],
+];
+
+describe('the LongLong extension keeps the rules the engine chose', () => {
+  for (const [expression, expected] of EXTENSION_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(typed(expression)).toBe(expected);
+    });
+  }
+});
