@@ -186,7 +186,7 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 - **Which strings are dates follows the locale**, because that is what `SetLocale` is for: `IsDate("29.09.2026")` is `True` under `1031` and `False` under `1033`, and month names come from the locale (English names are read only for Chinese, Japanese and Korean, whose own names `vbscript.dll` does not match).
 - **Which types are dates does not.** `DateValue` and `TimeValue` take a date or a string only: a number, a Boolean or Empty is error 13 there and `Null` is error 94, in every locale. Only `CDate` reads numbers, Booleans and Empty.
 
-`CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`, produced by `scripts/generate-nls-date-table.ps1`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` byte for byte in all 133 locales it knows.
+`CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` byte for byte in all 133 locales it knows.
 
 `FormatDateTime` reads the same table, so it follows Windows rather than the host: `FormatDateTime(d, 1)` under `1031` is `Montag, 5. Januar 2026` and under `1042` is `2026년 1월 5일 월요일`, neither of which `Intl` produces. It was measured against `vbscript.dll` over 131 locales, five instants and five formats - 3275 cells - and matches all of them.
 

@@ -151,7 +151,7 @@ const localeToLcid: Map<string, number> = new Map([
   ['zu', 1077],
 ]);
 
-// Windows' own name for each LCID, generated from LCIDToLocaleName (scripts/generate-locale-names.ps1).
+// Windows' own name for each LCID, read from LCIDToLocaleName and kept only where ICU resolves it exactly.
 // Inverting the hand-written map instead gave several LCIDs the wrong locale: the names for 1070 and
 // 1072 ("sb", "sx") resolve to nothing, so both were read as the host locale, and 2108 was read as
 // Scottish Gaelic rather than Irish.
