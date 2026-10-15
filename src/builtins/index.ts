@@ -1,5 +1,5 @@
 import type { VbContext, VbValue } from '../runtime/index.ts';
-import { createVbError, VbErrorCodes, isNumeric, parseVbDate } from '../runtime/index.ts';
+import { createVbError, VbErrorCodes } from '../runtime/index.ts';
 import { stringFunctions } from './string.ts';
 import { mathFunctions, constants } from './math.ts';
 import { dateFunctions } from './date.ts';
@@ -8,7 +8,7 @@ import { arrayFunctions } from './array.ts';
 import { registerMsgBox } from './msgbox.ts';
 import { registerInputBox } from './inputbox.ts';
 import { registerRegExp } from './regexp.ts';
-import { getCurrentBCP47Locale, localeFunctions } from './locale.ts';
+import { localeFunctions } from './locale.ts';
 import { createCollection } from './collection.ts';
 
 // VbObjectValueData protocol names the VBS engine checks via typeof === 'function'.
@@ -218,63 +218,6 @@ export function registerBuiltins(context: VbContext): void {
       Array: 'Variant()',
     };
     return { type: 'String', value: typeNames[expression.type] ?? 'Variant' };
-  });
-
-  context.functionRegistry.register('VarType', (expression: VbValue): VbValue => {
-    const typeMap: Record<string, number> = {
-      Empty: 0,
-      Null: 1,
-      Integer: 2,
-      Long: 3,
-      Single: 4,
-      Double: 5,
-      Currency: 6,
-      Date: 7,
-      String: 8,
-      Object: 9,
-      Error: 10,
-      Boolean: 11,
-      Variant: 12,
-      Byte: 17,
-      LongLong: 20,
-      Array: 8192,
-    };
-    return { type: 'Integer', value: typeMap[expression.type] ?? 12 };
-  });
-
-  context.functionRegistry.register('IsEmpty', (expression: VbValue): VbValue => {
-    return { type: 'Boolean', value: expression.type === 'Empty' };
-  });
-
-  context.functionRegistry.register('IsNull', (expression: VbValue): VbValue => {
-    return { type: 'Boolean', value: expression.type === 'Null' };
-  });
-
-  context.functionRegistry.register('IsNumeric', (expression: VbValue): VbValue => {
-    // The reading the conversions use, so that a string written with the locale's own marks counts:
-    // IsNumeric("1,5") is True under 1031 and False under 1033, and both are what a fresh cscript answers.
-    return { type: 'Boolean', value: isNumeric(expression) };
-  });
-
-  context.functionRegistry.register('IsDate', (expression: VbValue): VbValue => {
-    if (expression.type === 'Date') {
-      return { type: 'Boolean', value: true };
-    }
-    if (expression.type === 'String') {
-      return {
-        type: 'Boolean',
-        value: parseVbDate(expression.value, getCurrentBCP47Locale()) !== null,
-      };
-    }
-    return { type: 'Boolean', value: false };
-  });
-
-  context.functionRegistry.register('IsObject', (expression: VbValue): VbValue => {
-    return { type: 'Boolean', value: expression.type === 'Object' };
-  });
-
-  context.functionRegistry.register('IsArray', (expression: VbValue): VbValue => {
-    return { type: 'Boolean', value: expression.type === 'Array' };
   });
 
   context.functionRegistry.register(

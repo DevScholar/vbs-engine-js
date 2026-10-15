@@ -306,6 +306,14 @@ export const inspectionFunctions = {
   TypeName: (expression: VbValue): VbValue => {
     if (expression.type === 'Object' && expression.value === null)
       return { type: 'String', value: 'Nothing' };
+    // An object the engine's own classes made answers with its class name, as vbscript.dll does for a
+    // Collection or a RegExp.
+    if (expression.type === 'Object' && expression.value && typeof expression.value === 'object') {
+      const obj = expression.value as { classInfo?: { name: string } };
+      if (obj.classInfo && obj.classInfo.name) {
+        return { type: 'String', value: obj.classInfo.name };
+      }
+    }
     const typeNames: Record<string, string> = {
       Empty: 'Empty',
       Null: 'Null',
