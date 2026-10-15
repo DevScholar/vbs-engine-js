@@ -364,8 +364,8 @@ const MONTH_WORD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [5121, 'CStr(Month(CDate("15 مي 2026")))', '5'],
   [1029, 'CStr(Month(CDate("15 červen 2026")))', '6'],
   [1029, 'CStr(Month(CDate("15 červenec 2026")))', '7'],
-  [1066, 'CStr(Month(CDate("15 thg 1 2026")))', '1'],
-  [1066, 'CStr(Month(CDate("15 thg 10 2026")))', '10'],
+  [1066, 'CStr(Month(CDate("15 Thg1 2026")))', '1'],
+  [1066, 'CStr(Month(CDate("15 Thg10 2026")))', '10'],
   // A name a locale writes with a dot in it, which the split into words would break in two.
   [1054, 'CStr(Month(CDate("15 ม.ค. 2026")))', '1'],
   [1054, 'CStr(Month(CDate("15 ธ.ค. 2026")))', '12'],
@@ -379,6 +379,72 @@ const MONTH_WORD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
 
 describe('a month name is read the way Windows reads one', () => {
   for (const [lcid, expression, expected] of MONTH_WORD_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});
+
+// Which of a locale's own names Windows reads back, measured for every locale and month and both spellings, so
+// the engine drops the ones it refuses. Yiddish and Tamil read no name of their own, Hindi only May, Tsonga
+// everything but December, and the Arabic locales read the second to the ninth month and no other. The
+// spelling matters as well: Vietnamese writes "Thg1" where ICU says "Tháng 1", and Windows reads its own and
+// not ICU's, while Greek reads the names Windows writes and not ICU's long ones.
+const NAME_READBACK_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1081, 'CDate("15 जनवरी 2026")', 'ERR 13'],
+  [1081, 'CStr(Month(CDate("15 मई 2026")))', '5'],
+  [1081, 'CDate("15 January 2026")', 'ERR 13'],
+  [1097, 'CDate("15 ஜனவரி 2026")', 'ERR 13'],
+  [1103, 'CDate("15 জানুয়ারী 2026")', 'ERR 13'],
+  [1085, 'CDate("15 יאַנואַר 2026")', 'ERR 13'],
+  [1085, 'CStr(Month(CDate("15 מערץ 2026")))', '3'],
+  [2049, 'CDate("15 كانون الثاني 2026")', 'ERR 13'],
+  [2049, 'CStr(Month(CDate("15 شباط 2026")))', '2'],
+  [1073, 'CDate("15 Nwendzamhala 2026")', 'ERR 13'],
+  [1065, 'CDate("15 اکتبر 2026")', 'ERR 13'],
+  [1066, 'CStr(Month(CDate("15 Thg1 2026")))', '1'],
+  [1066, 'CDate("15 Tháng 1 2026")', 'ERR 13'],
+  [1032, 'CStr(Month(CDate("15 Ιαν 2026")))', '1'],
+  [1032, 'CStr(Month(CDate("15 Ιανουάριος 2026")))', '1'],
+  [1032, 'CDate("15 Ιανουαρίου 2026")', 'ERR 13'],
+];
+
+describe('a month name Windows refuses is not read back', () => {
+  for (const [lcid, expression, expected] of NAME_READBACK_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});
+
+// A date whose fields are numbers separated by spaces, which Windows reads the way it reads the same fields
+// with the locale's own mark. A first field that is no day and no month is a year, which comes before the
+// other order, and two fields are a day and a month of the current year.
+const SPACED_NUMBER_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1033, 'CStr(CDate("15 1 26"))', '1/26/2015'],
+  [1033, 'CStr(CDate("26 9 29"))', '9/29/2026'],
+  [1033, 'CStr(CDate("31 12 26"))', '12/26/2031'],
+  [1033, 'CStr(CDate("29 9 26"))', '9/26/2029'],
+  [1033, 'CStr(CDate("32 1 26"))', '1/26/2032'],
+  [1033, 'CDate("1 32 26")', 'ERR 13'],
+  [1033, 'CStr(CDate("1 15, 2026"))', '1/15/2026'],
+  [1033, 'CStr(CDate("15 1 2026 13:05:09"))', '1/15/2026 1:05:09 PM'],
+  [1025, 'CStr(CDate("15 1 26"))', '15/01/2026'],
+  [1025, 'CStr(CDate("1 15 2026"))', '15/01/2026'],
+  [1031, 'CStr(CDate("1.15.26"))', '15.01.2026'],
+  [1033, 'CStr(CDate("31/12/26"))', '12/26/2031'],
+  [1033, 'CStr(CDate("32/1/26"))', '1/26/2032'],
+  [1033, 'CDate("1/32/26")', 'ERR 13'],
+  [1033, 'CDate("15 1 2026, 13:05:09")', 'ERR 13'],
+  [1033, 'CStr(Month(CDate("January 15, 2026 13:05:09")))', '1'],
+  [1038, 'CStr(Month(CDate("15 " & MonthName(1) & " 2026, 13:05:09")))', '1'],
+  // A space where the locale groups its numbers is a number, which CDate reads as a day count.
+  [1033, 'CDate("2026 15 1")', 'ERR 13'],
+  [1026, 'CStr(Year(CDate("2026 15 1")))', '7447'],
+];
+
+describe('numbers written with spaces are read the way Windows reads them', () => {
+  for (const [lcid, expression, expected] of SPACED_NUMBER_CELLS) {
     it(`under ${lcid}, ${expression} is ${expected}`, () => {
       expect(answer(expression, lcid)).toBe(expected);
     });

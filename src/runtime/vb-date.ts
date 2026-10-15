@@ -2,6 +2,9 @@
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
 import { nlsDateFormat } from './nls-date-table.generated.ts';
+import { NLS_MONTH_NAME_READS } from './nls-month-name-reads.generated.ts';
+import { ICU_MONTH_NAME_READS } from './icu-month-name-reads.generated.ts';
+import { NLS_COMMA_BEFORE_TIME } from './nls-comma-time.generated.ts';
 import {
   HIJRI_FIRST_YEAR,
   HIJRI_YEAR_MONTH_MASKS,
@@ -1221,7 +1224,7 @@ const MONTH_NAME_POLICY: Record<string, MonthNamePolicy> = {
 
 const monthTableCache: Map<string, { month: number; name: string }[]> = new Map();
 
-function bareMonthNames(locale: string): { month: number; name: string }[] {
+function bareMonthNames(locale: string): { month: number; name: string; short: boolean }[] {
   const long = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
   const short = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' });
   // A month name has a stand-alone and a format form, and they differ where the language inflects the
@@ -1241,14 +1244,14 @@ function bareMonthNames(locale: string): { month: number; name: string }[] {
   const named = (formatter: Intl.DateTimeFormat, day: Date): string =>
     formatter.formatToParts(day).find(part => part.type === 'month')?.value ?? '';
 
-  const names: { month: number; name: string }[] = [];
+  const names: { month: number; name: string; short: boolean }[] = [];
   for (let month = 1; month <= 12; month++) {
     const day = new Date(Date.UTC(2026, month - 1, 15));
     names.push(
-      { month, name: long.format(day) },
-      { month, name: short.format(day) },
-      { month, name: named(longInDateFormat, day) },
-      { month, name: named(shortInDateFormat, day) }
+      { month, name: long.format(day), short: false },
+      { month, name: short.format(day), short: true },
+      { month, name: named(longInDateFormat, day), short: false },
+      { month, name: named(shortInDateFormat, day), short: true }
     );
   }
   return names.filter(entry => entry.name !== '');
@@ -1260,37 +1263,50 @@ function monthTable(locale: string): { month: number; name: string }[] {
   const cached = monthTableCache.get(cacheKey);
   if (cached) return cached;
   const policy = MONTH_NAME_POLICY[locale.toLowerCase().split(/[-_]/)[0]] ?? 'own';
-  const names =
-    policy === 'english'
-      ? bareMonthNames('en-US')
-      : policy === 'own+english'
-        ? [...bareMonthNames(locale), ...bareMonthNames('en-US')]
-        : bareMonthNames(locale);
+  const english = policy === 'own' ? [] : bareMonthNames('en-US');
+  const ownNames = policy === 'english' ? [] : bareMonthNames(locale);
+  const windowsNames = policy === 'english' ? [] : standaloneNamesFromWindows(lcid);
   // Windows writes its own spelling where CLDR has changed one, and its parser reads that spelling back:
   // under 1031 "5. Mrz 2026" is March, while CLDR's short name for March is "Mär". A locale that reads only
   // English names keeps none of its own, which is the measured rule for Chinese, Japanese and Korean: their
   // "一月", "1月" and "1월" are refused by a fresh cscript, and the standalone names Windows ships are their
   // own, so adding them here would read a text Windows does not.
   //
+  // Which of a locale's own names are read back is measured twice, because the two spellings differ and
+  // Windows reads one where it refuses the other. Yiddish and Tamil read no name at all, Hindi only May,
+  // Tsonga everything but December, the Vietnamese long names ("tháng 1" from ICU, "Tháng Giêng" from
+  // Windows) are refused where its short ones are read, and Greek reads the names Windows writes and not
+  // ICU's long ones.
+  //
   // A name that is only digits is left out: Intl answers a bare number for the short form of a few locales
   // (Slovak's is "9" for September), and a fresh cscript reads no such text as a name, so "29.9.26" is error
   // 13 under 1051 rather than 29 September. The names that carry a marker do stay, since "1月" is a name.
-  const own = policy === 'english' ? [] : standaloneNamesFromWindows(lcid);
-  const usable = [...names, ...own].filter(entry => /\p{L}/u.test(entry.name));
+  const readable = (masks: number | undefined) => (entry: { month: number; short: boolean }) => {
+    if (masks === undefined) return true;
+    const bits = entry.short ? masks & 0xfff : (masks >> 12) & 0xfff;
+    return (bits & (1 << (entry.month - 1))) !== 0;
+  };
+  const usable = [
+    ...ownNames.filter(readable(ICU_MONTH_NAME_READS.get(lcid))),
+    ...windowsNames.filter(readable(NLS_MONTH_NAME_READS.get(lcid))),
+    ...english,
+  ].filter(entry => /\p{L}/u.test(entry.name));
   monthTableCache.set(cacheKey, usable);
   return usable;
 }
 
 /** The names Windows writes for a month on its own, which its parser reads as well as CLDR's. */
-function standaloneNamesFromWindows(lcid: number): { month: number; name: string }[] {
+function standaloneNamesFromWindows(
+  lcid: number
+): { month: number; name: string; short: boolean }[] {
   const row = NAME_STANDALONE[lcid];
   if (!row) return [];
-  const names: { month: number; name: string }[] = [];
+  const names: { month: number; name: string; short: boolean }[] = [];
   for (const [monthKey, name] of Object.entries(row.monthsLong ?? {})) {
-    names.push({ month: Number(monthKey) + 1, name });
+    names.push({ month: Number(monthKey) + 1, name, short: false });
   }
   for (const [monthKey, name] of Object.entries(row.monthsShort ?? {})) {
-    names.push({ month: Number(monthKey) + 1, name });
+    names.push({ month: Number(monthKey) + 1, name, short: true });
   }
   return names;
 }
@@ -1642,7 +1658,7 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   if (ownMark === '.' || buddhistDates) {
     const spaced = /^(\d{1,4})\.\s+(\d{1,2})\.\s+(\d{1,4})(\.?)$/.exec(text);
     if (spaced && (spaced[4] === '' || trailingDot || buddhistDates)) {
-      const read = threeFieldDate(order, spaced[1]!, spaced[2]!, spaced[3]!, false);
+      const read = threeFieldDate(order, spaced[1]!, spaced[2]!, spaced[3]!);
       if (read) return read;
     }
     // 1054 reads a two field spaced form as a date as well, which its own picture does not write: measured,
@@ -1657,6 +1673,18 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
     }
   }
 
+  // A date written with spaces between its numbers is read the same way as one written with the locale's own
+  // mark, which a fresh cscript shows under 1033 and 1025 alike: "15 1 26" is 2015-1-26, "26 9 29" is
+  // 2026-9-29 and "15 1 2026" is 2026-1-15, exactly as the slashed forms of the same numbers are.
+  const spacedNumbers = /^(\d{1,9})[\s,]+(\d{1,9})[\s,]+(\d{1,9})$/.exec(text);
+  if (spacedNumbers) {
+    return threeFieldDate(order, spacedNumbers[1]!, spacedNumbers[2]!, spacedNumbers[3]!);
+  }
+  const spacedPair = /^(\d{1,9})[\s,]+(\d{1,9})$/.exec(text);
+  if (spacedPair) {
+    return twoFieldDate(order, spacedPair[1]!, spacedPair[2]!);
+  }
+
   // A field may be written with more digits than a date can hold, and the reader wraps it: see
   // wrapToDateField. The time and the marked number are read before and after this, so a text that this
   // does not make a date still has its other readings.
@@ -1669,8 +1697,7 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   if (!match || !separatorAllowed(match[2])) return null;
 
   const [first, second, third] = [match[1], match[3], match[4]];
-  const strict = own !== null && match[2] === own;
-  return threeFieldDate(order, first, second, third, strict);
+  return threeFieldDate(order, first, second, third);
 }
 
 /**
@@ -1724,8 +1751,7 @@ function threeFieldDate(
   order: DateOrder,
   first: string,
   second: string,
-  third: string,
-  strict: boolean
+  third: string
 ): WrittenDate | null {
   const candidates: [number, number, number][] = [];
   if (first.length === 4) {
@@ -1735,18 +1761,20 @@ function threeFieldDate(
     // A year written with fewer than four digits goes through the same window as any other year field, which
     // a fresh cscript shows under 1038, 1041, 1042 and 2052: CDate("1-5-26") is 26 May 2001.
     candidates.push([yearOf(first), Number(second), Number(third)]);
-    if (!strict) {
-      candidates.push(
-        [yearOf(third), Number(first), Number(second)],
-        [yearOf(third), Number(second), Number(first)]
-      );
-    }
+    candidates.push(
+      [yearOf(third), Number(first), Number(second)],
+      [yearOf(third), Number(second), Number(first)]
+    );
   } else if (order === 'DMY') {
     candidates.push([yearOf(third), Number(second), Number(first)]);
-    if (!strict) candidates.push([yearOf(third), Number(first), Number(second)]);
+    // A first field that is no day and no month is a year: a fresh cscript reads "31/12/26" and "31 12 26"
+    // as 2031-12-26 under 1033, not as the 2026-12-31 the day-first reading would give.
+    candidates.push([yearOf(first), Number(second), Number(third)]);
+    candidates.push([yearOf(third), Number(first), Number(second)]);
   } else {
     candidates.push([yearOf(third), Number(first), Number(second)]);
-    if (!strict) candidates.push([yearOf(third), Number(second), Number(first)]);
+    candidates.push([yearOf(first), Number(second), Number(third)]);
+    candidates.push([yearOf(third), Number(second), Number(first)]);
   }
   for (const [year, month, day] of candidates) {
     const date = validDate(year, month, day);
@@ -1799,15 +1827,15 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  * Only a space separates a date from a time ("2026-09-29 10:30"); "2026-09-29T10:30:00" is a type
  * mismatch in vbscript.dll, and so is a weekday name ("Tue Sep 29 2026").
  *
- * Two readings are wider than Windows, and both are measured and deliberate:
- *   * A month name inside a date in Greek: Windows writes "Δευτέρα, 5 Ιανουαρίου 2026" and answers a type
- *     mismatch for CDate("5 Ιανουαρίου 2026") for January, February and March alike, while the standalone
- *     "Ιανουάριος" reads. Its own month list and its date writer disagree there, and the engine reads the
- *     name that is spelled correctly. A name in another language is refused, as Windows refuses it, except
- *     that English is read under the three CJK locales.
- *   * A German month name with a dot under 1042, whose dates are written with hyphens: Windows answers a type
- *     mismatch for "5. Januar 2026" and so does the engine, since a dot is a field mark only where the
- *     locale's own picture writes it against the field.
+ * One reading is wider than Windows, and it is measured and deliberate: English month names are read under
+ * the three CJK locales, whose own names Windows refuses and the engine refuses with it.
+ *
+ * Which name a locale answers to is measured for every locale, month and spelling, because Windows reads one
+ * spelling where it refuses another: Greek reads "Ιανουάριος", the name Windows writes, and refuses the
+ * inflected "Ιανουαρίου" that ICU gives in a date, and Vietnamese reads its own "Thg1" and not ICU's "Tháng
+ * 1". A name in another language is refused, and a dot is a field mark only where the locale's own picture
+ * writes it against the field, so "5. Januar 2026" is refused under 1042, whose dates are written with
+ * hyphens.
  *
  * A dotted date written with the spaces its locale's own picture uses is read too, which is measured: Windows
  * reads CDate("2026. 05. 01.") as 1 May 2026 under 1038 and CDate("1. 5. 2026") as a date under 1031, 1038,
@@ -1852,7 +1880,12 @@ function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate 
 
   const words = trimmed.split(/\s+/);
   for (let split = words.length - 1; split >= 1; split--) {
-    const read = parseDatePart(words.slice(0, split).join(' '), locale);
+    // A comma may stand between the fields of a date, but not between a date and its time: a fresh cscript
+    // reads "January 15, 2026 13:05" and refuses "15 January 2026, 13:05" under almost every locale. Five
+    // locales accept the comma there as well, and only when the date part names its month.
+    const dateText = words.slice(0, split).join(' ');
+    if (words[split - 1]!.endsWith(',') && !commaMayPrecedeTime(dateText)) continue;
+    const read = parseDatePart(dateText, locale);
     if (!read) continue;
     const timeOfDay = parseTimePart(words.slice(split).join(' '));
     if (!timeOfDay) continue;
@@ -1871,6 +1904,17 @@ function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate 
     if (dottedTime) return written(new Date(1899, 11, 30, ...dottedTime), false);
   }
   return null;
+}
+
+/**
+ * Whether a comma may stand between a date and the time that follows it.
+ *
+ * Measured over all 132 locales: five of them read it when the date part names its month ("15 január 2026,
+ * 13:05:09" under 1038), and they refuse it when the date part is numbers ("15 1 2026, 13:05:09"), which the
+ * other 127 refuse either way.
+ */
+function commaMayPrecedeTime(dateText: string): boolean {
+  return /\p{L}/u.test(dateText) && NLS_COMMA_BEFORE_TIME.has(currentLcid());
 }
 
 /** The day counts a date holds: 1 January 100 is the earliest and 31 December 9999 the latest. */
@@ -1915,7 +1959,10 @@ export function parseVbDateAsCdate(text: string, locale: string): Date | null {
  */
 function readMarkedNumber(text: string): Date | null {
   const trimmed = text.trim();
-  if (!/^[+-]?[\d.,]+$/.test(trimmed)) return null;
+  // A space may stand where the locale groups its numbers, which the number reader itself decides: measured,
+  // CDate("2026 15 1") is the day count 2026151 under 1026, where a space is the group mark, and a type
+  // mismatch under 1033, where it is not.
+  if (!/^[+-]?[\d.,\s]+$/.test(trimmed)) return null;
   const serial = parseVbNumericString(trimmed);
   if (serial === null || !Number.isFinite(serial)) return null;
   const wholeDays = Math.trunc(serial);
