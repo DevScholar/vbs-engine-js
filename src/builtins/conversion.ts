@@ -46,6 +46,34 @@ function toBaseDigits(number: VbValue, radix: 8 | 16, functionName: string): VbV
   return { type: 'String', value: (2 ** width + value).toString(radix).toUpperCase() };
 }
 
+/**
+ * The number a Format function was handed.
+ *
+ * A Null is a type mismatch here rather than the invalid use of Null most functions raise, which a fresh
+ * cscript shows: FormatNumber(Null) is error 13 and not 94.
+ */
+function toFormattedNumber(expression: VbValue): number {
+  if (expression.type === 'Null') {
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Null');
+  }
+  return toNumber(expression);
+}
+
+/**
+ * The fraction count a Format function was handed, or -1 for the locale's own.
+ *
+ * The three settings are the tristate ones, so -1 and anything above it are a count to use, and a number
+ * below -1 is not a setting at all: a fresh cscript answers FormatNumber(1.25, -2) with error 5.
+ */
+function readFractionCount(value?: VbValue): number {
+  if (!value) return -1;
+  const digits = Math.floor(toNumber(value));
+  if (digits < -1) {
+    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call or argument');
+  }
+  return digits;
+}
+
 export const conversionFunctions = {
   CBool: (expression: VbValue): VbValue => {
     return { type: 'Boolean', value: toBoolean(expression) };
@@ -145,8 +173,8 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toNumber(expression);
-    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const num = toFormattedNumber(expression);
+    const digits = readFractionCount(numDigitsAfterDecimal);
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
     const group = groupDigits ? toNumber(groupDigits) : -2;
@@ -164,8 +192,8 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toNumber(expression);
-    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const num = toFormattedNumber(expression);
+    const digits = readFractionCount(numDigitsAfterDecimal);
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
     const group = groupDigits ? toNumber(groupDigits) : -2;
@@ -188,8 +216,8 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toNumber(expression);
-    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const num = toFormattedNumber(expression);
+    const digits = readFractionCount(numDigitsAfterDecimal);
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
     const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
     const group = groupDigits ? toNumber(groupDigits) : -2;

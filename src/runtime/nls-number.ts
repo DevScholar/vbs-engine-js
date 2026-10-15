@@ -171,6 +171,18 @@ function fillCurrency(shape: string, text: string, symbol: string, sign: string)
   return written;
 }
 
+/** One of the currency shapes above with its sign replaced by parentheses, or as it stands. */
+function currencyShapeWithParens(shape: string): string {
+  const withoutSign = shape.replace('-', '');
+  return withoutSign.includes('(') ? withoutSign : '(' + withoutSign + ')';
+}
+
+/** One of the currency shapes above with parentheses replaced by a minus sign, or as it stands. */
+function currencyShapeWithMinus(shape: string): string {
+  const withoutParens = shape.replace(/[()]/g, '');
+  return withoutParens.includes('-') ? withoutParens : '-' + withoutParens;
+}
+
 /** What a caller left out is taken from the locale, which is what -1 and -2 mean in VBScript. */
 function localeDigits(style: NlsNumberStyle, facts: NlsNumberFormat, asked?: number): number {
   if (asked !== undefined && asked >= 0) return asked;
@@ -215,12 +227,24 @@ export function formatNlsNumber(
     if (!negative) {
       return fillCurrency(POSITIVE_CURRENCY[facts.currencyPosition] ?? 'sn', text, symbol, sign);
     }
-    const shape = NEGATIVE_CURRENCY[facts.negativeCurrency] ?? '-sn';
+    const own = NEGATIVE_CURRENCY[facts.negativeCurrency] ?? '-sn';
+    // useParensForNegativeNumbers changes only the sign of the locale's own shape, measured under 1031 and
+    // 1033: True puts the amount in parentheses ("(1.234,50 €)" and "(50,00%)"), False writes a minus
+    // ("-$1,234.50" where the locale's own shape is "($1,234.50)"), and anything else leaves it alone.
+    const shape =
+      options.parens === -1
+        ? currencyShapeWithParens(own)
+        : options.parens === 0
+          ? currencyShapeWithMinus(own)
+          : own;
     return fillCurrency(shape, text, symbol, sign);
   }
 
   if (style === 'percent') {
-    return (negative ? negativeNumber(text, sign, facts.negativeNumber) : text) + '%';
+    if (!negative) return text + '%';
+    if (options.parens === -1) return '(' + text + '%)';
+    if (options.parens === 0) return sign + text + '%';
+    return negativeNumber(text, sign, facts.negativeNumber) + '%';
   }
 
   if (!negative) return text;
