@@ -291,15 +291,32 @@ const SIGNIFICANT_DIGITS: Record<'single' | 'double', number> = { single: 7, dou
 /** How many decimal places a Currency keeps, which is what its scaled integer counts. */
 export const CURRENCY_DIGITS = 4;
 
-/** Writes a value with a fixed count of significant digits, in an exponent only outside the plain window. */
+/**
+ * Writes a value with a fixed count of significant digits, plainly while it fits and in an exponent after
+ * that.
+ *
+ * Measured against a fresh cscript, in the boundary table in the probe directory. Two things decide which
+ * form is written:
+ *
+ *   * The value's own decimal power, before it is rounded: a Double is written plainly from 1E-15 up to just
+ *     under 1E+15, so 1000000000000000 is "1E+15" while 999999999999999.9 is "1000000000000000". The power
+ *     is the value's own and not the rounded text's, which is what makes that last one plain: rounding it to
+ *     fifteen significant digits carries it up to sixteen digits, and the value itself is still below 1E+15.
+ *   * The length of the plain text, which may not pass 17 characters. A small value that needs all fifteen
+ *     of its significant digits therefore takes the exponent: CStr(0.0451388888888889) is "4.51388888888889E-02"
+ *     while CStr(0.045138888888888) is "0.045138888888888", one digit shorter and seventeen characters long.
+ */
 function significantText(value: number, significantDigits: number): string {
   if (!Number.isFinite(value)) return String(value);
   const magnitude = Math.abs(value);
-  if (magnitude === 0) return '0';
+  // A negative zero keeps its sign, which a fresh cscript shows: CStr(-CDbl(0)) is "-0" and not "0". A
+  // Currency has no such value, since it is held as a scaled whole number, and neither has an Integer.
+  if (magnitude === 0) return Object.is(value, -0) ? '-0' : '0';
+  const sign = value < 0 ? '-' : '';
   const precise = magnitude.toPrecision(significantDigits);
   const [rawMantissa, rawExponent] = precise.split('e');
   let digits = rawMantissa.replace('.', '');
-  let leadingPower =
+  let roundedPower =
     rawExponent === undefined
       ? (rawMantissa.includes('.') ? rawMantissa.indexOf('.') : rawMantissa.length) - 1
       : Number(rawExponent);
@@ -307,16 +324,21 @@ function significantText(value: number, significantDigits: number): string {
   // them, so the first digit written is the first significant one.
   const leadingZeros = digits.length - digits.replace(/^0+/, '').length;
   digits = digits.slice(leadingZeros).replace(/0+$/, '');
-  leadingPower -= leadingZeros;
-  const sign = value < 0 ? '-' : '';
-  if (leadingPower >= -significantDigits && leadingPower <= significantDigits - 1) {
-    if (leadingPower < 0) return sign + '0.' + '0'.repeat(-leadingPower - 1) + digits;
-    if (digits.length <= leadingPower + 1)
-      return sign + digits + '0'.repeat(leadingPower + 1 - digits.length);
-    return sign + digits.slice(0, leadingPower + 1) + '.' + digits.slice(leadingPower + 1);
-  }
+  roundedPower -= leadingZeros;
+
+  const plain =
+    roundedPower < 0
+      ? '0.' + '0'.repeat(-roundedPower - 1) + digits
+      : digits.length <= roundedPower + 1
+        ? digits + '0'.repeat(roundedPower + 1 - digits.length)
+        : digits.slice(0, roundedPower + 1) + '.' + digits.slice(roundedPower + 1);
+  const ownPower = Number(magnitude.toExponential().split('e')[1]);
+  const plainFits =
+    ownPower >= -significantDigits && ownPower <= significantDigits - 1 && plain.length <= 17;
+  if (plainFits) return sign + plain;
+
   const mantissa = digits.length === 1 ? digits : digits[0] + '.' + digits.slice(1);
-  const exponent = (leadingPower < 0 ? '-' : '+') + String(Math.abs(leadingPower)).padStart(2, '0');
+  const exponent = (roundedPower < 0 ? '-' : '+') + String(Math.abs(roundedPower)).padStart(2, '0');
   return sign + mantissa + 'E' + exponent;
 }
 

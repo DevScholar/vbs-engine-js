@@ -746,18 +746,25 @@ export class ExpressionEvaluator {
       // fresh cscript answers "1" + 1 with the Double 2 and "a" + 1 with a type mismatch.
       return { type: 'String', value: toString(left) + toString(right) };
     }
+    if (
+      (left.type === 'String' && right.type === 'Empty') ||
+      (left.type === 'Empty' && right.type === 'String')
+    ) {
+      // A string beside an Empty joins too, and the Empty contributes nothing: "abc" + Empty is "abc".
+      return { type: 'String', value: toString(left) + toString(right) };
+    }
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '+');
     }
-    const currency = this.currencyArithmetic(left, right, '+');
-    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
-    // A date survives addition in VBScript, from either side and with a plain number as the other
-    // operand: TypeName(#2026-01-05# + 1) is Date, and so is TypeName(1 + #2026-01-05#).
+    // A date survives addition in VBScript, from either side and with a plain number, a Currency included,
+    // as the other operand: TypeName(#2026-01-05# + 1) is Date, and so is TypeName(CCur(1.2345) + #2026-01-05#).
     if (left.type === 'Date' || right.type === 'Date') {
       return { type: 'Date', value: serialToDate(leftNum + rightNum) };
     }
+    const currency = this.currencyArithmetic(left, right, '+');
+    if (currency) return currency;
     return this.numberResult('+', left, right, leftNum + rightNum);
   }
 
@@ -780,8 +787,10 @@ export class ExpressionEvaluator {
     const floatingOther =
       left.type === 'Single' ||
       left.type === 'Double' ||
+      left.type === 'String' ||
       right.type === 'Single' ||
-      right.type === 'Double';
+      right.type === 'Double' ||
+      right.type === 'String';
     if (operator === '*' && floatingOther) return null;
     const leftScaled = left.type === 'Currency' ? left.value : toCurrencyScaled(toNumber(left));
     const rightScaled = right.type === 'Currency' ? right.value : toCurrencyScaled(toNumber(right));
@@ -819,23 +828,42 @@ export class ExpressionEvaluator {
     const hasDouble = types.includes('Double');
     const hasSingle = types.includes('Single');
     const hasLong = types.includes('Long');
-    const smallIntegers = types.every(
-      type => type === 'Single' || type === 'Integer' || type === 'Byte'
-    );
     if (operator === '/') {
-      if (hasSingle && !hasDouble && !hasLong && smallIntegers) {
-        return { type: 'Single', value: toSinglePrecision(value) };
-      }
-      return { type: 'Double', value };
+      // Division answers a Single while both operands are narrow, an Empty counting as a narrow one:
+      // CByte(200) / CInt(-3) is a Double while Empty / CByte(200) and CSng(1.5) / True are Singles.
+      const narrow = (type: string): boolean =>
+        type === 'Empty' ||
+        type === 'Boolean' ||
+        type === 'Byte' ||
+        type === 'Integer' ||
+        type === 'Single';
+      const single = types.every(narrow) && (types.includes('Empty') || types.includes('Single'));
+      return single
+        ? { type: 'Single', value: toSinglePrecision(value) }
+        : { type: 'Double', value };
+    }
+    if (operator === '*') {
+      // A product with a Date or a Currency in it is a Double, measured across the matrix: every product
+      // with a Date is one, and so is CSng(1.5) * CCur(1.2345).
+      if (types.includes('Date') || types.includes('Currency')) return { type: 'Double', value };
+    }
+    // A Long keeps its width beside anything whole, which the value alone does not show: CLng(5) - CLng(5)
+    // is the Long 0 and not the Integer a value sized answer would give, and so is CLng(70000) * Empty. A
+    // product that leaves the Long range is a Double again, which CLng(70000) * CLng(70000) is.
+    if (hasLong && !hasSingle && !hasDouble && value >= -2147483648 && value <= 2147483647) {
+      return { type: 'Long', value };
     }
     if (hasDouble) return { type: 'Double', value };
     if (hasSingle) {
       if (hasLong) return { type: 'Double', value };
       return { type: 'Single', value: toSinglePrecision(value) };
     }
+    // A Byte stays a Byte while the answer fits one, and an Empty counts as a Byte there: CByte(200) + Empty
+    // is the Byte 200 and Empty - CByte(200) is the Integer -200, which does not fit.
+    const byteOrEmpty = (type: string): boolean => type === 'Byte' || type === 'Empty';
     if (
-      types[0] === 'Byte' &&
-      types[1] === 'Byte' &&
+      types.includes('Byte') &&
+      types.every(byteOrEmpty) &&
       Number.isInteger(value) &&
       value >= 0 &&
       value <= 255
@@ -852,12 +880,10 @@ export class ExpressionEvaluator {
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '-');
     }
-    const currency = this.currencyArithmetic(left, right, '-');
-    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
-    // One date and one number subtracts to a date, but two dates subtract to a plain number, which is
-    // how a script gets "how many days apart" out of VBScript.
+    // One date and one number subtracts to a date, a Currency included, but two dates subtract to a plain
+    // number, which is how a script gets "how many days apart" out of VBScript.
     const dates = (left.type === 'Date' ? 1 : 0) + (right.type === 'Date' ? 1 : 0);
     if (dates === 1) {
       return { type: 'Date', value: serialToDate(leftNum - rightNum) };
@@ -865,6 +891,8 @@ export class ExpressionEvaluator {
     if (dates === 2) {
       return { type: 'Double', value: leftNum - rightNum };
     }
+    const currency = this.currencyArithmetic(left, right, '-');
+    if (currency) return currency;
     return this.numberResult('-', left, right, leftNum - rightNum);
   }
 
@@ -875,10 +903,14 @@ export class ExpressionEvaluator {
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '*');
     }
-    const currency = this.currencyArithmetic(left, right, '*');
-    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
+    // A product with a Date is a plain number of days, measured: TypeName(#2026-01-05# * 2) is Double.
+    if (left.type === 'Date' || right.type === 'Date') {
+      return { type: 'Double', value: leftNum * rightNum };
+    }
+    const currency = this.currencyArithmetic(left, right, '*');
+    if (currency) return currency;
     return this.numberResult('*', left, right, leftNum * rightNum);
   }
 
@@ -889,6 +921,11 @@ export class ExpressionEvaluator {
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     if (rightNum === 0) {
+      // Zero divided by zero is an overflow, and only a dividend that is not zero divided by zero is a
+      // division by zero, measured for Empty, Byte, Integer, Double and Boolean operands alike.
+      if (leftNum === 0) {
+        throw createVbError(VbErrorCodes.Overflow, 'Overflow');
+      }
       throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
     return this.numberResult('/', left, right, leftNum / rightNum);

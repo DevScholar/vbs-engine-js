@@ -3,13 +3,17 @@ import { VbsEngine } from '../index.ts';
 
 // Every operator against every pair of VBScript types, measured against a fresh cscript under 1033: twelve
 // operands (Empty, Null, Boolean, Byte, Integer, Long, Single, Double, Currency, Date and two Strings) under
-// twenty operators, 2899 cells. The capture is arith-1033.txt in the probe directory, and the cells below
-// are the ones the engine answers as Windows does.
+// twenty operators, plus nineteen unary cells, 2899 in all. All of them agree with the engine. The capture is
+// arith2-1033.txt in the probe directory.
 //
-// The operands are set again before every cell there, because a bitwise operator converts an Empty operand
-// in place: after "Empty And Empty" the variable itself is a Long 0 and no longer Empty. That is what
-// VBScript does, and the engine holds its values as plain objects, so the engine does not reproduce the
-// change to the operand. A script can see it, and it is the one thing this table does not compare.
+// Why the probe writes every expression out instead of building it as text and calling Eval. Two reads of
+// the same cell disagree under Eval, and the written out form is what a compiled script does:
+//
+//   * A bitwise operator converts an Empty operand in place: after "Empty And Empty" the variable itself is
+//     a Long 0. An Eval driven table therefore measured every later cell against a changed operand.
+//   * Eval reads a numeric value beside a String as a String comparison, so CByte(200) < "2" answered True
+//     where the written out form answers False. The engine, which compiles its input, is on the False side.
+//   * The operands of the written out table are literals, so no cell can leave a mark on the next one.
 //
 // The rules the cells lock in, all of them measured:
 //
@@ -20,36 +24,37 @@ import { VbsEngine } from '../index.ts';
 //   * A floating point operand is rounded to the nearest whole number, a tie to the even neighbour, before a
 //     bitwise operator or integer division reads it, so CByte(200) \ CSng(1.5) is 100 and CByte(200) Or
 //     CSng(1.5) is 202.
-//   * Integer division cuts toward zero, so CByte(200) \ CInt(-3) is -66 and not -67.
+//   * Integer division cuts toward zero and keeps an Integer for narrow operands: CByte(200) \ CInt(-3) is
+//     -66, and CByte(200) Mod CByte(200) is the Byte 0.
 //   * A text that is no number is a type mismatch under all of these, even beside a Null.
 //   * A Null is read operator by operator: And and Or keep the side that already decides the answer, Xor
 //     and Eqv are Null, and Imp answers its right side where the left is Null.
-//   * Not keeps its operand's type, and a String that is no number is a type mismatch there too.
-//   * Unary minus keeps a Single, a Double, a Currency and a Date, turns a numeric String into a Double and
-//     a Byte into an Integer.
-//   * A power that leaves the Double range is error 5 where no value exists (0 ^ -1, -3 ^ 1.5) and error 6
-//     where the value exists but is out of range (200 ^ 200).
-//
-// Still open in this table: the type +, - and * answer for a few pairs (a Date and a Currency together, a
-// Currency times a Single, an Empty beside a Byte), how a numeric String is ordered beside a number, and the
-// exponent CStr switches to, which is what the remaining / and ^ cells differ by.
+//   * Not keeps its operand's type, and unary minus keeps a Single, a Double, a Currency and a Date, turns a
+//     numeric String into a Double and a Byte into an Integer.
+//   * A power that leaves the Double range is error 5 where no value exists and error 6 where the value
+//     exists but is out of range.
+//   * Division answers a Single while both operands are narrow, an Empty counting as narrow, and a Double
+//     otherwise. Zero divided by zero is error 6 where a dividend that is not zero is error 11.
+//   * A Long keeps its width beside anything whole, and a product that leaves the Long range is a Double.
+//   * A negative zero keeps its sign in CStr, for a Single and a Double alike, and a Currency and an Integer
+//     have no such value.
 const CELLS: ReadonlyArray<readonly [string, string]> = [
   // Is compares two object references and nothing else, so a plain value on either side is error 424 rather
   // than False. Measured for all 144 pairs of the twelve types.
   ['Empty Is Empty', 'ERR 424'],
   ['Empty Is Null', 'ERR 424'],
-  ['Empty Is Boolean', 'ERR 424'],
-  ['Empty Is Byte', 'ERR 424'],
-  ['Empty Is Integer', 'ERR 424'],
-  ['Empty Is Long', 'ERR 424'],
-  ['Empty Is Single', 'ERR 424'],
-  ['Empty Is Double', 'ERR 424'],
-  ['Empty Is Currency', 'ERR 424'],
-  ['Empty Is Date', 'ERR 424'],
+  ['Empty Is True', 'ERR 424'],
+  ['Empty Is CByte(1)', 'ERR 424'],
+  ['Empty Is CInt(1)', 'ERR 424'],
+  ['Empty Is CLng(1)', 'ERR 424'],
+  ['Empty Is CSng(1)', 'ERR 424'],
+  ['Empty Is CDbl(1)', 'ERR 424'],
+  ['Empty Is CCur(1)', 'ERR 424'],
+  ['Empty Is CDate("2026-01-05")', 'ERR 424'],
   ['Empty Is "2"', 'ERR 424'],
   ['"2" Is "2"', 'ERR 424'],
-  ['Null Is Boolean', 'ERR 424'],
-  ['Date Is Currency', 'ERR 424'],
+  ['Null Is True', 'ERR 424'],
+  ['CDate("2026-01-05") Is CCur(1)', 'ERR 424'],
   ['CByte(200) Is CLng(70000)', 'ERR 424'],
 
   // The type each bitwise operator keeps, and the wrap of the narrower types.
@@ -118,6 +123,36 @@ const CELLS: ReadonlyArray<readonly [string, string]> = [
   ['Empty ^ True', 'ERR 5'],
   ['CInt(-3) ^ CSng(1.5)', 'ERR 5'],
   ['CByte(200) ^ CByte(200)', 'ERR 6'],
+
+  // Division: the Single it answers, the Double it answers otherwise, and the two zero errors.
+  ['Empty / True', 'Single | -0'],
+  ['Empty / CInt(-3)', 'Single | -0'],
+  ['Empty / CByte(200)', 'Single | 0'],
+  ['Empty / CSng(1.5)', 'Single | 0'],
+  ['Empty / CLng(70000)', 'Double | 0'],
+  ['CByte(200) / CInt(-3)', 'Double | -66.6666666666667'],
+  ['True / CSng(1.5)', 'Single | -0.6666667'],
+  ['CSng(1.5) / True', 'Single | -1.5'],
+  ['Empty / Empty', 'ERR 6'],
+  ['CInt(0) / CInt(0)', 'ERR 6'],
+  ['CByte(200) / CByte(0)', 'ERR 11'],
+
+  // The width a +, - and * answer, and the two shapes a Date takes part in.
+  ['CLng(5) - CLng(5)', 'Long | 0'],
+  ['Empty * CLng(70000)', 'Long | 0'],
+  ['CLng(70000) * Empty', 'Long | 0'],
+  ['CByte(200) * CByte(200)', 'Long | 40000'],
+  ['CLng(70000) * CLng(70000)', 'Double | 4900000000'],
+  ['CSng(1.5) * CCur(1.2345)', 'Double | 1.85175'],
+  ['CDate("2026-01-05") * CDate("2026-01-05")', 'Double | 2118484729'],
+  ['CCur(1.2345) + CDate("2026-01-05")', 'Date | 1/6/2026 5:37:41 AM'],
+  ['CDate("2026-01-05") + CCur(1.2345)', 'Date | 1/6/2026 5:37:41 AM'],
+
+  // A negative zero keeps its sign where the type has one.
+  ['-CDbl(0)', 'Double | -0'],
+  ['-CSng(0)', 'Single | -0'],
+  ['-CCur(0)', 'Currency | 0'],
+  ['-CInt(0)', 'Integer | 0'],
 ];
 
 function answer(expression: string, lcid = 1033): unknown {

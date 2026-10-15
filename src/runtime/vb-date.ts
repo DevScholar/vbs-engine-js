@@ -546,6 +546,12 @@ function expandNlsPattern(
   lcid = 0,
   persianDayUnpadded = false
 ): string | null {
+  // Windows writes a date to the second, rounding the fraction of a second rather than dropping it: the
+  // serial 46028.2345 is 5:37:41 and not the 5:37:40 a truncation gives, measured on a fresh cscript.
+  const milliseconds = date.getUTCMilliseconds();
+  if (milliseconds !== 0) {
+    date = new Date(date.getTime() + (milliseconds >= 500 ? 1000 - milliseconds : -milliseconds));
+  }
   const hour = date.getUTCHours();
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   const pad = (value: number, width: number): string => String(value).padStart(width, '0');
