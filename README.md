@@ -186,16 +186,15 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 - **Which strings are dates follows the locale**, because that is what `SetLocale` is for: `IsDate("29.09.2026")` is `True` under `1031` and `False` under `1033`, and month names come from the locale (English names are read only for Chinese, Japanese and Korean, whose own names `vbscript.dll` does not match).
 - **Which types are dates does not.** `DateValue` and `TimeValue` take a date or a string only: a number, a Boolean or Empty is error 13 there and `Null` is error 94, in every locale. Only `CDate` reads numbers, Booleans and Empty.
 
-`CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` byte for byte in all 133 locales it knows.
+`CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` for every locale it knows.
 
-`FormatDateTime` reads the same table, so it follows Windows rather than the host: `FormatDateTime(d, 1)` under `1031` is `Montag, 5. Januar 2026` and under `1042` is `2026년 1월 5일 월요일`, neither of which `Intl` produces. It was measured against `vbscript.dll` over 131 locales, five instants and five formats - 3275 cells - and matches all of them.
+`FormatDateTime` reads the same table, so it follows Windows rather than the host: `FormatDateTime(d, 1)` under `1031` is `Montag, 5. Januar 2026` and under `1042` is `2026년 1월 5일 월요일`, neither of which `Intl` produces.
 
 - **Its two date formats use the locale's own calendar, and its other three do not.** `ar-SA` gives the Hijri `16/07/47` for `vbShortDate` while giving the Gregorian `05/01/2026` for `vbGeneralDate`, and `fa-IR` gives the Persian `15 دی 1404` for `vbLongDate`.
 - **`vbShortTime` keeps the locale's own separator** with a padded 24-hour hour: `09.05` under `1035`, `09:05` under `1042`.
 - **The Arabic and Hebrew date formats mark each field** with a right-to-left mark, and their names use a narrow no-break space between words, as Windows does. `vbGeneralDate` carries neither.
-- **A few names come from `src/runtime/name-overrides.generated.ts`**, where Windows ships a spelling CLDR has since changed (Vietnamese's `Tháng Giêng`, Latvian's lower-case weekday, Sotho, Tswana, Tsonga, Algerian and Tunisian Arabic, Hindi's December).
-
-One thing is deliberately not reproduced: Thai (`1054`) is written where Windows raises error 5 for both of its date formats. The dates are produced from `Intl`'s Buddhist calendar because a date a script can use is more useful than the failure.
+- **Some names come from `src/runtime/name-tables.generated.ts`**, which holds the names Windows writes where CLDR has changed them or has none at all. The Vietnamese `Tháng Giêng`, the Latvian lower-case weekday, the Sotho and Tswana names, Tsonga, Algerian and Tunisian Arabic, Hindi's December and the German and Croatian abbreviations are a few of them.
+- **Thai writes its year in the Buddhist calendar in every format**, `CStr` included: `CStr(DateSerial(2026, 1, 5))` is `5/1/2569`. Its long date carries no weekday, which is what Windows writes there even though the locale's own picture string asks for one.
 
 ### Example Usage
 

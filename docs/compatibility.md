@@ -205,10 +205,10 @@ This document tracks the compatibility between this VBScript engine implementati
 | CVErr | ✔️ | |
 | Val | ✔️ | |
 | Str | ✔️ | |
-| FormatNumber | ✔️ | Uses Intl API with locale support |
-| FormatCurrency | ✔️ | Auto-detects currency from locale |
-| FormatPercent | ✔️ | Uses Intl API with locale support |
-| FormatDateTime | ✔️ | Uses Intl API with locale support |
+| FormatNumber | ✔️ | Reads the Windows NLS number table, so the fraction mark, the group marks and the fraction count are the locale's own |
+| FormatCurrency | ✔️ | The symbol, its position, the fraction count and the shape of a negative amount come from the locale's row in the same table |
+| FormatPercent | ✔️ | Reads the Windows NLS number table, and writes the percent sign the way Windows does |
+| FormatDateTime | ✔️ | Reads the Windows NLS date table, so it follows Windows and not the host |
 
 ### Inspection Functions
 
