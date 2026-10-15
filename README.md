@@ -139,7 +139,7 @@ engine.executeStatement(`
 ```
 
 > **Note:** COM/ActiveX requires Windows. On other platforms `CreateObject` returns a
-> dummy object and `GetObject` returns `Nothing`.
+> placeholder object and `GetObject` returns `Nothing`.
 
 
 

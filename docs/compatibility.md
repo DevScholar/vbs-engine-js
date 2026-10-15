@@ -444,33 +444,26 @@ directly without wrapping.
 
 ## COM Objects
 
-`CreateObject` and `GetObject` delegate to the JavaScript host's `ActiveXObject` /
-`GetObject`, so their availability depends on the environment:
+`CreateObject` and `GetObject` hand their call to the JavaScript host's `ActiveXObject` and
+`GetObject`, so no COM class lives in this engine:
 
-- **Internet Explorer** — native `ActiveXObject` is present, so COM objects
-  (FileSystemObject, Word.Application, Excel.Application, WScript.Shell, etc.)
-  work directly.
-- **Node.js on Windows** — wire up
-  [`@devscholar/node-ps1-dotnet`](https://www.npmjs.com/package/@devscholar/node-ps1-dotnet)
-  to provide `ActiveXObject`/`GetObject` before running scripts (see the README's
-  "COM / ActiveX Integration" section).
-- **Other browsers (Chrome, Firefox, Edge, modern Node.js)** — no `ActiveXObject`,
-  so `CreateObject` returns a dummy object and `GetObject` returns `Nothing`.
+- **Internet Explorer** has a native `ActiveXObject`, so every COM class works there as it
+  always did.
+- **Node.js on Windows** takes them from
+  [`@devscholar/node-ps1-dotnet`](https://www.npmjs.com/package/@devscholar/node-ps1-dotnet),
+  wired up before a script runs (see the README's "COM / ActiveX Integration" section).
+- **Other hosts** have no `ActiveXObject`, so `CreateObject` answers a placeholder object and
+  `GetObject` answers `Nothing`.
 
-The concrete COM automation classes (FileSystemObject, WScript.Shell, etc.) are
-not polyfilled by this engine; they are supplied by the host through the two
-functions above.
+This document therefore lists the two functions and no COM class. `Scripting.FileSystemObject`,
+`Scripting.Dictionary`, `WScript.Shell`, `Word.Application` and the rest belong to the host,
+and which of them answer depends on the host rather than on this engine. A table of them here
+would read as if each one had been given its own handling.
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| CreateObject | ✔️ | Delegates to host `ActiveXObject` |
-| GetObject | ✔️ | Delegates to host `GetObject` |
-| FileSystemObject | ⛔ | Requires host COM backend |
-| Drive Object | ⛔ | Requires host COM backend |
-| Folder Object | ⛔ | Requires host COM backend |
-| File Object | ⛔ | Requires host COM backend |
-| TextStream | ⛔ | Requires host COM backend |
-| Dictionary Object | ⛔ | Requires host COM backend |
+| Function | Status | Notes |
+|----------|--------|-------|
+| CreateObject | ✔️ | Hands the call to the host's `ActiveXObject` |
+| GetObject | ✔️ | Hands the call to the host's `GetObject` |
 
 ---
 

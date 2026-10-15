@@ -11,9 +11,10 @@ import { VbsEngine } from '../index.ts';
 //   * x = NoSuchFunction(1) is error 13 in Windows, since the name holds nothing and is indexed like any
 //     other Empty. The engine answers 500 there, because it reads the same shape as a call to an undefined
 //     procedure, which is what that shape is at statement level ("NoSuchFunction 1" is error 500).
-//   * OpenTextFile on a missing file and on a missing drive are error 53 and 76 in Windows. The engine has
-//     no FileSystemObject behind the name, so both answer the invalid procedure call it raises for a member
-//     it does not have.
+//   * OpenTextFile on a missing file and on a missing drive are error 53 and 76 in Windows. Those members
+//     belong to a COM class, which the host supplies rather than this engine (see the compatibility
+//     document), and the runner these tests use has none, so the call answers the invalid procedure call the
+//     engine raises for a member it does not have.
 //
 // The argument count of a call is checked now, which was two more of these cells: see builtin-arity.test.ts.
 const CELLS: ReadonlyArray<readonly [string, string, string]> = [
@@ -58,15 +59,16 @@ const CELLS: ReadonlyArray<readonly [string, string, string]> = [
   ['err.array.compare', 'a = Array(1) : x = (a = a)', '13'],
   ['err.cpp.array', 'a = Array(1, 2) : b = Array(3) : x = a + b', '13'],
 
-  // An object needs Set, and Set takes nothing else. Measured on a fresh cscript.
-  ['assign.object', 'x = CreateObject("Scripting.Dictionary")', '450'],
+  // An object needs Set, and Set takes nothing else. Measured on a fresh cscript. The object here comes
+  // from the engine's own Collection rather than from a COM class, which the host supplies.
+  ['assign.object', 'Set o = New Collection : x = o', '450'],
   ['assign.nothing', 'x = Nothing', '91'],
   ['assign.array', 'x = Array(1, 2)', '0'],
-  ['assign.object.with.set', 'Set o = CreateObject("Scripting.Dictionary")', '0'],
+  ['assign.object.with.set', 'Set o = New Collection', '0'],
   ['assign.nothing.with.set', 'Set o = Nothing', '0'],
   [
     'argument.object',
-    'Function Take(value) : Take = 1 : End Function : x = Take(CreateObject("Scripting.Dictionary"))',
+    'Function Take(value) : Take = 1 : End Function : Set o = New Collection : x = Take(o)',
     '0',
   ],
   ['set.number', 'Set o = 5', '424'],

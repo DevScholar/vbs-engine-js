@@ -16,11 +16,11 @@ import { VbsEngine } from '../index.ts';
 //     accepts both as extensions and counts them the way they read.
 //   * Array is the one function with no upper bound: Array() and Array(1, 2, 3, 4) are both accepted.
 //
-// Three cells of the probe are not about the count at all and are left out here: GetRef("Foo"),
-// LoadPicture("x.ico") and CreateObject("Scripting.Dictionary", "localhost") are assigned to a variable
-// without Set in the probe, and Windows raises its own failure (5, 432 and 429) before the assignment rule
-// can apply, while the engine hands back an object and answers 450 for the assignment. The counts themselves
-// are accepted on both sides.
+// Three cells of the probe are not about the count at all and are left out here. GetRef("Foo"),
+// LoadPicture("x.ico") and CreateObject("Scripting.Dictionary", "localhost") are all functions whose work is
+// the host's or is not implemented, and each is assigned to a variable without Set in the probe: Windows
+// raises its own failure (5, 432 and 429) before the assignment rule can apply, while the engine hands back
+// an object and answers 450 for the assignment. The counts themselves are accepted on both sides.
 const CELLS: ReadonlyArray<readonly [string, string]> = [
   ['Mid("abc", 1)', 'ok'],
   ['Mid("abc", 1, 1)', 'ok'],
