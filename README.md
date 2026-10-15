@@ -195,7 +195,7 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 - **`vbShortTime` keeps the locale's own separator** with a padded 24-hour hour: `09.05` under `1035`, `09:05` under `1042`.
 - **The Arabic and Hebrew date formats mark each field** with a right-to-left mark, and their names use a narrow no-break space between words, as Windows does. `vbGeneralDate` carries neither.
 - **Some names come from `src/runtime/name-tables.generated.ts`**, which holds the names Windows writes where CLDR has changed them or has none at all. The Vietnamese `Tháng Giêng`, the Latvian lower-case weekday, the Sotho and Tswana names, Tsonga, Algerian and Tunisian Arabic, Hindi's December and the German and Croatian abbreviations are a few of them.
-- **Thai writes its year in the Buddhist calendar in every format**, `CStr` included: `CStr(DateSerial(2026, 1, 5))` is `5/1/2569`. Its long date carries no weekday, which is what Windows writes there even though the locale's own picture string asks for one.
+- **Thai writes its year in the Buddhist calendar in every format**, `CStr` included: `CStr(DateSerial(2026, 1, 5))` is `5/1/2569`. It reads a year the same way, so `CDate("5 มกราคม 2026")` is the Gregorian year 1483, which `CStr` writes back as `5/1/2026`. Its long date carries no weekday, which is what Windows writes there even though the locale's own picture string asks for one.
 
 ### Example Usage
 

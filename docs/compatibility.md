@@ -216,7 +216,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | IsDate | ✔️ | |
 | IsEmpty | ✔️ | |
 | IsNull | ✔️ | |
-| IsNumeric | ✔️ | |
+| IsNumeric | ✔️ | Reads a string the way the conversions do, with the locale's own marks, so `IsNumeric("1 234")` and `IsNumeric("50%")` are `False` |
 | IsObject | ✔️ | |
 | VarType | ✔️ | |
 | TypeName | ✔️ | |
