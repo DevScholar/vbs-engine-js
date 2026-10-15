@@ -232,3 +232,37 @@ describe('a day count below zero counts its time away from zero', () => {
     });
   }
 });
+
+// The month names Windows writes and reads, and the calendar Thai counts its years in.
+//
+//   * Windows writes its own name where CLDR has changed one, and reads it back: under 1031 MonthName(3, True)
+//     is "Mrz" while CLDR's short name is "Mär", and both "Mrz" and "Mär" are read as March. The engine keeps
+//     the CLDR names and adds Windows' own from its name table.
+//   * Thai reads a year as a Buddhist one, so CDate("5 มกราคม 2026") is the Gregorian year 1483 and CStr
+//     writes it back as "5/1/2026", while CDate("5 มกราคม 2569") is the Gregorian 2026 and writes "5/1/2569".
+//     The Buddhist year is the Gregorian one plus 543, months and days unchanged, and ICU is not asked for
+//     it: ICU counts the Buddhist calendar in the Julian calendar before 1582 and would write that same
+//     Gregorian 5 January 1483 as 27 December 2025.
+const LOCALE_NAME_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1031, 'CStr(CDate("5. Mrz 2026"))', '05.03.2026'],
+  [1031, 'CStr(CDate("5. Mär 2026"))', '05.03.2026'],
+  [1031, 'CStr(CDate("5. März 2026"))', '05.03.2026'],
+  [1031, 'CStr(CDate("5. Januar 2026"))', '05.01.2026'],
+  [1031, 'CStr(MonthName(3))', 'März'],
+  [1031, 'CStr(MonthName(3, True))', 'Mrz'],
+  [1032, 'CStr(MonthName(1))', 'Ιανουάριος'],
+  [1049, 'CStr(MonthName(1))', 'Январь'],
+  [1054, 'CStr(CDate("5 มกราคม 2026"))', '5/1/2026'],
+  [1054, 'CStr(CDate("5 มกราคม 2569"))', '5/1/2569'],
+  [1054, 'CStr(CDbl(CDate("5/1/2026")))', '-152300'],
+  [1054, 'FormatDateTime(DateSerial(2026, 1, 5), 1)', '5 มกราคม 2569'],
+  [1054, 'CStr(CDate("5/1/2569"))', '5/1/2569'],
+];
+
+describe('the names Windows writes and the years Thai counts', () => {
+  for (const [lcid, expression, expected] of LOCALE_NAME_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});

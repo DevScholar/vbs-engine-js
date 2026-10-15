@@ -4,6 +4,7 @@
 import { nlsDateFormat } from './nls-date-table.generated.ts';
 import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
+import { currentLcid } from '../builtins/locale.ts';
 
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
@@ -362,6 +363,16 @@ function dateFields(
 ): { day: number; month: number; year: number } {
   if (source.kind !== 'calendar') {
     return { day: date.getUTCDate(), month: date.getUTCMonth() + 1, year: date.getUTCFullYear() };
+  }
+  if (source.type === THAI_BUDDHIST) {
+    // The Buddhist year is the Gregorian one plus 543, and the months and days are the Gregorian ones. ICU
+    // is not asked, because its Buddhist calendar counts in the Julian calendar before 1582: it writes the
+    // Gregorian 5 January 1483 as 27 December 2025, where Windows writes 5 January 2026.
+    return {
+      day: date.getUTCDate(),
+      month: date.getUTCMonth() + 1,
+      year: date.getUTCFullYear() + BUDDHIST_YEAR_OFFSET,
+    };
   }
   const parts = new Intl.DateTimeFormat(taggedNumericLocale(locale, source), {
     year: 'numeric',
@@ -1074,7 +1085,9 @@ function bareMonthNames(locale: string): { month: number; name: string }[] {
 }
 
 function monthTable(locale: string): { month: number; name: string }[] {
-  const cached = monthTableCache.get(locale);
+  const lcid = currentLcid();
+  const cacheKey = `${lcid}|${locale}`;
+  const cached = monthTableCache.get(cacheKey);
   if (cached) return cached;
   const policy = MONTH_NAME_POLICY[locale.toLowerCase().split(/[-_]/)[0]] ?? 'own';
   const names =
@@ -1083,7 +1096,23 @@ function monthTable(locale: string): { month: number; name: string }[] {
       : policy === 'own+english'
         ? [...bareMonthNames(locale), ...bareMonthNames('en-US')]
         : bareMonthNames(locale);
-  monthTableCache.set(locale, names);
+  // Windows writes its own spelling where CLDR has changed one, and its parser reads that spelling back:
+  // under 1031 "5. Mrz 2026" is March, while CLDR's short name for March is "Mär".
+  monthTableCache.set(cacheKey, [...names, ...standaloneNamesFromWindows(lcid)]);
+  return monthTableCache.get(cacheKey) ?? names;
+}
+
+/** The names Windows writes for a month on its own, which its parser reads as well as CLDR's. */
+function standaloneNamesFromWindows(lcid: number): { month: number; name: string }[] {
+  const row = NAME_STANDALONE[lcid];
+  if (!row) return [];
+  const names: { month: number; name: string }[] = [];
+  for (const [monthKey, name] of Object.entries(row.monthsLong ?? {})) {
+    names.push({ month: Number(monthKey) + 1, name });
+  }
+  for (const [monthKey, name] of Object.entries(row.monthsShort ?? {})) {
+    names.push({ month: Number(monthKey) + 1, name });
+  }
   return names;
 }
 
@@ -1385,6 +1414,30 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  * mismatch in vbscript.dll, and so is a weekday name ("Tue Sep 29 2026").
  */
 export function parseVbDate(text: string, locale: string): Date | null {
+  const date = parseVbDateInItsOwnCalendar(text, locale);
+  if (date === null) return null;
+  return fromBuddhistYear(date, locale);
+}
+
+/**
+ * A date read under a locale whose calendar counts its years from the Buddhist era, which Thai does.
+ *
+ * Measured under 1054: CDate("5 มกราคม 2026") is the Buddhist year 2026, which CStr writes back as
+ * "5/1/2026", while CDate("5 มกราคม 2569") is the Gregorian year 2026 and writes as "5/1/2569". The other
+ * calendars do not shift a year that was written: under ar-SA CDate("5 يناير 2026") prints "05/01/2026",
+ * which is the Gregorian year 2026 there.
+ */
+function fromBuddhistYear(date: Date, locale: string): Date {
+  if (new Intl.DateTimeFormat(locale).resolvedOptions().calendar !== 'buddhist') return date;
+  const shifted = new Date(date.getTime());
+  shifted.setFullYear(shifted.getFullYear() - BUDDHIST_YEAR_OFFSET);
+  return shifted;
+}
+
+/** The years between the Buddhist and the Gregorian count. */
+const BUDDHIST_YEAR_OFFSET = 543;
+
+function parseVbDateInItsOwnCalendar(text: string, locale: string): Date | null {
   const trimmed = text.trim();
   if (trimmed === '') return null;
 
