@@ -159,6 +159,30 @@ const CELLS: ReadonlyArray<readonly [string, string]> = [
   ['Unescape("%zz")', '%zz'],
   ['Unescape("%25")', '%'],
   ['Unescape(Null)', 'ERR 94'],
+  // A Null in the text of a function that gives text back answers Null, while a Null in the count, the start
+  // or a compare raises the invalid use of Null. Measured: Left(Null, 2), Right(Null, 2), Mid(Null, 1, 1),
+  // Trim(Null), LTrim(Null), RTrim(Null), InStr("abc", Null), InStr(1, "abc", Null) and InStr(1, Null, "b")
+  // are all Null, against Left("abc", Null), Right("abc", Null), Mid("abc", Null, 1), Mid("abc", 1, Null),
+  // InStr(Null, "abc", "b"), InStr(1, "abc", "b", Null), StrReverse(Null), Replace("abc", "a", Null) and
+  // Split("a,b", Null), which are error 94.
+  ['CStr(IsNull(Left(Null, 2)))', 'True'],
+  ['CStr(IsNull(Right(Null, 2)))', 'True'],
+  ['CStr(IsNull(Mid(Null, 1, 1)))', 'True'],
+  ['CStr(IsNull(Trim(Null)))', 'True'],
+  ['CStr(IsNull(LTrim(Null)))', 'True'],
+  ['CStr(IsNull(RTrim(Null)))', 'True'],
+  ['CStr(IsNull(InStr(Null, "abc")))', 'True'],
+  ['CStr(IsNull(InStr(1, "abc", Null)))', 'True'],
+  ['CStr(IsNull(InStr(1, Null, "b")))', 'True'],
+  ['Left("abc", Null)', 'ERR 94'],
+  ['Right("abc", Null)', 'ERR 94'],
+  ['Mid("abc", Null, 1)', 'ERR 94'],
+  ['Mid("abc", 1, Null)', 'ERR 94'],
+  ['InStr(Null, "abc", "b")', 'ERR 94'],
+  ['InStr(1, "abc", "b", Null)', 'ERR 94'],
+  ['StrReverse(Null)', 'ERR 94'],
+  ['Replace("abc", "a", Null)', 'ERR 94'],
+  ['Split("a,b", Null)', 'ERR 94'],
 ];
 
 function answer(expression: string): unknown {

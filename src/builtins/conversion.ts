@@ -17,6 +17,7 @@ import {
   isNumeric,
   parseVbDate,
   formatVbDateTime,
+  VbNull,
 } from '../runtime/index.ts';
 import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
 import { formatNlsNumber } from '../runtime/nls-number.ts';
@@ -33,9 +34,11 @@ import { formatNlsNumber } from '../runtime/nls-number.ts';
  *
  * The value is rounded to a whole number first, a tie going to the even neighbour (Hex(0.5) is "0", Hex(1.5)
  * is "2", Hex(2.5) is "2"), and a value outside the Long range is Overflow: Hex(4294967295) and
- * Hex(CCur(2147483648)) both refuse.
+ * Hex(CCur(2147483648)) both refuse. A Null answers Null, which a fresh cscript shows for Hex(Null) and
+ * Oct(Null) alike.
  */
 function toBaseDigits(number: VbValue, radix: 8 | 16, functionName: string): VbValue {
+  if (number.type === 'Null') return VbNull;
   const value = roundHalfToEven(toNumber(number));
   if (value < -2147483648 || value > 2147483647) {
     throw createVbError(VbErrorCodes.Overflow, `Overflow: ${functionName}`);

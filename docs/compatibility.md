@@ -119,6 +119,24 @@ This document tracks the compatibility between this VBScript engine implementati
 
 ## Built-in Functions
 
+A Null argument is read the way Windows reads one, and the functions differ on it. All of it is measured on a
+fresh cscript:
+
+* A function that gives a value back from the argument it was handed answers Null for a Null there. `Len(Null)`,
+  `UCase(Null)`, `Trim(Null)`, `Left(Null, 2)`, `Mid(Null, 1, 1)`, `InStr("abc", Null)`, `InStr(1, "abc", Null)`,
+  `Hex(Null)`, `Oct(Null)`, `Abs(Null)`, `Int(Null)`, `Fix(Null)`, `Year(Null)`, `Month(Null)`, `Day(Null)`,
+  `Hour(Null)`, `Minute(Null)`, `Second(Null)`, `Weekday(Null)`, `DatePart("d", Null)`, `DateAdd("d", 1, Null)`
+  and `DateDiff("d", Null, Date)` are all Null.
+* A Null anywhere else in those calls is the invalid use of Null, error 94: `Left("abc", Null)`,
+  `Right("abc", Null)`, `Mid("abc", Null, 1)`, `InStr(Null, "abc", "b")`, `InStr(1, "abc", "b", Null)`,
+  `Weekday(Date, Null)`, `DatePart(Null, Date)`, `DateAdd("d", Null, Date)`, `DateDiff(Null, Date, Date)`,
+  `DateSerial(Null, 1, 1)` and `TimeSerial(Null, 1, 1)` alike.
+* The functions that build a result from their arguments refuse a Null anywhere with error 94: `Replace`,
+  `Split`, `Join`, `Filter`, `String`, `Space`, `StrReverse`, `CStr`, `Sgn`, `Sqr`, `Round`, `Exp`, `Log`,
+  `Sin`, `Cos`, `Tan`, `Atn` and the other `C` conversions.
+* `FormatNumber`, `FormatCurrency`, `FormatPercent` and `FormatDateTime` are the exception, with a type
+  mismatch, error 13, for a Null.
+
 ### String Functions
 
 | Function | Status | Notes |
@@ -209,8 +227,8 @@ This document tracks the compatibility between this VBScript engine implementati
 | CLng | ✔️ | |
 | CSng | ✔️ | |
 | CStr | ✔️ | |
-| CVar | ✔️ | |
-| CVErr | ✔️ | |
+| CVar | ✔️ | Not a function of `vbscript.dll`, which answers error 13 for every call, so `CVar(1)`, `"1" = CVar(1)` and `IsEmpty(CVar(1))` are all error 13 there. Kept because VB6 and VBA have it |
+| CVErr | ✔️ | Not a function of `vbscript.dll` either, which answers error 13 for `CVErr(1)` as well. Kept because VB6 and VBA have it |
 | FormatNumber | ✔️ | Reads the Windows NLS number table, so the fraction mark, the group marks and the fraction count are the locale's own. The fraction count and the three tristate flags are rounded to a whole number first, a tie to the even neighbour, and a flag that is not -1, 0 or -2 is error 5: `FormatNumber(0.5, 2, 1)` is error 5 while `-0.5` is False and `-1.5` is the locale's own. A Null is error 13 for the value and 94 for the count, and a Nothing is 91 |
 | FormatCurrency | ✔️ | The symbol, its position, the fraction count and the shape of a negative amount come from the locale's row in the same table, and its arguments are read the way FormatNumber's are |
 | FormatPercent | ✔️ | Reads the Windows NLS number table, and writes the percent sign the way Windows does, with the same reading of its arguments |
@@ -573,5 +591,6 @@ and are intended for Node.js/JavaScript interoperability.
 | `Case Is` in Select Case | ✔️ | `Select Case x : Case Is > 5` runs here and is a compile error in `vbscript.dll`, which allows only a plain expression or a comma list. Kept because VB6 and VBA have it. A range (`Case 1 To 5`) is not accepted either way |
 | `LongLong` (64-bit integer) | ✔️ | Backed by `BigInt`; `CLngLng()` conversion; `VarType` = 20; arithmetic stays `LongLong` |
 | `Val()` and `Str()` | ✔️ | Not functions of `vbscript.dll`, which answers error 13 for both: a direct call to a name it does not know raises error 500 and a call through `Eval` raises error 13. They are kept because VB6 and VBA have them. `Val` reads a leading number and stops at the first character that is not one, and `Str` writes a leading space for the sign |
+| `CVar()` and `CVErr()` | ✔️ | Not functions of `vbscript.dll` either, which answers error 13 for every call to them. Kept because VB6 and VBA have them |
 | `Type...End Type` (user-defined types) | ✔️ | Struct-like; fields typed to VB6 defaults; `Dim x As MyType` creates initialized instance |
 

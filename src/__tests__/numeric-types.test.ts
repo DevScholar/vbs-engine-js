@@ -73,6 +73,19 @@ const CELLS: ReadonlyArray<readonly [string, string]> = [
   ['CStr(CCur(922337203685477.5807))', 'ERR 6'],
   ['CStr(CCur(1E+15))', 'ERR 6'],
   ['CStr(CSng(1E+39))', 'ERR 6'],
+  // A Null is Null for Abs, Int and Fix, which a fresh cscript shows, while Sgn, Sqr, Round, Exp, Log, Sin,
+  // Cos, Tan, Atn, CByte, CSng, CCur and CBool raise the invalid use of Null for one.
+  ['CStr(IsNull(Abs(Null)))', 'True'],
+  ['CStr(IsNull(Int(Null)))', 'True'],
+  ['CStr(IsNull(Fix(Null)))', 'True'],
+  ['Sgn(Null)', 'ERR 94'],
+  ['Sqr(Null)', 'ERR 94'],
+  ['Round(Null)', 'ERR 94'],
+  ['Exp(Null)', 'ERR 94'],
+  ['Log(Null)', 'ERR 94'],
+  ['Sin(Null)', 'ERR 94'],
+  ['CByte(Null)', 'ERR 94'],
+  ['CBool(Null)', 'ERR 94'],
 ];
 
 function answer(expression: string): unknown {

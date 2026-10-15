@@ -50,6 +50,9 @@ const DIGIT_CELLS: ReadonlyArray<readonly [string, string]> = [
   ['Oct(CCur(-1))', '37777777777'],
   ['Oct(2147483647)', '17777777777'],
   ['Oct(2.5)', '2'],
+  // A Null answers Null, which a fresh cscript shows for Hex(Null) and Oct(Null) alike.
+  ['CStr(IsNull(Hex(Null)))', 'True'],
+  ['CStr(IsNull(Oct(Null)))', 'True'],
 ];
 
 function answer(expression: string, lcid = 1031): unknown {
@@ -68,6 +71,40 @@ describe('Hex and Oct write the width the value type asks for', () => {
   for (const [expression, expected] of DIGIT_CELLS) {
     it(`${expression} is ${expected}`, () => {
       expect(answer(expression)).toBe(expected);
+    });
+  }
+});
+
+// A Null date, in the functions that read one. Measured on a fresh cscript under 1033: a Null date answers
+// Null for Year, Month, Day, Hour, Minute, Second, Weekday, DatePart, DateAdd and DateDiff alike, while a Null
+// in any other argument of those calls is the invalid use of Null, as DatePart(Null, Date), DateAdd("d", Null,
+// Date), DateAdd(Null, 1, Date), DateDiff(Null, Date, Date) and Weekday(Date, Null) all show, and DateSerial
+// and TimeSerial refuse a Null in every position.
+const NULL_DATE_CELLS: ReadonlyArray<readonly [string, string]> = [
+  ['CStr(IsNull(Year(Null)))', 'True'],
+  ['CStr(IsNull(Month(Null)))', 'True'],
+  ['CStr(IsNull(Day(Null)))', 'True'],
+  ['CStr(IsNull(Hour(Null)))', 'True'],
+  ['CStr(IsNull(Minute(Null)))', 'True'],
+  ['CStr(IsNull(Second(Null)))', 'True'],
+  ['CStr(IsNull(Weekday(Null)))', 'True'],
+  ['CStr(IsNull(DatePart("d", Null)))', 'True'],
+  ['CStr(IsNull(DateAdd("d", 1, Null)))', 'True'],
+  ['CStr(IsNull(DateDiff("d", Null, Date)))', 'True'],
+  ['CStr(IsNull(DateDiff("d", Date, Null)))', 'True'],
+  ['DatePart(Null, Date)', 'ERR 94'],
+  ['DateAdd("d", Null, Date)', 'ERR 94'],
+  ['DateAdd(Null, 1, Date)', 'ERR 94'],
+  ['DateDiff(Null, Date, Date)', 'ERR 94'],
+  ['Weekday(Date, Null)', 'ERR 94'],
+  ['DateSerial(Null, 1, 1)', 'ERR 94'],
+  ['TimeSerial(Null, 1, 1)', 'ERR 94'],
+];
+
+describe('a Null date is read the way Windows reads one', () => {
+  for (const [expression, expected] of NULL_DATE_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(answer(expression, 1033)).toBe(expected);
     });
   }
 });

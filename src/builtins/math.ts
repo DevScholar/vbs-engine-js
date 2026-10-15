@@ -10,6 +10,7 @@ import {
   toSinglePrecision,
   truncateScaled,
   VbEmpty,
+  VbNull,
 } from '../runtime/index.ts';
 
 /**
@@ -26,7 +27,10 @@ function sameNumericType(operand: VbValue, value: number): VbValue {
 }
 
 export const mathFunctions = {
+  // Abs, Int and Fix answer Null for a Null, which a fresh cscript shows, while Sgn, Sqr, Round, Exp, Log, Sin,
+  // Cos, Tan and Atn raise the invalid use of Null for one.
   Abs: (number: VbValue): VbValue => {
+    if (number.type === 'Null') return VbNull;
     if (number.type === 'Currency')
       return { type: 'Currency', value: absoluteScaled(number.value) };
     const num = toNumber(number);
@@ -47,6 +51,7 @@ export const mathFunctions = {
   },
 
   Int: (number: VbValue): VbValue => {
+    if (number.type === 'Null') return VbNull;
     if (number.type === 'Currency') return { type: 'Currency', value: floorScaled(number.value) };
     const num = toNumber(number);
     if (number.type === 'Single')
@@ -55,6 +60,7 @@ export const mathFunctions = {
   },
 
   Fix: (number: VbValue): VbValue => {
+    if (number.type === 'Null') return VbNull;
     if (number.type === 'Currency')
       return { type: 'Currency', value: truncateScaled(number.value) };
     const num = toNumber(number);

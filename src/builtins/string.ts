@@ -293,6 +293,10 @@ export const stringFunctions = {
   // The functions that take text and give text back answer Null for a Null argument, which a fresh cscript
   // shows for Len, Left, Mid, UCase and Trim alike; the ones that build something from their arguments
   // (Replace, String, Join, Filter and Split) raise the invalid use of Null instead.
+  //
+  // Only the text argument propagates Null, not the count: a fresh cscript reads Trim(Null), Len(Null) and
+  // Left(Null, 2) as Null while Left("abc", Null), Right("abc", Null), Mid("abc", Null, 1) and
+  // Mid("abc", 1, Null) are the invalid use of Null.
   Len: (str: VbValue): VbValue => {
     if (anyNullArgument(str)) return VbNull;
     const s = toString(str);
@@ -300,7 +304,8 @@ export const stringFunctions = {
   },
 
   Left: (str: VbValue, length: VbValue): VbValue => {
-    if (anyNullArgument(str, length)) return VbNull;
+    if (anyNullArgument(str)) return VbNull;
+    if (anyNullArgument(length)) nullArgument('Left');
     const s = toString(str);
     const len = Math.floor(toNumber(length));
     if (len < 0) invalidArgument('Left', 'length');
@@ -308,7 +313,8 @@ export const stringFunctions = {
   },
 
   Right: (str: VbValue, length: VbValue): VbValue => {
-    if (anyNullArgument(str, length)) return VbNull;
+    if (anyNullArgument(str)) return VbNull;
+    if (anyNullArgument(length)) nullArgument('Right');
     const s = toString(str);
     const len = Math.floor(toNumber(length));
     if (len < 0) invalidArgument('Right', 'length');
@@ -316,7 +322,8 @@ export const stringFunctions = {
   },
 
   Mid: (str: VbValue, start: VbValue, length?: VbValue): VbValue => {
-    if (anyNullArgument(str, start, length)) return VbNull;
+    if (anyNullArgument(str)) return VbNull;
+    if (anyNullArgument(start, length)) nullArgument('Mid');
     const s = toString(str);
     // The start counts from 1 and a start below it is error 5, which a fresh cscript shows for Mid("abc", 0)
     // and Mid("abc", -1) alike, and so is a length below zero.
@@ -356,6 +363,9 @@ export const stringFunctions = {
       if (str2 === '') return { type: 'Long', value: str1 === '' ? 0 : 1 };
       if (str1 === '') return { type: 'Long', value: 0 };
     } else {
+      // A Null in either text answers Null, which a fresh cscript shows for InStr(1, "abc", Null) and
+      // InStr(1, Null, "b"), while a Null start or compare is the invalid use of Null.
+      if (anyNullArgument(str1OrStr2, str2OrCompare)) return VbNull;
       start = Math.floor(toNumber(startOrStr));
       str1 = toString(str1OrStr2);
       str2 = toString(str2OrCompare);

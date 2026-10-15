@@ -10,6 +10,7 @@ import {
   toString,
   toVbDate,
   VbErrorCodes,
+  VbNull,
 } from '../runtime/index.ts';
 import { NLS_FIRST_DAY_OF_WEEK } from '../runtime/nls-first-day.generated.ts';
 import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
@@ -56,6 +57,24 @@ function toVbDateArgument(value: VbValue): Date {
   return toVbDate(value);
 }
 
+/** The name of the error a Null in an argument that is no date raises, which is not what a Null date does. */
+function nullArgument(functionName: string): never {
+  throw createVbError(VbErrorCodes.InvalidUseOfNull, `Invalid use of Null: ${functionName}`);
+}
+
+/**
+ * The date a date function was handed, or null for a Null, which the caller answers with Null.
+ *
+ * Measured on a fresh cscript: a Null date answers Null for Year, Month, Day, Hour, Minute, Second, Weekday,
+ * DatePart, DateAdd and DateDiff alike, while a Null anywhere else in those calls is the invalid use of Null
+ * (DatePart(Null, Date), DateAdd("d", Null, Date), DateDiff(Null, Date, Date) and Weekday(Date, Null) are all
+ * error 94), and DateSerial and TimeSerial refuse a Null in every position.
+ */
+function readDateArgument(value: VbValue): Date | null {
+  if (value.type === 'Null') return null;
+  return value.type === 'Date' ? (value.value as Date) : serialToDate(toNumber(value));
+}
+
 export const dateFunctions = {
   Now: (): VbValue => {
     return { type: 'Date', value: new Date() };
@@ -75,22 +94,27 @@ export const dateFunctions = {
   },
 
   Year: (date: VbValue): VbValue => {
-    const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getFullYear() };
   },
 
   Month: (date: VbValue): VbValue => {
-    const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getMonth() + 1 };
   },
 
   Day: (date: VbValue): VbValue => {
-    const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getDate() };
   },
 
   Weekday: (date: VbValue, firstDayOfWeek?: VbValue): VbValue => {
-    const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
+    if (firstDayOfWeek && firstDayOfWeek.type === 'Null') nullArgument('Weekday');
     const firstDay = firstDayOfWeek ? Math.floor(toNumber(firstDayOfWeek)) : 1;
     let day = d.getDay() + 1;
     day = day - firstDay + 1;
@@ -99,55 +123,61 @@ export const dateFunctions = {
   },
 
   Hour: (time: VbValue): VbValue => {
-    const d = time.type === 'Date' ? (time.value as Date) : serialToDate(toNumber(time));
+    const d = readDateArgument(time);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getHours() };
   },
 
   Minute: (time: VbValue): VbValue => {
-    const d = time.type === 'Date' ? (time.value as Date) : serialToDate(toNumber(time));
+    const d = readDateArgument(time);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getMinutes() };
   },
 
   Second: (time: VbValue): VbValue => {
-    const d = time.type === 'Date' ? (time.value as Date) : serialToDate(toNumber(time));
+    const d = readDateArgument(time);
+    if (d === null) return VbNull;
     return { type: 'Integer', value: d.getSeconds() };
   },
 
   DateAdd: (interval: VbValue, number: VbValue, date: VbValue): VbValue => {
+    if (interval.type === 'Null' || number.type === 'Null') nullArgument('DateAdd');
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
     const intv = toString(interval).toLowerCase();
     const num = toNumber(number);
-    const d = date.type === 'Date' ? new Date(date.value as Date) : serialToDate(toNumber(date));
+    const shifted = new Date(d);
 
     switch (intv) {
       case 'yyyy':
-        d.setFullYear(d.getFullYear() + num);
+        shifted.setFullYear(shifted.getFullYear() + num);
         break;
       case 'q':
-        d.setMonth(d.getMonth() + num * 3);
+        shifted.setMonth(shifted.getMonth() + num * 3);
         break;
       case 'm':
-        d.setMonth(d.getMonth() + num);
+        shifted.setMonth(shifted.getMonth() + num);
         break;
       case 'y':
       case 'd':
       case 'w':
-        d.setDate(d.getDate() + num);
+        shifted.setDate(shifted.getDate() + num);
         break;
       case 'ww':
-        d.setDate(d.getDate() + num * 7);
+        shifted.setDate(shifted.getDate() + num * 7);
         break;
       case 'h':
-        d.setHours(d.getHours() + num);
+        shifted.setHours(shifted.getHours() + num);
         break;
       case 'n':
-        d.setMinutes(d.getMinutes() + num);
+        shifted.setMinutes(shifted.getMinutes() + num);
         break;
       case 's':
-        d.setSeconds(d.getSeconds() + num);
+        shifted.setSeconds(shifted.getSeconds() + num);
         break;
     }
 
-    return { type: 'Date', value: d };
+    return { type: 'Date', value: shifted };
   },
 
   DateDiff: (
@@ -159,9 +189,11 @@ export const dateFunctions = {
   ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
+    if (interval.type === 'Null') nullArgument('DateDiff');
+    const d1 = readDateArgument(date1);
+    const d2 = readDateArgument(date2);
+    if (d1 === null || d2 === null) return VbNull;
     const intv = toString(interval).toLowerCase();
-    const d1 = date1.type === 'Date' ? (date1.value as Date) : serialToDate(toNumber(date1));
-    const d2 = date2.type === 'Date' ? (date2.value as Date) : serialToDate(toNumber(date2));
     const diff = d2.getTime() - d1.getTime();
 
     let result: number;
@@ -211,8 +243,10 @@ export const dateFunctions = {
   ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
+    if (interval.type === 'Null') nullArgument('DatePart');
+    const d = readDateArgument(date);
+    if (d === null) return VbNull;
     const intv = toString(interval).toLowerCase();
-    const d = date.type === 'Date' ? (date.value as Date) : serialToDate(toNumber(date));
 
     let result: number;
     switch (intv) {
