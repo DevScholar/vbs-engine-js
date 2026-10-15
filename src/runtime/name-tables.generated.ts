@@ -13,7 +13,8 @@
 // puts Sunday at 0. A locale whose calendar is not the Gregorian one is keyed by ITS calendar's month, which
 // is the month whose name is written; the runtime looks it up the same way.
 //
-// Regenerating needs the names-<lcid>.txt dumps scripts/dump-locale-names.vbs writes.
+// Regenerating needs the names-<lcid>.txt dumps, whose format is written down in the header of
+// scripts/build-name-tables.ts.
 
 /** The names Windows writes inside a formatted date. */
 export interface InDateNames {
