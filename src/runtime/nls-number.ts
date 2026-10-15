@@ -1,0 +1,242 @@
+import { nlsNumberFormat, type NlsNumberFormat } from './nls-number-table.generated.ts';
+
+/**
+ * Writes numbers the way vbscript.dll writes them, from the Windows NLS values in
+ * nls-number-table.generated.ts.
+ *
+ * Why this is not Intl.NumberFormat with a few characters swapped:
+ *
+ *   * Windows keeps two sets of marks, one for plain numbers and one for money, and they are not always
+ *     the same. de-AT groups a plain number with U+00A0 and money with a full stop, so a rule that
+ *     rewrote marks across the whole string would have to know which of the two it was looking at.
+ *   * The 16 ways Windows writes a negative amount, and the 4 ways it places a currency symbol, are
+ *     NLS values (LOCALE_INEGCURR, LOCALE_ICURRENCY), not a pattern string. Intl's nearest equivalents
+ *     (signDisplay, currencySign, accounting) cover a different, smaller set.
+ *   * Some locales have no ICU data at all. 1073 (Tsonga) is the only such LCID in this table: Intl
+ *     resolves 'ts' to the host language, so its marks belong to another language entirely.
+ *
+ * Rounding is the one part Intl still does. It is asked for a plain grouped-less string in en-US, whose
+ * digits are the same in every locale, and the answer is then re-marked from the NLS values. That keeps
+ * ICU's correct decimal rounding (0.125 to 1,005 all round the way vbscript.dll rounds them, where
+ * JavaScript's own toFixed does not) without taking any of its marks or patterns.
+ */
+
+/** Which of VBScript's three writers is asking. */
+export type NlsNumberStyle = 'number' | 'currency' | 'percent';
+
+/** VBScript's own arguments, before the locale fills in what the caller left out. */
+export interface NlsNumberOptions {
+  /** numDigitsAfterDecimal: a count, or -1 for the locale's own. */
+  digits?: number;
+  /** includeLeadingDigit: -1 keep, 0 drop, anything else for the locale's own. */
+  leadingDigit?: number;
+  /** useParensForNegativeNumbers: -1 parens, 0 a minus sign, anything else for the locale's own. */
+  parens?: number;
+  /** groupDigits: -1 group, 0 do not, anything else for the locale's own. */
+  group?: number;
+}
+
+/** The neutral row used for the one LCID Windows has no name for (1084). */
+const ASCII_FALLBACK: NlsNumberFormat = {
+  decimal: '.',
+  thousand: ',',
+  grouping: '3;0',
+  digits: 2,
+  leadingZero: 1,
+  negativeNumber: 1,
+  negativeSign: '-',
+  positiveSign: '',
+  currencySymbol: '',
+  currencyCode: '',
+  currencyDigits: 2,
+  currencyPosition: 0,
+  negativeCurrency: 0,
+  monDecimal: '.',
+  monThousand: ',',
+  monGrouping: '3;0',
+  nativeDigits: '0123456789',
+};
+
+/** Rounding, and only rounding, comes from here: en-US digits are the ones every locale writes. */
+const PLAIN = new Intl.NumberFormat('en-US', { useGrouping: false });
+
+const roundedMagnitude = (value: number, digits: number): string =>
+  new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  }).format(Math.abs(value));
+
+/**
+ * The group sizes a Windows number uses, e.g. "3;0" -> [3, 3].
+ *
+ * Windows' LOCALE_SGROUPING can name two sizes, and the Indian locales do ("3;2;0", the lakh grouping).
+ * VBScript's three number writers never use the second one: measured under 1081 (hi-IN) and 1102 (mr-IN),
+ * FormatNumber(1234567.891) is "1,234,567.89" and not "12,34,567.89", and FormatCurrency groups the same
+ * way. The size is therefore repeated rather than read, and the pattern only says whether to group at all.
+ */
+function groupSizes(pattern: string): number[] {
+  const sizes = pattern
+    .split(';')
+    .map(part => Number(part.trim()))
+    .filter(size => Number.isFinite(size));
+  if (sizes.length === 0 || sizes[0] <= 0) return [];
+  return [sizes[0], sizes[0]];
+}
+
+/** Inserts the group mark between the digits of a whole-number part. */
+function groupInteger(integer: string, mark: string, pattern: string): string {
+  const [primary, secondary] = groupSizes(pattern);
+  if (!mark || primary === undefined) return integer;
+  let grouped = '';
+  let rest = integer;
+  let width = primary;
+  while (rest.length > width) {
+    grouped = mark + rest.slice(-width) + grouped;
+    rest = rest.slice(0, -width);
+    width = secondary ?? width;
+  }
+  return rest + grouped;
+}
+
+/** The unsigned number as the locale writes it: grouped whole part, fraction mark, fraction. */
+function writeMagnitude(
+  value: number,
+  digits: number,
+  facts: NlsNumberFormat,
+  useMoney: boolean,
+  group: boolean
+): string {
+  const magnitude = roundedMagnitude(value, digits);
+  const dot = magnitude.indexOf('.');
+  let integer = dot < 0 ? magnitude : magnitude.slice(0, dot);
+  const fraction = dot < 0 ? '' : magnitude.slice(dot + 1);
+  if (integer === '0' && facts.leadingZero === 0) integer = '';
+  const decimalMark = useMoney ? facts.monDecimal : facts.decimal;
+  const groupMark = useMoney ? facts.monThousand : facts.thousand;
+  const grouped = group
+    ? groupInteger(integer, groupMark, useMoney ? facts.monGrouping : facts.grouping)
+    : integer;
+  return digits > 0 ? grouped + decimalMark + fraction : grouped;
+}
+
+/** The negative-sign placement LOCALE_INEGNUMBER picks: 0 "(1)", 1 "-1", 2 "- 1", 3 "1-", 4 "1 -". */
+function negativeNumber(text: string, sign: string, pattern: number): string {
+  switch (pattern) {
+    case 0:
+      return '(' + text + ')';
+    case 2:
+      return sign + ' ' + text;
+    case 3:
+      return text + sign;
+    case 4:
+      return text + ' ' + sign;
+    default:
+      return sign + text;
+  }
+}
+
+/**
+ * The sixteen LOCALE_INEGCURR shapes. 'n' is the amount, 's' the symbol, '-' the negative sign; the
+ * spaces are the ones Windows writes.
+ */
+const NEGATIVE_CURRENCY: readonly string[] = [
+  '(sn)',
+  '-sn',
+  's-n',
+  'sn-',
+  '(ns)',
+  '-ns',
+  'n-s',
+  'ns-',
+  '-n s',
+  '-s n',
+  's n-',
+  'n s-',
+  's -n',
+  'n- s',
+  '(s n)',
+  '(n s)',
+];
+
+/** The four LOCALE_ICURRENCY placements: 0 "$1", 1 "1$", 2 "$ 1", 3 "1 $". */
+const POSITIVE_CURRENCY: readonly string[] = ['sn', 'ns', 's n', 'n s'];
+
+/** Fills one of the currency shapes above with the amount and the symbol. */
+function fillCurrency(shape: string, text: string, symbol: string, sign: string): string {
+  let written = '';
+  for (const shapeCharacter of shape) {
+    if (shapeCharacter === 'n') written += text;
+    else if (shapeCharacter === 's') written += symbol;
+    else if (shapeCharacter === '-') written += sign;
+    else written += shapeCharacter;
+  }
+  return written;
+}
+
+/** What a caller left out is taken from the locale, which is what -1 and -2 mean in VBScript. */
+function localeDigits(style: NlsNumberStyle, facts: NlsNumberFormat, asked?: number): number {
+  if (asked !== undefined && asked >= 0) return asked;
+  if (style === 'currency') return facts.currencyDigits >= 0 ? facts.currencyDigits : facts.digits;
+  return facts.digits >= 0 ? facts.digits : 2;
+}
+
+/**
+ * Writes a number as vbscript.dll writes it under an LCID.
+ *
+ * @param value - The number to write.
+ * @param lcid - The LCID whose Windows number format applies.
+ * @param style - FormatNumber, FormatCurrency or FormatPercent.
+ * @param options - VBScript's own arguments, with the sentinel values it uses for "the locale's".
+ */
+export function formatNlsNumber(
+  value: number,
+  lcid: number,
+  style: NlsNumberStyle,
+  options: NlsNumberOptions = {}
+): string {
+  const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
+  const money = style === 'currency';
+  const scaled = style === 'percent' ? value * 100 : value;
+  const digits = localeDigits(style, facts, options.digits);
+
+  // The locale's leading-zero setting, unless the caller asked for one or the other.
+  const withFacts: NlsNumberFormat =
+    options.leadingDigit === -1
+      ? { ...facts, leadingZero: 1 }
+      : options.leadingDigit === 0
+        ? { ...facts, leadingZero: 0 }
+        : facts;
+
+  const group = options.group === 0 ? false : options.group === -1 ? true : true;
+  const text = writeMagnitude(scaled, digits, withFacts, money, group);
+  const negative = scaled < 0 || Object.is(scaled, -0);
+  const sign = facts.negativeSign || '-';
+
+  if (money) {
+    const symbol = facts.currencySymbol;
+    if (!negative) {
+      return fillCurrency(POSITIVE_CURRENCY[facts.currencyPosition] ?? 'sn', text, symbol, sign);
+    }
+    const shape = NEGATIVE_CURRENCY[facts.negativeCurrency] ?? '-sn';
+    return fillCurrency(shape, text, symbol, sign);
+  }
+
+  if (style === 'percent') {
+    return (negative ? negativeNumber(text, sign, facts.negativeNumber) : text) + '%';
+  }
+
+  if (!negative) return text;
+  const pattern = options.parens === -1 ? 0 : options.parens === 0 ? 1 : facts.negativeNumber;
+  return negativeNumber(text, sign, pattern);
+}
+
+/**
+ * Writes a number the way CStr writes one: the locale's fraction mark, no grouping, and no trailing
+ * zeros beyond what the value itself needs.
+ */
+export function formatVbNumberText(value: number, lcid: number): string {
+  const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
+  const plain = PLAIN.format(value);
+  return facts.decimal === '.' ? plain : plain.replace('.', facts.decimal);
+}

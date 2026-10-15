@@ -281,66 +281,10 @@ export function getCurrentBCP47Locale(): string {
   return getBrowserLocale();
 }
 
-const localeToCurrency: Map<string, string> = new Map([
-  ['en-us', 'USD'],
-  ['en-gb', 'GBP'],
-  ['en-au', 'AUD'],
-  ['en-ca', 'CAD'],
-  ['en-nz', 'NZD'],
-  ['en-za', 'ZAR'],
-  ['de-de', 'EUR'],
-  ['de-at', 'EUR'],
-  ['de-ch', 'CHF'],
-  ['fr-fr', 'EUR'],
-  ['fr-be', 'EUR'],
-  ['fr-ca', 'CAD'],
-  ['fr-ch', 'CHF'],
-  ['ja', 'JPY'],
-  ['zh-cn', 'CNY'],
-  ['zh-tw', 'TWD'],
-  ['zh-hk', 'HKD'],
-  ['ko', 'KRW'],
-  ['it', 'EUR'],
-  ['es', 'EUR'],
-  ['es-mx', 'MXN'],
-  ['pt-br', 'BRL'],
-  ['pt-pt', 'EUR'],
-  ['ru', 'RUB'],
-  ['pl', 'PLN'],
-  ['nl', 'EUR'],
-  ['sv', 'SEK'],
-  ['da', 'DKK'],
-  ['no', 'NOK'],
-  ['fi', 'EUR'],
-  ['cs', 'CZK'],
-  ['hu', 'HUF'],
-  ['tr', 'TRY'],
-  ['th', 'THB'],
-  ['id', 'IDR'],
-  ['ms', 'MYR'],
-  ['vi', 'VND'],
-  ['in', 'INR'],
-  ['hi', 'INR'],
-  ['ar-sa', 'SAR'],
-  ['ar-eg', 'EGP'],
-  ['ar-ae', 'AED'],
-  ['he', 'ILS'],
-  ['en-ie', 'EUR'],
-  ['en-ph', 'PHP'],
-  ['en-in', 'INR'],
-]);
-
-export function getCurrentCurrency(): string {
-  const locale = getBrowserLocale();
-  const currency = localeToCurrency.get(locale);
-  if (currency) return currency;
-
-  const baseLocale = locale.split('-')[0] ?? 'en';
-  const baseCurrency = localeToCurrency.get(baseLocale);
-  if (baseCurrency) return baseCurrency;
-
-  return 'USD';
-}
+// The currency a locale writes with is not decided here. It comes from the locale's own row in the Windows
+// NLS number table, which is where vbscript.dll reads it, along with the two sets of marks and the shape of
+// a negative amount. A hand-written map used to live here and gave the United States dollar to every locale
+// it did not list, which included two of the German family: de-LU writes EUR and de-LI writes CHF.
 
 export const localeFunctions = {
   GetLocale: getLocale,

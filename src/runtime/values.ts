@@ -1,5 +1,6 @@
 import { createVbError, VbErrorCodes } from './errors.ts';
 import { dateToSerial, formatVbDate, parseVbDate, serialToDate } from './vb-date.ts';
+import { formatVbNumberText } from './nls-number.ts';
 import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 /**
@@ -211,7 +212,8 @@ export function toBoolean(value: VbValue): boolean {
   // (`If Null Then`, `While Null`, etc.) can actually suppress it, matching
   // real VBScript behavior. Found via Wine's own vbscript.dll conformance
   // suite, dlls/vbscript/tests/lang.vbs.
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
+  if (value.type === 'Null')
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'String') {
     const str = value.value;
     if (str === '') return false;
@@ -269,7 +271,8 @@ export function parseVbNumericString(trimmed: string): number | null {
  */
 export function toNumber(value: VbValue): number {
   if (value.type === 'Empty') return 0;
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
+  if (value.type === 'Null')
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'Boolean') return value.value ? -1 : 0;
   if (
     value.type === 'Integer' ||
@@ -288,13 +291,20 @@ export function toNumber(value: VbValue): number {
     const str = value.value.trim();
     if (str === '') return 0;
     const num = parseVbNumericString(str);
-    if (num === null) throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Number`);
+    if (num === null)
+      throw createVbError(
+        VbErrorCodes.TypeMismatch,
+        `Type mismatch: "${str}" cannot be converted to Number`
+      );
     return num;
   }
   if (value.type === 'Date') {
     return dateToSerial(value.value);
   }
-  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Number`);
+  throw createVbError(
+    VbErrorCodes.TypeMismatch,
+    `Type mismatch: ${value.type} cannot be converted to Number`
+  );
 }
 
 /**
@@ -316,7 +326,7 @@ export function toString(value: VbValue): string {
     return String(value.value);
   }
   if (value.type === 'Double' || value.type === 'Single' || value.type === 'Currency') {
-    return String(value.value);
+    return formatVbNumberText(value.value, currentLcid());
   }
   if (value.type === 'Date') {
     return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());
@@ -340,20 +350,27 @@ export function toString(value: VbValue): string {
  */
 export function toVbDate(value: VbValue): Date {
   if (value.type === 'Date') return value.value;
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
+  if (value.type === 'Null')
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'String') {
     const str = value.value;
     // Only what parseVbDate reads, so that IsDate answers True for exactly the strings CDate accepts.
     const date = parseVbDate(str, getCurrentBCP47Locale());
     if (date === null) {
-      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: "${str}" cannot be converted to Date`);
+      throw createVbError(
+        VbErrorCodes.TypeMismatch,
+        `Type mismatch: "${str}" cannot be converted to Date`
+      );
     }
     return date;
   }
   if (isNumeric(value)) {
     return serialToDate(toNumber(value));
   }
-  throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`);
+  throw createVbError(
+    VbErrorCodes.TypeMismatch,
+    `Type mismatch: ${value.type} cannot be converted to Date`
+  );
 }
 
 /**

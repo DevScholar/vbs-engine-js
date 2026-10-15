@@ -10,7 +10,8 @@ import {
   parseVbDate,
   formatVbDateTime,
 } from '../runtime/index.ts';
-import { currentLcid, getCurrentCurrency, getCurrentBCP47Locale } from './locale.ts';
+import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
+import { formatNlsNumber } from '../runtime/nls-number.ts';
 
 export const conversionFunctions = {
   CBool: (expression: VbValue): VbValue => {
@@ -104,87 +105,67 @@ export const conversionFunctions = {
     expression: VbValue,
     numDigitsAfterDecimal?: VbValue,
     includeLeadingDigit?: VbValue,
-    _useParensForNegativeNumbers?: VbValue,
+    useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
     const num = toNumber(expression);
-    const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
+    const group = groupDigits ? toNumber(groupDigits) : -2;
 
-    const options: Intl.NumberFormatOptions = {
-      minimumFractionDigits: decimals >= 0 ? decimals : undefined,
-      maximumFractionDigits: decimals >= 0 ? decimals : undefined,
-      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
+    return {
+      type: 'String',
+      value: formatNlsNumber(num, currentLcid(), 'number', { digits, leadingDigit, parens, group }),
     };
-
-    if (leadingDigit === -1) {
-      options.minimumIntegerDigits = 1;
-    } else if (leadingDigit === 0) {
-      options.minimumIntegerDigits = 2;
-    }
-
-    const locale = getCurrentBCP47Locale();
-    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatCurrency: (
     expression: VbValue,
     numDigitsAfterDecimal?: VbValue,
     includeLeadingDigit?: VbValue,
-    _useParensForNegativeNumbers?: VbValue,
+    useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
     const num = toNumber(expression);
-    const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
+    const group = groupDigits ? toNumber(groupDigits) : -2;
 
-    const options: Intl.NumberFormatOptions = {
-      style: 'currency',
-      currency: getCurrentCurrency(),
-      minimumFractionDigits: decimals >= 0 ? decimals : 2,
-      maximumFractionDigits: decimals >= 0 ? decimals : 2,
-      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
+    return {
+      type: 'String',
+      value: formatNlsNumber(num, currentLcid(), 'currency', {
+        digits,
+        leadingDigit,
+        parens,
+        group,
+      }),
     };
-
-    if (leadingDigit === -1) {
-      options.minimumIntegerDigits = 1;
-    } else if (leadingDigit === 0) {
-      options.minimumIntegerDigits = 2;
-    }
-
-    const locale = getCurrentBCP47Locale();
-    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatPercent: (
     expression: VbValue,
     numDigitsAfterDecimal?: VbValue,
     includeLeadingDigit?: VbValue,
-    _useParensForNegativeNumbers?: VbValue,
+    useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
     const num = toNumber(expression);
-    const decimals = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
+    const digits = numDigitsAfterDecimal ? Math.floor(toNumber(numDigitsAfterDecimal)) : -1;
     const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const grouping = groupDigits ? toNumber(groupDigits) : -2;
+    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
+    const group = groupDigits ? toNumber(groupDigits) : -2;
 
-    const options: Intl.NumberFormatOptions = {
-      style: 'percent',
-      minimumFractionDigits: decimals >= 0 ? decimals : undefined,
-      maximumFractionDigits: decimals >= 0 ? decimals : undefined,
-      useGrouping: grouping === 0 ? false : grouping === -1 ? true : undefined,
+    return {
+      type: 'String',
+      value: formatNlsNumber(num, currentLcid(), 'percent', {
+        digits,
+        leadingDigit,
+        parens,
+        group,
+      }),
     };
-
-    if (leadingDigit === -1) {
-      options.minimumIntegerDigits = 1;
-    } else if (leadingDigit === 0) {
-      options.minimumIntegerDigits = 2;
-    }
-
-    const locale = getCurrentBCP47Locale();
-    return { type: 'String', value: num.toLocaleString(locale, options) };
   },
 
   FormatDateTime: (date: VbValue, namedFormat?: VbValue): VbValue => {
@@ -217,7 +198,10 @@ export const inspectionFunctions = {
       return { type: 'Boolean', value: true };
     }
     if (expression.type === 'String') {
-      return { type: 'Boolean', value: parseVbDate(expression.value, getCurrentBCP47Locale()) !== null };
+      return {
+        type: 'Boolean',
+        value: parseVbDate(expression.value, getCurrentBCP47Locale()) !== null,
+      };
     }
     return { type: 'Boolean', value: false };
   },
@@ -261,7 +245,8 @@ export const inspectionFunctions = {
   },
 
   TypeName: (expression: VbValue): VbValue => {
-    if (expression.type === 'Object' && expression.value === null) return { type: 'String', value: 'Nothing' };
+    if (expression.type === 'Object' && expression.value === null)
+      return { type: 'String', value: 'Nothing' };
     const typeNames: Record<string, string> = {
       Empty: 'Empty',
       Null: 'Null',
