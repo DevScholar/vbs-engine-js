@@ -1,6 +1,61 @@
 import type { VbValue } from '../runtime/index.ts';
-import { toNumber, toString, createVbArrayFromValues } from '../runtime/index.ts';
+import {
+  toNumber,
+  toString,
+  createVbArrayFromValues,
+  createVbError,
+  VbErrorCodes,
+  VbNull,
+} from '../runtime/index.ts';
 import { getCurrentBCP47Locale } from './locale.ts';
+
+/** The invalid use of Null, which the string functions raise where the others answer it back. */
+function nullArgument(functionName: string): never {
+  throw createVbError(VbErrorCodes.InvalidUseOfNull, `Invalid use of Null: ${functionName}`);
+}
+
+/** The invalid procedure call, which an argument out of its range raises. */
+function invalidArgument(functionName: string, what: string): never {
+  throw createVbError(
+    VbErrorCodes.InvalidProcedureCall,
+    `Invalid procedure call: ${functionName} ${what}`
+  );
+}
+
+/** Whether any of the arguments handed to a string function is a Null. */
+function anyNullArgument(...values: (VbValue | undefined)[]): boolean {
+  return values.some(value => value !== undefined && value.type === 'Null');
+}
+
+/** A compare mode, which VBScript allows to be 0 (binary) or 1 (text) and nothing else. */
+function readCompareMode(value: VbValue | undefined, functionName: string): number {
+  if (value === undefined) return 0;
+  const mode = Math.floor(toNumber(value));
+  if (mode !== 0 && mode !== 1) invalidArgument(functionName, 'compare');
+  return mode;
+}
+
+/**
+ * Text cut at a mark, which is what Split does.
+ *
+ * The mark is matched whole and, with a text compare, whatever its case, and a limit of one or more caps the
+ * number of parts by leaving the rest of the text in the last one.
+ */
+function splitText(text: string, mark: string, limit: number, compareMode: number): string[] {
+  if (mark === '') return [text];
+  const haystack = compareMode === 0 ? text : text.toLowerCase();
+  const needle = compareMode === 0 ? mark : mark.toLowerCase();
+  const parts: string[] = [];
+  let from = 0;
+  while (limit <= 0 || parts.length < limit - 1) {
+    const at = haystack.indexOf(needle, from);
+    if (at < 0) break;
+    parts.push(text.slice(from, at));
+    from = at + needle.length;
+  }
+  parts.push(text.slice(from));
+  return parts;
+}
 
 function formatDate(value: Date, format: string): string {
   const result: string[] = [];
@@ -220,28 +275,41 @@ function formatString(value: string, format: string): string {
 }
 
 export const stringFunctions = {
+  // The functions that take text and give text back answer Null for a Null argument, which a fresh cscript
+  // shows for Len, Left, Mid, UCase and Trim alike; the ones that build something from their arguments
+  // (Replace, String, Join, Filter and Split) raise the invalid use of Null instead.
   Len: (str: VbValue): VbValue => {
+    if (anyNullArgument(str)) return VbNull;
     const s = toString(str);
     return { type: 'Long', value: s.length };
   },
 
   Left: (str: VbValue, length: VbValue): VbValue => {
+    if (anyNullArgument(str, length)) return VbNull;
     const s = toString(str);
-    const len = Math.max(0, Math.floor(toNumber(length)));
+    const len = Math.floor(toNumber(length));
+    if (len < 0) invalidArgument('Left', 'length');
     return { type: 'String', value: s.substring(0, len) };
   },
 
   Right: (str: VbValue, length: VbValue): VbValue => {
+    if (anyNullArgument(str, length)) return VbNull;
     const s = toString(str);
-    const len = Math.max(0, Math.floor(toNumber(length)));
+    const len = Math.floor(toNumber(length));
+    if (len < 0) invalidArgument('Right', 'length');
     return { type: 'String', value: s.substring(s.length - len) };
   },
 
   Mid: (str: VbValue, start: VbValue, length?: VbValue): VbValue => {
+    if (anyNullArgument(str, start, length)) return VbNull;
     const s = toString(str);
-    const startPos = Math.max(1, Math.floor(toNumber(start))) - 1;
+    // The start counts from 1 and a start below it is error 5, which a fresh cscript shows for Mid("abc", 0)
+    // and Mid("abc", -1) alike, and so is a length below zero.
+    const startPos = Math.floor(toNumber(start)) - 1;
+    if (startPos < 0) invalidArgument('Mid', 'start');
     if (length) {
       const len = Math.floor(toNumber(length));
+      if (len < 0) invalidArgument('Mid', 'length');
       return { type: 'String', value: s.substring(startPos, startPos + len) };
     }
     return { type: 'String', value: s.substring(startPos) };
@@ -253,6 +321,11 @@ export const stringFunctions = {
     str2OrCompare?: VbValue,
     compare?: VbValue
   ): VbValue => {
+    // InStr([start,] string1, string2[, compare]), measured against a fresh cscript:
+    //   * With two strings and no more, a Null on either side answers Null, a text to search that is empty
+    //     answers 0, and an empty string to look for answers 1.
+    //   * With a start, a Null is the invalid use of Null, a start below 1 is error 5, a start past the end
+    //     of the text is 0 (an empty string to look for included), and a compare other than 0 or 1 is error 5.
     let start = 1;
     let str1: string;
     let str2: string;
@@ -262,15 +335,21 @@ export const stringFunctions = {
       str1 = '';
       str2 = toString(startOrStr);
     } else if (str2OrCompare === undefined) {
+      if (startOrStr.type === 'Null' || str1OrStr2.type === 'Null') return VbNull;
       str1 = toString(startOrStr);
       str2 = toString(str1OrStr2);
+      if (str2 === '') return { type: 'Long', value: str1 === '' ? 0 : 1 };
+      if (str1 === '') return { type: 'Long', value: 0 };
     } else {
-      start = Math.max(1, Math.floor(toNumber(startOrStr)));
+      start = Math.floor(toNumber(startOrStr));
       str1 = toString(str1OrStr2);
       str2 = toString(str2OrCompare);
-      if (compare) {
-        compareMode = Math.floor(toNumber(compare));
+      compareMode = readCompareMode(compare, 'InStr');
+      if (start < 1) invalidArgument('InStr', 'start');
+      if (str2 === '') {
+        return { type: 'Long', value: start <= str1.length + 1 ? start : 0 };
       }
+      if (start > str1.length) return { type: 'Long', value: 0 };
     }
 
     let index: number;
@@ -283,38 +362,60 @@ export const stringFunctions = {
   },
 
   InStrRev: (str1: VbValue, str2: VbValue, start?: VbValue, compare?: VbValue): VbValue => {
+    // InStrRev(string1, string2[, start[, compare]]), measured:
+    //   * A Null anywhere is the invalid use of Null, and a compare other than 0 or 1 is error 5.
+    //   * The start is the position to search back from and defaults to -1, which means the end of the text.
+    //     Any other negative start is error 5, and so is 0. A start past the end of the text answers 0.
+    //   * An empty string to look for answers with the start itself.
+    if (anyNullArgument(str1, str2, start, compare)) nullArgument('InStrRev');
     const s1 = toString(str1);
     const s2 = toString(str2);
-    const startPos = start ? Math.floor(toNumber(start)) : s1.length;
-    const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
+    const compareMode = readCompareMode(compare, 'InStrRev');
 
-    let index: number;
-    if (compareMode === 0) {
-      index = s1.lastIndexOf(s2, startPos - 1);
+    let from: number;
+    if (start === undefined) {
+      from = s1.length;
     } else {
-      index = s1.toLowerCase().lastIndexOf(s2.toLowerCase(), startPos - 1);
+      const startPos = Math.floor(toNumber(start));
+      if (startPos === -1) from = s1.length;
+      else if (startPos < 1) invalidArgument('InStrRev', 'start');
+      else if (startPos > s1.length) return { type: 'Long', value: 0 };
+      else from = startPos;
     }
+    if (s2 === '') return { type: 'Long', value: from };
+
+    const index =
+      compareMode === 0
+        ? s1.lastIndexOf(s2, from - 1)
+        : s1.toLowerCase().lastIndexOf(s2.toLowerCase(), from - 1);
     return { type: 'Long', value: index + 1 };
   },
 
   LCase: (str: VbValue): VbValue => {
+    if (anyNullArgument(str)) return VbNull;
     return { type: 'String', value: toString(str).toLowerCase() };
   },
 
   UCase: (str: VbValue): VbValue => {
+    if (anyNullArgument(str)) return VbNull;
     return { type: 'String', value: toString(str).toUpperCase() };
   },
 
   LTrim: (str: VbValue): VbValue => {
-    return { type: 'String', value: toString(str).replace(/^\s+/, '') };
+    if (anyNullArgument(str)) return VbNull;
+    // Only a space comes off, which a fresh cscript shows: Trim leaves a tab, a line break and a
+    // non-breaking space alone, and the length of Len(Trim(Chr(9) & "a" & Chr(9))) is 3.
+    return { type: 'String', value: toString(str).replace(/^ +/, '') };
   },
 
   RTrim: (str: VbValue): VbValue => {
-    return { type: 'String', value: toString(str).replace(/\s+$/, '') };
+    if (anyNullArgument(str)) return VbNull;
+    return { type: 'String', value: toString(str).replace(/ +$/, '') };
   },
 
   Trim: (str: VbValue): VbValue => {
-    return { type: 'String', value: toString(str).trim() };
+    if (anyNullArgument(str)) return VbNull;
+    return { type: 'String', value: toString(str).replace(/^ +/, '').replace(/ +$/, '') };
   },
 
   Replace: (
@@ -325,12 +426,16 @@ export const stringFunctions = {
     count?: VbValue,
     compare?: VbValue
   ): VbValue => {
+    if (anyNullArgument(str, find, replace, start, count, compare)) nullArgument('Replace');
     const s = toString(str);
     const findStr = toString(find);
     const replaceStr = toString(replace);
     const startPos = start ? Math.max(1, Math.floor(toNumber(start))) - 1 : 0;
     const maxCount = count ? Math.floor(toNumber(count)) : -1;
     const compareMode = compare ? Math.floor(toNumber(compare)) : 0;
+    // An empty string to look for leaves the text as it stands, which a fresh cscript shows for
+    // Replace("abc", "", "X"): there is nothing to step over, so the search would never end.
+    if (findStr === '') return { type: 'String', value: s.substring(startPos) };
 
     let result = '';
     let replaced = 0;
@@ -361,15 +466,23 @@ export const stringFunctions = {
   },
 
   Space: (number: VbValue): VbValue => {
-    const count = Math.max(0, Math.floor(toNumber(number)));
+    if (anyNullArgument(number)) nullArgument('Space');
+    const count = Math.floor(toNumber(number));
+    if (count < 0) invalidArgument('Space', 'number');
     return { type: 'String', value: ' '.repeat(count) };
   },
 
   String: (number: VbValue, character: VbValue): VbValue => {
-    const count = Math.max(0, Math.floor(toNumber(number)));
-    const char = toString(character);
-    const charCode = char.length > 0 ? char[0]! : ' ';
-    return { type: 'String', value: charCode.repeat(count) };
+    if (anyNullArgument(number, character)) nullArgument('String');
+    const count = Math.floor(toNumber(number));
+    if (count < 0) invalidArgument('String', 'number');
+    // A number is a character code and a string is its first character, which a fresh cscript shows:
+    // String(3, 65) is "AAA" where String(3, "ab") is "aaa".
+    const char =
+      character.type === 'String'
+        ? (toString(character)[0] ?? ' ')
+        : String.fromCharCode(toNumber(character));
+    return { type: 'String', value: char.repeat(count) };
   },
 
   Asc: (str: VbValue): VbValue => {
@@ -409,28 +522,30 @@ export const stringFunctions = {
     return { type: 'Integer', value: result };
   },
 
-  Split: (str: VbValue, delimiter?: VbValue, count?: VbValue, _compare?: VbValue): VbValue => {
-    void _compare; // Intentionally unused - matches VBScript signature
-    const s = toString(str);
-    const delim = delimiter ? toString(delimiter) : ' ';
-    const maxCount = count ? Math.floor(toNumber(count)) : -1;
+  Split: (str: VbValue, delimiter?: VbValue, count?: VbValue, compare?: VbValue): VbValue => {
+    // Split(expression[, delimiter[, limit[, compare]]]), measured:
+    //   * A Null anywhere is the invalid use of Null, and a compare other than 0 or 1 is error 5.
+    //   * The delimiter defaults to a space, and an empty delimiter leaves the whole text as one part.
+    //   * The limit is how many parts to make and defaults to -1, which is as many as there are. A limit
+    //     below -1 is error 5, a limit of 0 makes no parts at all, and 1 leaves the text whole.
+    //   * A text that is empty makes no parts either, whatever the delimiter, and a delimiter of one
+    //     character that is the whole text makes two empty parts.
+    if (anyNullArgument(str, delimiter, count, compare)) nullArgument('Split');
+    const compareMode = readCompareMode(compare, 'Split');
+    const text = toString(str);
+    const mark = delimiter === undefined ? ' ' : toString(delimiter);
+    const limit = count === undefined ? -1 : Math.floor(toNumber(count));
+    if (limit < -1) invalidArgument('Split', 'limit');
 
-    const parts = s.split(delim);
-    let resultParts: string[];
-    if (maxCount > 0 && parts.length > maxCount) {
-      resultParts = parts.slice(0, maxCount - 1);
-      resultParts.push(parts.slice(maxCount - 1).join(delim));
-    } else {
-      resultParts = parts;
-    }
-
+    const parts = limit === 0 || text === '' ? [] : splitText(text, mark, limit, compareMode);
     const vbArray = createVbArrayFromValues(
-      resultParts.map(p => ({ type: 'String', value: p }) as VbValue)
+      parts.map(part => ({ type: 'String', value: part }) as VbValue)
     );
     return { type: 'Array', value: vbArray };
   },
 
   Join: (list: VbValue, delimiter?: VbValue): VbValue => {
+    if (anyNullArgument(list, delimiter)) nullArgument('Join');
     const delim = delimiter ? toString(delimiter) : ' ';
     if (list.type === 'Array') {
       const arr = list.value;

@@ -1,5 +1,11 @@
 import type { VbValue } from '../runtime/index.ts';
-import { toNumber, VbArray, createVbArrayFromValues } from '../runtime/index.ts';
+import {
+  toNumber,
+  VbArray,
+  createVbArrayFromValues,
+  createVbError,
+  VbErrorCodes,
+} from '../runtime/index.ts';
 
 export const arrayFunctions = {
   Array: (...args: VbValue[]): VbValue => {
@@ -38,6 +44,12 @@ export const arrayFunctions = {
     _compare?: VbValue
   ): VbValue => {
     void _compare; // Intentionally unused - matches VBScript signature
+    // A Null anywhere is the invalid use of Null, which a fresh cscript shows for Filter(Null, "a").
+    if (
+      [inputStrings, value, include, _compare].some(arg => arg !== undefined && arg.type === 'Null')
+    ) {
+      throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null: Filter');
+    }
     if (inputStrings.type !== 'Array') {
       throw new Error('Type mismatch: Filter');
     }
