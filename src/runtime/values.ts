@@ -332,6 +332,20 @@ export function checkCurrencyRange(scaled: bigint): bigint {
   return scaled;
 }
 
+/**
+ * Rounds a number to the nearest whole number, a tie going to the even neighbour.
+ *
+ * This is the rounding CInt, CLng and CByte do, measured on a fresh cscript: CInt(0.5) is 0, CInt(1.5) is
+ * 2, CInt(2.5) is 2, CInt(3.5) is 4, and the negative side mirrors it (CInt(-1.5) is -2, CInt(-2.5) is -2).
+ */
+export function roundHalfToEven(value: number): number {
+  const below = Math.floor(value);
+  const fraction = value - below;
+  if (fraction > 0.5) return below + 1;
+  if (fraction < 0.5) return below;
+  return below % 2 === 0 ? below : below + 1;
+}
+
 /** A Currency's size, in its scaled units. */
 export function absoluteScaled(scaled: bigint): bigint {
   return scaled < 0n ? -scaled : scaled;

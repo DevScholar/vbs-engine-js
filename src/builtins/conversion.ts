@@ -1,11 +1,14 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
+  createVbError,
+  roundHalfToEven,
   toCurrencyScaled,
   toNumber,
   toSinglePrecision,
   toString,
   toBoolean,
   toVbDate,
+  VbErrorCodes,
   isEmpty,
   isNull,
   isNumeric,
@@ -21,9 +24,9 @@ export const conversionFunctions = {
   },
 
   CByte: (expression: VbValue): VbValue => {
-    const num = Math.floor(toNumber(expression));
+    const num = roundHalfToEven(toNumber(expression));
     if (num < 0 || num > 255) {
-      throw new Error('Overflow: CByte');
+      throw createVbError(VbErrorCodes.Overflow, 'Overflow: CByte');
     }
     return { type: 'Byte', value: num };
   },
@@ -41,15 +44,18 @@ export const conversionFunctions = {
   },
 
   CInt: (expression: VbValue): VbValue => {
-    const num = Math.round(toNumber(expression));
+    const num = roundHalfToEven(toNumber(expression));
     if (num < -32768 || num > 32767) {
-      throw new Error('Overflow: CInt');
+      throw createVbError(VbErrorCodes.Overflow, 'Overflow: CInt');
     }
     return { type: 'Integer', value: num };
   },
 
   CLng: (expression: VbValue): VbValue => {
-    const num = Math.round(toNumber(expression));
+    const num = roundHalfToEven(toNumber(expression));
+    if (num < -2147483648 || num > 2147483647) {
+      throw createVbError(VbErrorCodes.Overflow, 'Overflow: CLng');
+    }
     return { type: 'Long', value: num };
   },
 

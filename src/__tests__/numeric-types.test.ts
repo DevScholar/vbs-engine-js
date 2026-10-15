@@ -94,3 +94,69 @@ describe('a Single and a Currency hold what VBScript holds', () => {
     });
   }
 });
+
+// What CInt, CLng and CByte round to, and where each refuses. Measured the same way, and written with the
+// type beside the value because the roundings agree and only the refusals tell them apart.
+const CONVERSION_CELLS: ReadonlyArray<readonly [string, string]> = [
+  // CInt and CLng round a tie to the even neighbour, and the negative side mirrors it.
+  ['CInt(0.5)', 'Integer | 0'],
+  ['CInt(1.5)', 'Integer | 2'],
+  ['CInt(2.5)', 'Integer | 2'],
+  ['CInt(3.5)', 'Integer | 4'],
+  ['CInt(-0.5)', 'Integer | 0'],
+  ['CInt(-1.5)', 'Integer | -2'],
+  ['CInt(-2.5)', 'Integer | -2'],
+  ['CInt(2.4)', 'Integer | 2'],
+  ['CInt(2.6)', 'Integer | 3'],
+  ['CInt(32767)', 'Integer | 32767'],
+  ['CInt(32767.4)', 'Integer | 32767'],
+  ['CInt(32768)', 'ERR 6'],
+  ['CInt(32767.6)', 'ERR 6'],
+  ['CInt(-32768)', 'Integer | -32768'],
+  ['CInt(-32769)', 'ERR 6'],
+  ['CInt("1.5")', 'Integer | 2'],
+  ['CInt(Empty)', 'Integer | 0'],
+  ['CInt(CCur(1.5))', 'Integer | 2'],
+  ['CInt(CSng(1.5))', 'Integer | 2'],
+  ['CLng(0.5)', 'Long | 0'],
+  ['CLng(1.5)', 'Long | 2'],
+  ['CLng(2.5)', 'Long | 2'],
+  ['CLng(2147483647)', 'Long | 2147483647'],
+  ['CLng(2147483647.4)', 'Long | 2147483647'],
+  ['CLng(2147483648)', 'ERR 6'],
+  ['CLng(-2147483648)', 'Long | -2147483648'],
+  ['CLng(-2147483649)', 'ERR 6'],
+  ['CByte(2.5)', 'Byte | 2'],
+  ['CByte(0.5)', 'Byte | 0'],
+  ['CByte(1.5)', 'Byte | 2'],
+  ['CByte(255)', 'Byte | 255'],
+  ['CByte(255.4)', 'Byte | 255'],
+  ['CByte(256)', 'ERR 6'],
+  ['CByte(-1)', 'ERR 6'],
+  ['CByte(-0.5)', 'Byte | 0'],
+  ['CByte("255")', 'Byte | 255'],
+  ['TypeName(CBool(1))', 'String | Boolean'],
+  ['TypeName(CDbl(1000000000000))', 'String | Double'],
+];
+
+function typed(expression: string): unknown {
+  const engine = new VbsEngine();
+  try {
+    engine.executeStatement(
+      `SetLocale 1031\nr = TypeName(${expression}) & " | " & CStr(${expression})`
+    );
+    const failure = engine.error;
+    if (failure) return 'ERR ' + String(failure.number);
+    return engine.eval('r');
+  } finally {
+    engine.executeStatement('SetLocale 1033');
+  }
+}
+
+describe('CInt, CLng and CByte round and refuse as VBScript does', () => {
+  for (const [expression, expected] of CONVERSION_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(typed(expression)).toBe(expected);
+    });
+  }
+});
