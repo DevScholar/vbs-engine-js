@@ -454,13 +454,32 @@ export class VbsEngine {
       const funcRegistry = context.functionRegistry;
 
       const vbArgs = args.map(arg => jsToVb(arg));
-      const result = withLocaleState(this.localeState, () => funcRegistry.call(procedureName, vbArgs));
+      const result = withLocaleState(this.localeState, () =>
+        funcRegistry.call(procedureName, vbArgs)
+      );
 
       return vbToJs(result);
     } catch (err) {
       this.handleError(err);
       return undefined;
     }
+  }
+
+  /**
+   * Ends a script, which runs the Terminate event of every class instance the script still holds.
+   *
+   * A host that runs one whole script calls this when that script is over. `cscript` does the same: an instance
+   * a script never dropped has its `Class_Terminate` run as the script ends.
+   *
+   * @example
+   * ```typescript
+   * engine.addCode('Class Counter\nPrivate Sub Class_Terminate()\nWScript.Echo "gone"\nEnd Sub\nEnd Class');
+   * engine.executeStatement('Set held = New Counter');
+   * engine.releaseGlobals();  // runs Class_Terminate, so "gone" is written
+   * ```
+   */
+  releaseGlobals(): void {
+    this.interpreter.releaseGlobals();
   }
 
   /**

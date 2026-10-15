@@ -3,6 +3,7 @@
  */
 
 import type { VbValue } from './values.ts';
+import { releaseValue } from './class-registry.ts';
 import { globalStringInterner } from './string-interner.ts';
 
 export class VbVariable {
@@ -99,6 +100,28 @@ export class Vbscope {
 
   clear(): void {
     this.variables.clear();
+  }
+
+  /** Every variable this scope holds, in the order they were declared. */
+  getVariables(): VbVariable[] {
+    return [...this.variables.values()];
+  }
+
+  /**
+   * Lets go of every value this scope holds, which is what leaving a procedure does to its own variables.
+   *
+   * Measured on a fresh cscript: an instance only a local variable holds has its Terminate event run when the
+   * procedure returns, and so does the one a ByVal parameter holds, since that parameter has a copy of its
+   * own. A ByRef parameter is the exception, in both of its shapes: it is another name for the caller's
+   * variable, so neither the instance the caller handed it nor the one a `Set` gave it runs a Terminate event
+   * at the return. Measured: after `Sub ByRefReplace(item)` runs `Set item = New Probe`, the caller's own
+   * variable still names the first instance under this engine, and neither instance is freed there.
+   */
+  releaseAll(): void {
+    for (const variable of this.variables.values()) {
+      if (variable.isByRef) continue;
+      releaseValue(variable.value);
+    }
   }
 
   get size(): number {

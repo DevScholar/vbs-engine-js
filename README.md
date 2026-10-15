@@ -26,6 +26,7 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 | `run(procedureName: string, ...args)` | Calls a function and returns the result |
 | `eval(expression: string)` | Evaluates an expression and returns the result |
 | `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |
+| `releaseGlobals()` | Ends a script: runs `Class_Terminate` for every class instance the script still holds, the way the end of a `cscript` script does |
 | `clearError()` | Clears the last error |
 | `destroy()` | Cleans up resources (browser mode) |
 

@@ -37,6 +37,20 @@ export class VbObjectInstance {
   private properties: Map<string, VbValue> = new Map();
   private propertyAccessors: Map<string, VbProperty> = new Map();
 
+  /**
+   * How many places hold this instance: a variable, an array element, a field of another instance.
+   *
+   * Windows runs a class's Terminate event when the last reference to the instance goes, which a fresh
+   * cscript shows for every place that can hold one: a variable that is given another value, a variable a
+   * procedure leaves behind, an array element that is written over or freed by Erase or ReDim, and a field
+   * of an instance that is itself freed. A procedure parameter and a function's answer do not count, which
+   * is measured as well: the instance a ByVal parameter holds is still alive after the procedure returned.
+   */
+  public referenceCount = 0;
+
+  /** Whether this instance's Terminate event already ran, so a second release cannot run it twice. */
+  public hasTerminated = false;
+
   constructor(
     public classInfo: VbClass,
     public prototype: VbObjectInstance | null = null
@@ -103,6 +117,24 @@ export class VbObjectInstance {
     return has;
   }
 
+  /**
+   * Whether a plain field of this instance is stored under the name, which is the one place a write goes into
+   * the instance's own map. A Property Let or Property Set is code of its own and is not a stored field.
+   */
+  hasStoredField(name: string): boolean {
+    const lowerName = name.toLowerCase();
+    if (this.properties.has(lowerName)) return true;
+    return this.prototype?.hasStoredField(name) ?? false;
+  }
+
+  /** The value a stored field holds, which is what writing over it lets go of. */
+  getStoredField(name: string): VbValue {
+    const lowerName = name.toLowerCase();
+    const value = this.properties.get(lowerName);
+    if (value !== undefined) return value;
+    return this.prototype?.getStoredField(name) ?? VbEmpty;
+  }
+
   getMethod(name: string): VbMethodInfo | undefined {
     return this.classInfo.methods.get(name.toLowerCase());
   }
@@ -158,6 +190,124 @@ export class VbObjectInstance {
     for (const [k, v] of Object.entries(obj)) {
       this.properties.set(k.toLowerCase(), v as VbValue);
     }
+  }
+
+  /** Every value the instance holds in a field of its own, which is what freeing the instance frees. */
+  getHeldValues(): VbValue[] {
+    return [...this.properties.values()];
+  }
+}
+
+/** One more place holds the instance, which is what a variable, an element or a field assignment makes. */
+export function retainValue(value: VbValue): void {
+  if (value.type === 'Object' && value.value instanceof VbObjectInstance) {
+    value.value.referenceCount += 1;
+  }
+}
+
+/**
+ * The values an expression made of its own, which nothing else holds yet.
+ *
+ * A place that stores such a value takes the reference it already carries, where it takes one of its own for a
+ * value read out of another place. Measured on a fresh cscript, the two differ at the end of the place the
+ * value came from: a `Function FreshMaker()` answering a fresh instance lets the caller name it afterwards, so
+ * its answer is the one reference that survives the return, while reading a variable and letting that variable
+ * go does not leave a second reference behind.
+ */
+const madeValues = new WeakSet<object>();
+
+/** Marks a value as one an expression made, whose own reference travels with it. */
+export function markMadeValue(value: VbValue): VbValue {
+  if (value.type === 'Object' && value.value !== null && value.value instanceof VbObjectInstance) {
+    madeValues.add(value as object);
+    retainValue(value);
+  }
+  return value;
+}
+
+/** Releases a made value's own reference once the place it was stored in holds one of its own. */
+export function releaseMadeValue(value: VbValue): void {
+  if (value.type === 'Object' && madeValues.has(value as object)) {
+    madeValues.delete(value as object);
+    releaseValue(value);
+  }
+}
+
+/** Whether a value carries a reference of its own, which the place storing it must not take again. */
+export function isMadeValue(value: VbValue): boolean {
+  return value.type === 'Object' && madeValues.has(value as object);
+}
+
+/**
+ * One place lets the instance go, which runs its Terminate event when it was the last one.
+ *
+ * A place that is freed rather than overwritten holds a container: a variable that held an array goes, and
+ * the elements that array held go with it. Releasing the same array twice would take a reference away that
+ * another holder still counts, so each array is freed once, remembered here.
+ */
+const freedArrays = new WeakSet<object>();
+
+export function releaseValue(value: VbValue): void {
+  if (value.type === 'Object' && value.value instanceof VbObjectInstance) {
+    releaseInstance(value.value);
+    return;
+  }
+  if (value.type === 'Array') {
+    freeArrayElements(value.value);
+  }
+}
+
+/** Takes one reference away from an instance, running its Terminate event when the last one goes. */
+function releaseInstance(instance: VbObjectInstance): void {
+  if (instance.hasTerminated) return;
+  if (instance.referenceCount === 0) return;
+  instance.referenceCount -= 1;
+  if (instance.referenceCount > 0) return;
+
+  instance.hasTerminated = true;
+  const terminate = instance.classInfo.properties.get('class_terminate')?.get;
+  if (!terminate) return;
+
+  const held = { type: 'Object', value: instance } as VbValue;
+  try {
+    terminate.call(instance);
+  } finally {
+    releaseInstanceFields(held);
+  }
+}
+
+/** Frees every instance an instance's own fields hold, which is what its being freed does to them. */
+function releaseInstanceFields(value: VbValue): void {
+  if (value.type !== 'Object' || !(value.value instanceof VbObjectInstance)) return;
+  for (const field of value.value.getHeldValues()) {
+    releaseValue(field);
+  }
+}
+
+/** Frees every instance an array holds, once for that array. */
+function freeArrayElements(array: unknown): void {
+  const candidate = array as { data?: unknown; isSized?: unknown; getDimensions?: unknown } | null;
+  if (!candidate || typeof candidate !== 'object') return;
+  if (typeof candidate.getDimensions !== 'function') return;
+  if (freedArrays.has(candidate)) return;
+  freedArrays.add(candidate);
+
+  const data = candidate.data;
+  if (!Array.isArray(data)) return;
+  for (const element of data) {
+    releaseValue(element as VbValue);
+  }
+}
+
+/** Keeps every instance an array holds, which is what copying the array into a new place makes. */
+export function retainArrayElements(array: unknown): void {
+  const candidate = array as { data?: unknown; getDimensions?: unknown } | null;
+  if (!candidate || typeof candidate !== 'object') return;
+  if (typeof candidate.getDimensions !== 'function') return;
+  const data = candidate.data;
+  if (!Array.isArray(data)) return;
+  for (const element of data) {
+    retainValue(element as VbValue);
   }
 }
 

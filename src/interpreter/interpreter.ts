@@ -274,6 +274,16 @@ export class Interpreter {
       this.context.currentScope = savedScope;
     }
   }
+
+  /**
+   * Lets go of every class instance the script's global scope holds, as the end of a script does.
+   *
+   * A host that runs one whole script calls this when that script is over, so a class's Terminate event runs
+   * for an instance the script never dropped, the way it does under `cscript`.
+   */
+  releaseGlobals(): void {
+    this.context.releaseGlobals();
+  }
 }
 
 export function interpret(program: Program): VbValue {

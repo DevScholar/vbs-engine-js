@@ -2,7 +2,7 @@ import type { VbValue, VbObjectValueData } from './values.ts';
 import { VbEmpty, VbNothing } from './values.ts';
 import { Vbscope } from './scope.ts';
 import { VbFunctionRegistry } from './function-registry.ts';
-import { VbClassRegistry, VbObjectInstance } from './class-registry.ts';
+import { VbClassRegistry, VbObjectInstance, releaseValue } from './class-registry.ts';
 import { VbError } from './errors.ts';
 
 function jsToVb(value: unknown, thisArg?: unknown): VbValue {
@@ -85,6 +85,7 @@ export class VbContext {
 
   popScope(): void {
     if (this.currentScope.parent) {
+      this.currentScope.releaseAll();
       this.currentScope = this.currentScope.parent;
     }
   }
@@ -95,6 +96,20 @@ export class VbContext {
 
   popWith(): void {
     this.withStack.pop();
+  }
+
+  /**
+   * Lets go of every value the script's own global scope holds, which is what the end of a script does.
+   *
+   * The name stays where it is, holding Nothing, since a script that is still running can read it again: what
+   * goes is the instance's reference, so its Terminate event runs. Measured on a fresh cscript with
+   * `Class Probe / Private Sub Class_Terminate() / ... / End Class` and `Set probeOne = New Probe`, where the
+   * Terminate event of the one instance a script never dropped still runs as that script ends.
+   */
+  releaseGlobals(): void {
+    for (const variable of this.globalScope.getVariables()) {
+      releaseValue(variable.value);
+    }
   }
 
   getCurrentWith(): VbValue | undefined {
@@ -146,9 +161,12 @@ export class VbContext {
   declareVariable(
     name: string,
     value: VbValue = VbEmpty,
-    options: { isArray?: boolean } = {}
+    options: { isArray?: boolean; isByRef?: boolean } = {}
   ): void {
-    this.currentScope.declare(name, value, { isArray: options.isArray ?? false });
+    this.currentScope.declare(name, value, {
+      isArray: options.isArray ?? false,
+      isByRef: options.isByRef ?? false,
+    });
   }
 
   getVariable(name: string): VbValue {

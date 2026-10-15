@@ -41,6 +41,9 @@ import {
   createVbArray,
   VbObjectInstance,
   VbClass,
+  retainValue,
+  releaseValue,
+  markMadeValue,
   type VbProperty,
   type VbParameterInfo,
   type VbArgumentRef,
@@ -259,7 +262,18 @@ export class StatementExecutor {
   }
 
   private executeExpressionStatement(node: ExpressionStatement): VbValue {
-    return this.exprEvaluator.evaluate(node.expression);
+    const result = this.exprEvaluator.evaluate(node.expression);
+    // A whole statement throws away the answer of a call it writes, so an instance only that answer held is
+    // let go of here: a fresh cscript runs the Terminate event of the instance `FreshMaker()` alone answers
+    // with at that statement. A bare name is left alone, since what it names lives somewhere that keeps its
+    // own reference and letting go of this statement's one is not the same thing.
+    const expression = node.expression as { type: string; callee?: { type?: string } };
+    const isCall =
+      expression.type === 'CallExpression' && expression.callee?.type !== 'VbWithObject';
+    if (isCall) {
+      releaseValue(result);
+    }
+    return result;
   }
 
   private executeBlockStatement(node: BlockStatement): VbValue {
@@ -847,13 +861,18 @@ export class StatementExecutor {
           throw signal;
         }
       } finally {
+        // The answer leaves the procedure, so the reference it holds is kept before the scope below lets go:
+        // measured, a `Function FreshMaker()` answering a fresh instance lets the caller name it afterwards,
+        // and that instance's Terminate event runs when the caller lets it go, not at the return. The value is
+        // marked as one the procedure made, so the place the caller stores it in takes that reference rather
+        // than a second one.
+        markMadeValue(result!);
         self.context.popCall();
         self.context.popScope();
       }
 
       return result;
     };
-
     const params = node.params.map(p => ({
       name: p.name.name,
       byRef: p.byRef,
@@ -898,11 +917,17 @@ export class StatementExecutor {
           argValue = VbEmpty;
         }
 
-        this.context.declareVariable(
-          param.name.name,
-          param.byRef ? argValue : copyArrayArgument(argValue),
-          { isArray: isArrayParameter }
-        );
+        if (!param.byRef) {
+          // A ByVal parameter holds a copy of its own, which is measured: the instance it is handed is freed
+          // when the procedure returns, even though the caller's variable still holds it.
+          retainValue(argValue);
+          argValue = copyArrayArgument(argValue);
+        }
+
+        this.context.declareVariable(param.name.name, argValue, {
+          isArray: isArrayParameter,
+          isByRef: param.byRef,
+        });
       }
     }
   }
@@ -946,6 +971,10 @@ export class StatementExecutor {
         if (memberName === 'class_initialize') {
           initializeFunc = {
             name: 'Class_Initialize',
+            // Reachable from inside the class only, which a fresh cscript shows: naming it from script level,
+            // with or without parentheses and whether the class wrote it Private or Public, is error 438
+            // without running it. Only `New` runs it.
+            isPrivate: true,
             get: function (this: VbObjectInstance): VbValue {
               const prevInstance = self.context.currentInstance;
               self.context.currentInstance = this;
@@ -974,6 +1003,8 @@ export class StatementExecutor {
         if (memberName === 'class_terminate') {
           terminateFunc = {
             name: 'Class_Terminate',
+            // Same reading as Initialize above: naming it from script level is error 438 without running it.
+            isPrivate: true,
             get: function (this: VbObjectInstance): VbValue {
               const prevInstance = self.context.currentInstance;
               self.context.currentInstance = this;
@@ -1056,6 +1087,9 @@ export class StatementExecutor {
                 throw signal;
               }
             } finally {
+              // Same reading as a plain Function's answer above: the answer's own reference is kept, so a
+              // member that answers a fresh instance hands the caller a reference that survives the return.
+              markMadeValue(result!);
               self.context.popScope();
               self.context.currentInstance = prevInstance;
             }
@@ -1094,6 +1128,9 @@ export class StatementExecutor {
             self.context.clearExitFlag();
             result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
           } finally {
+            // Same reading as a plain Function's answer above: a Property Get that answers an object hands the
+            // caller a reference of its own, which survives the scope the property ran in.
+            markMadeValue(result!);
             self.context.popScope();
             self.context.currentInstance = prevInstance;
             self.context.inPropertyGet = prevInPropertyGet;
@@ -1116,6 +1153,8 @@ export class StatementExecutor {
           self.context.declareVariable(memberNode.name.name, VbEmpty);
           const param = memberNode.params[0];
           if (param) {
+            // A Property Let takes its value as a copy of its own, which the parameter lets go of on return.
+            retainValue(value);
             self.context.declareVariable(param.name.name, value);
           }
           try {
@@ -1149,6 +1188,8 @@ export class StatementExecutor {
           self.context.declareVariable(memberNode.name.name, VbEmpty);
           const param = memberNode.params[0];
           if (param) {
+            // A Property Set takes its value as a copy of its own, which the parameter lets go of on return.
+            retainValue(value);
             self.context.declareVariable(param.name.name, value);
           }
           try {
@@ -1177,7 +1218,6 @@ export class StatementExecutor {
     if (terminateFunc) {
       cls.properties.set('class_terminate', terminateFunc);
     }
-
     this.context.classRegistry.register(cls);
     return VbEmpty;
   }

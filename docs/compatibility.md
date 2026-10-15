@@ -109,8 +109,8 @@ This document tracks the compatibility between this VBScript engine implementati
 | Property Set | ✔️ | An object stored this way comes back with `Is` intact |
 | Method argument count | ✔️ | Checked the way a procedure's is: `Describe()` and `Describe("a", "b")` for `Describe(prefix)` are both error 450 |
 | Me | ✔️ | |
-| Initialize Event | ✔️ | Class_Initialize |
-| Terminate Event | ✔️ | Class_Terminate, which runs when the last reference to an instance goes |
+| Initialize Event | ✔️ | Class_Initialize, run by `New`; naming it from outside the class is error 438 without running it |
+| Terminate Event | ✔️ | Class_Terminate, run when the last reference to an instance goes: a variable given another value or left behind by a procedure, an array element written over or freed, a field of an instance that is freed, and the end of the script. See the Events section |
 | Assigning an object | ✔️ | Needs `Set`. Without it the assignment is error 438 (`x = New Holder`, `x = Maker()`, `x = held`, `x = items(0)`), and `x = Nothing` is error 91. Passing an object as an argument needs no `Set` |
 | An object in an array | ✔️ | `Set items(0) = New Holder` works, and `items(0).Name` reads and writes through it |
 | Reading an object as text | ✔️ | Error 438: an object of a class has no text of its own, so `CStr(anInstance)` is 438 |
@@ -559,10 +559,25 @@ Named script arguments use WSH's `/name:value` form; bare words are positional.
 
 ## Events
 
+Every rule below was read off a fresh `cscript`, one cell per process, since an instance that outlives its
+cell is still alive when the next cell starts. The probe, its capture and the comparison script live in the
+temporary probe directory, and `src/__tests__/class-events.test.ts` is the durable copy of its 59 cells.
+
 | Event | Status | Notes |
 |-------|--------|-------|
-| Initialize | ✔️ | Class_Initialize |
-| Terminate | ✔️ | Class_Terminate |
+| Initialize | ✔️ | Class_Initialize, run by `New` once the instance exists and before the value reaches the caller |
+| Terminate | ✔️ | Class_Terminate, run when the last reference to the instance goes |
+| A variable given another value | ✔️ | The old instance's Terminate runs at that statement, between the new instance's Initialize and the assignment: `Set o = New Thing` answers init, term, init |
+| A variable a procedure leaves | ✔️ | A local variable's instance is freed when the procedure returns, and so is the one a ByVal parameter holds, since that parameter has a copy of its own |
+| A ByRef parameter | ✔️ | It is another name for the caller's variable and holds no reference of its own, so the instance the caller handed it stays alive after the return, even when the parameter was given another value inside |
+| An array element | ✔️ | An element that is written over, freed by `Erase` or dropped by `ReDim` lets go of its instance; an instance only an array element holds is kept alive by it |
+| An instance field | ✔️ | Writing over a plain field lets go of what it held, and an instance that is itself freed lets go of the instances its fields hold |
+| A function's answer | ✔️ | The answer carries a reference of its own, so a `Function` that answers a fresh instance hands the caller something it can still name |
+| The end of a script | ✔️ | An instance the script never dropped has its Terminate event run as the script ends, which `VbsEngine.releaseGlobals()` does for a host that runs one whole script |
+| Naming an event from outside | ✔️ | `o.Class_Initialize`, `o.Class_Initialize()`, `o.Class_Terminate` and `Call o.Class_Terminate` are all error 438 without running it, whether the class wrote it Private or Public |
+| Naming an event from inside | ✔️ | A method whose body is the bare name `Class_Initialize` runs the Initialize event again, and one naming `Class_Terminate` runs that |
+| An error in Initialize | ✔️ | The instance's Terminate still runs, and the Initialize error is the one the caller sees |
+| An error in Terminate | ✔️ | It is the error the statement answers with, and the work after it continues |
 
 ---
 
@@ -607,18 +622,24 @@ one line with the number of cells that differ, which is the regression net a cha
 engine is checked against. The durable net is this repository's own test suite, which holds a cell for every
 rule that was measured and fixed.
 
-Two things that guide the probes: an expression is always written out, since `Eval` is not faithful and once
-reported 24 differences that a written out probe does not have, and a label that is missing from a capture is
-not a difference, since it means the probe could not write the line.
+Three things guide the probes: an expression is always written out, since `Eval` is not faithful and once
+reported 24 differences that a written out probe does not have; a label that is missing from a capture is not a
+difference, since it means the probe could not write the line; and the events probe runs one cell per process,
+because an instance that outlives its cell is still alive when the next cell starts.
+
+Every events cell is therefore a whole script of its own, and the end of that script is read as well, since
+Windows runs a Terminate event there for an instance the script never dropped.
 
 ## What is not measured yet
 
-The measurements cover the language, the built-in functions, the locales and the host calls this engine makes.
-These parts have no comparison yet, and are the honest limit of the claim that this engine matches
-`vbscript.dll`:
+The measurements cover the language, the built-in functions, the locales, the class events and the host calls
+this engine makes. These parts have no comparison yet, and are the honest limit of the claim that this engine
+matches `vbscript.dll`:
 
-* **Events.** `Class_Initialize` and `Class_Terminate` have one test each and no `cscript` comparison, so the
-  order and the timing of them are unmeasured.
+* **The order of the releases at the end of a script.** The events probe reads which instance is freed when a
+  script ends, and both sides free every one of them, but not in the same order. The order follows the order
+  the host keeps its globals in, which neither `cscript` nor this engine writes down, so only the set of
+  releases is compared.
 * **`ExecuteGlobal` and `Execute`.** No test and no probe, so their scoping rules are unmeasured.
 * **Parts of the `Err` object.** `Err.Source` has no test, `Err.Description` and `Err.HelpContext` have one
   each, and the arguments of `Err.Raise` are not compared.

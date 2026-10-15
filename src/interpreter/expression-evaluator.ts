@@ -39,6 +39,10 @@ import {
   VbArray,
   checkLongLongRange,
   CURRENCY_SCALE,
+  retainValue,
+  releaseValue,
+  releaseMadeValue,
+  isMadeValue,
 } from '../runtime/index.ts';
 
 interface VbMethodObject {
@@ -290,7 +294,8 @@ export class ExpressionEvaluator {
           node.callee as Expression,
           node.arguments,
           node.statementCall,
-          node.byValueArguments ?? false
+          node.byValueArguments ?? false,
+          node.bareName ?? false
         );
       case 'BinaryExpression':
         return this.evaluateBinary(node);
@@ -579,7 +584,8 @@ export class ExpressionEvaluator {
     calleeExpr: Expression,
     callArgs: Expression[],
     statementCall = false,
-    byValueArguments = false
+    byValueArguments = false,
+    bareName = false
   ): VbValue {
     if (calleeExpr.type === 'Identifier') {
       const name = calleeExpr.name;
@@ -668,6 +674,14 @@ export class ExpressionEvaluator {
       // are all error 13, while a bare "x = NoSuchFunction" is the Empty itself. With Option Explicit the name
       // is the error instead, "Variable is undefined", which the scope lookup above already answers for every
       // one of those shapes.
+      //
+      // A bare name that is one of the running class's own members is not that: it is a call of that member,
+      // whose answer a statement throws away. Measured on a fresh cscript: inside `Public Sub CallInitialize()`
+      // whose body is the bare name `Class_Initialize`, the Initialize event runs again, where the same text
+      // at script level is error 438.
+      if (bareName && this.context.currentInstance?.hasMember(name) === true) {
+        return VbEmpty;
+      }
       throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: '${name}'`);
     }
 
@@ -1415,7 +1429,31 @@ export class ExpressionEvaluator {
   private evaluateAssignment(node: AssignmentExpression): VbValue {
     const value = this.evaluate(node.right);
     const isSet = node.isSet ?? false;
+    // A value an expression made carries a reference with it, which the place it is stored in takes; a value
+    // read out of another place carries none, so one is taken for the new place here.
+    const made = isMadeValue(value);
+    if (!made) {
+      retainValue(value);
+    }
 
+    try {
+      return this.storeAssignmentValue(node, value, isSet);
+    } finally {
+      // An instance whose last reference goes runs Class_Terminate right here, which is why `Set o = New Thing`
+      // runs the previous instance's Terminate between the new instance's initialize and this point.
+      if (made) {
+        releaseMadeValue(value);
+      } else {
+        releaseValue(value);
+      }
+    }
+  }
+
+  private storeAssignmentValue(
+    node: AssignmentExpression,
+    value: VbValue,
+    isSet: boolean
+  ): VbValue {
     if (node.left.type === 'Identifier') {
       if (isSet) {
         // Set takes an object and nothing else, measured on a fresh cscript: Set o = 5, Set o = "abc",
@@ -1424,8 +1462,6 @@ export class ExpressionEvaluator {
         if (value.type !== 'Object') {
           throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');
         }
-        const oldValue = this.context.getVariable(node.left.name);
-        this.callTerminateIfNeeded(oldValue, value);
       } else if (value.type === 'Object') {
         // An object needs Set, and assigning one without it is error 438 for an object of a class, measured
         // on a fresh cscript for every shape it can be written in: `x = New Holder`, `x = Maker()`,
@@ -1443,9 +1479,16 @@ export class ExpressionEvaluator {
       // into it: a fresh cscript answers `Dim a(1)` with `a = 5` and with `a = Array(1, 2)` alike with error 13,
       // `Dim a()` with `a = 5` with error 13, and `Dim a()` with `a = Array(1, 2)` with error 9, which is the
       // subscript the array it has no size for cannot take. Only a Dim marks a name this way, so a plain
-      // `Dim x` takes an array whatever ReDim did to it first.
+      // `Dim x` takes an array whatever ReDim did to it first. An object without Set is the reading that comes
+      // first: measured, `slots = Array(1, 2)` on an array variable is 438, the error that write already is.
       const declared = this.context.currentScope.get(node.left.name);
       if (declared?.isArray && !isSet) {
+        if (value.type === 'Object') {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            "Object doesn't support this property or method"
+          );
+        }
         const held = declared.value;
         const heldArray = held.type === 'Array' ? (held.value as VbArray) : null;
         if (value.type === 'Array' && heldArray !== null && !heldArray.isSized()) {
@@ -1454,8 +1497,11 @@ export class ExpressionEvaluator {
         throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
       }
       // An array is copied where it is assigned, which a fresh cscript shows: after b = a, changing b(0) or
-      // erasing b leaves a as it was.
-      this.context.setVariable(node.left.name, cloneIfArray(value));
+      // erasing b leaves a as it was. The copy holds what the original held, so the elements are kept too.
+      const stored = cloneIfArray(value);
+      this.releaseStoredValue(node.left.name);
+      this.context.setVariable(node.left.name, stored);
+      retainValue(stored);
       return value;
     }
 
@@ -1467,16 +1513,21 @@ export class ExpressionEvaluator {
     throw new Error(`Invalid assignment target: ${node.left.type}`);
   }
 
-  private callTerminateIfNeeded(oldValue: VbValue, newValue: VbValue): void {
-    if (oldValue.type === 'Object' && oldValue.value instanceof VbObjectInstance) {
-      if (newValue.type !== 'Object' || newValue.value !== oldValue.value) {
-        const instance = oldValue.value as VbObjectInstance;
-        const terminateProp = instance.classInfo.properties.get('class_terminate');
-        if (terminateProp && terminateProp.get) {
-          terminateProp.get.call(instance);
-        }
-      }
-    }
+  /**
+   * Lets go of what a name held before a new value goes into it, which runs that value's Terminate event when
+   * it was the last reference.
+   *
+   * Measured: `Sub ByRefReplace(item)` written with `Set item = New Probe` runs the first instance's Terminate
+   * event at that statement, since that name stopped holding it. What it was handed was not a reference of its
+   * own, which is why leaving the procedure does not run it a second time.
+   */
+  private releaseStoredValue(name: string): void {
+    // A class property of the running instance is not one of the scope's own variables, and the scope may hold
+    // a global of the same name that the property read takes priority over.
+    if (this.context.currentInstance?.hasProperty(name)) return;
+    const variable = this.context.currentScope.get(name);
+    if (!variable) return;
+    releaseValue(variable.value);
   }
 
   private assignToMember(node: MemberExpression, value: VbValue, isSet: boolean): void {
@@ -1490,12 +1541,16 @@ export class ExpressionEvaluator {
     // plain expression there: `a(Null)` is error 13 from the subscript and not the 94 that reading the Null as
     // a name would raise.
     if (object.type === 'Array') {
-      const arr = object.value as unknown as { set: (indices: number[], v: VbValue) => void };
-      const subscripts = node.vbIndices ?? [node.property as Expression];
-      arr.set(
-        subscripts.map(subscript => toSubscript(this.evaluate(subscript))),
-        value
+      const arr = object.value as unknown as {
+        set: (indices: number[], v: VbValue) => void;
+      };
+      const indices = (node.vbIndices ?? [node.property as Expression]).map(subscript =>
+        toSubscript(this.evaluate(subscript))
       );
+      // An element that is written over lets go of what it held, which the array does itself: measured,
+      // `Set slots(0) = New Probe` twice runs term before the second init, and `Set slots(0) = Nothing` too.
+      arr.set(indices, value);
+      retainValue(value);
       return;
     }
 
@@ -1534,6 +1589,15 @@ export class ExpressionEvaluator {
               VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
               `Object doesn't support this property or method: '${propertyName}'`
             );
+          }
+          // A plain field that is written over lets go of what it held, while a Property Set is code of its
+          // own: measured, `Set probeOne.Linked = New Probe` runs the new instance's init and its Terminate
+          // when the instance holding it goes, and `Set obj.Field = x` twice runs the first value's Terminate.
+          if (instance.hasStoredField(propertyName) && !instance.hasGetter(propertyName)) {
+            releaseValue(instance.getStoredField(propertyName));
+            obj.setProperty(propertyName, value, isSet);
+            retainValue(value);
+            return;
           }
         }
         obj.setProperty(propertyName, value, isSet);

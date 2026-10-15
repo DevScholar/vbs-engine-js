@@ -1,6 +1,7 @@
 import type { VbValue } from './values.ts';
 import { VbEmpty } from './values.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
+import { releaseValue, retainValue } from './class-registry.ts';
 
 /** The error a subscript outside the array raises, which vbscript.dll answers with 9. */
 function subscriptOutOfRange(): never {
@@ -27,12 +28,21 @@ export class VbArray {
     this.data = new Array(elementCount(dimensions)).fill(VbEmpty);
   }
 
-  /** A copy of the array, which is what assigning it to another variable makes. */
+  /**
+   * A copy of the array, which is what assigning it to another variable makes.
+   *
+   * The copy holds the instances the original held, so each of them gains a reference: measured, an instance
+   * only an array element holds runs its Terminate event when that element is written over, and a copy is
+   * another place that holds it.
+   */
   clone(): VbArray {
     const copy = new VbArray([], undefined, this.dynamic);
     copy.dimensions = [...this.dimensions];
     copy.lowerBounds = [...this.lowerBounds];
     copy.data = [...this.data];
+    for (const element of copy.data) {
+      retainValue(element);
+    }
     return copy;
   }
 
@@ -80,7 +90,11 @@ export class VbArray {
   }
 
   set(indices: number[], value: VbValue): void {
-    this.data[this.getIndex(indices)] = value;
+    const at = this.getIndex(indices);
+    // An element that is written over lets go of what it held: measured, `Set slots(0) = New Probe` written
+    // twice runs the first instance's Terminate event straight after the second instance's init.
+    releaseValue(this.data[at] ?? VbEmpty);
+    this.data[at] = value;
   }
 
   getDimensions(): number {
@@ -132,6 +146,17 @@ export class VbArray {
       for (let index = 0; index < keptCount; index++) {
         newData[index] = this.data[index];
       }
+      // What the smaller array no longer holds lets go: measured, an instance only a ReDim'd away element held
+      // runs its Terminate event at the ReDim.
+      for (let index = keptCount; index < this.data.length; index++) {
+        releaseValue(this.data[index] ?? VbEmpty);
+      }
+    } else {
+      // Sizing an array again drops everything it held, whatever the size was: measured, `ReDim slots(3)` after
+      // `Set slots(0) = New Probe` runs that instance's Terminate event.
+      for (const element of this.data) {
+        releaseValue(element);
+      }
     }
 
     this.dimensions = dimensions;
@@ -149,6 +174,11 @@ export class VbArray {
    * freed, so IsArray still answers True while UBound raises error 9. Both measured on a fresh cscript.
    */
   erase(isDynamic: boolean): void {
+    // What the array held lets go, whether it is freed or only emptied: measured, the instance an element held
+    // runs its Terminate event at `Erase slots` for a fixed array and for a dynamic one alike.
+    for (const element of this.data) {
+      releaseValue(element);
+    }
     if (isDynamic) {
       this.dimensions = [];
       this.lowerBounds = [];
