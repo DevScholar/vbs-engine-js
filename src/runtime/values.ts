@@ -7,6 +7,7 @@ import {
   serialToDate,
 } from './vb-date.ts';
 import { CURRENCY_DIGITS, formatVbCurrencyText, formatVbNumberText } from './nls-number.ts';
+import { nlsNumberFormat } from './nls-number-table.generated.ts';
 import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 /**
@@ -552,7 +553,8 @@ export function toVbDate(value: VbValue): Date {
  */
 export function toVbDateForCdate(value: VbValue): Date {
   if (value.type === 'String') {
-    const date = parseVbDateAsCdate(value.value, getCurrentBCP47Locale());
+    const decimalMark = nlsNumberFormat(currentLcid())?.decimal ?? '.';
+    const date = parseVbDateAsCdate(value.value, getCurrentBCP47Locale(), decimalMark);
     if (date !== null) return date;
   }
   return toVbDate(value);

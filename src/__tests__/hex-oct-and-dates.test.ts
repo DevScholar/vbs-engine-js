@@ -113,12 +113,68 @@ const DATE_STRING_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [1033, 'CStr(IsDate("2.5"))', 'True'],
   [1031, 'CStr(IsDate("2.5"))', 'True'],
   [1033, 'CStr(CDate("13.45"))', '1:45:00 PM'],
+  // A two field date, and a comma as a field mark.
+  [1031, 'CStr(CDate("12.31"))', '31.12.2026'],
+  [1031, 'CStr(CDate("2.30"))', '01.02.2030'],
+  [1031, 'CStr(CDate("0.5"))', '01.05.2000'],
+  [1031, 'CStr(CDate("100.5"))', '01.05.100'],
+  [1031, 'CStr(CDate("31.4"))', '01.04.2031'],
+  [1031, 'CStr(CDate("29.2"))', '01.02.2029'],
+  [1033, 'CStr(CDate("2,5"))', '2/5/2026'],
+  [1033, 'CStr(CDate("5,1"))', '5/1/2026'],
+  [1033, 'CStr(CDate("1,234"))', '1/1/234'],
+  [1031, 'CStr(CDate("1,234"))', '01.01.234'],
+  // A number written with the marks a locale uses between digits, which only CDate reads.
+  [1031, 'CStr(CDate("13.45"))', '06.09.1903'],
+  [1031, 'CStr(CDate("1.2.3.4"))', '18.05.1903'],
+  [1031, 'CStr(CDate("123.456"))', '03.01.2238'],
+  [1031, 'CStr(CDate("-1.5"))', '15.12.1899'],
+  [1031, 'CStr(CDate("00.00"))', '00:00:00'],
+  [1031, 'CStr(CDate("13,45"))', '12.01.1900 10:48:00'],
+  [1033, 'CStr(CDate("123.456"))', '5/2/1900 10:56:38 AM'],
+  [1033, 'CStr(CDate("-1.5"))', '12/29/1899 12:00:00 PM'],
+  [1033, 'CStr(CDate("60.5"))', '2/28/1900 12:00:00 PM'],
+  [1033, 'CStr(CDate("32.5"))', '1/31/1900 12:00:00 PM'],
+  [1033, 'CStr(CDate("13,45"))', '9/6/1903'],
+  [1033, 'CStr(CDate("2958465.5"))', '12/31/9999 12:00:00 PM'],
+  [1033, 'CStr(CDate("1.2.3.4"))', 'ERR 13'],
+  [1031, 'CStr(IsDate("13.45"))', 'False'],
+  [1033, 'CStr(IsDate("2.60"))', 'False'],
+  [1033, 'CStr(IsDate("123.456"))', 'False'],
+  [1033, 'CStr(IsDate("60.5"))', 'False'],
+];
+
+// A day count below zero, which counts its time of day away from zero instead of toward it. Measured the same
+// way: the day alone is -1 for 29 December 1899, and adding noon to it gives -1.5 rather than -0.5, while
+// 30 December 1899 at noon is the day 0 at noon and reads as 0.5.
+const NEGATIVE_SERIAL_CELLS: ReadonlyArray<readonly [string, string]> = [
+  ['CStr(CDbl(CDate("12/29/1899")))', '-1'],
+  ['CStr(CDbl(CDate("12/29/1899 12:00:00")))', '-1.5'],
+  ['CStr(CDbl(CDate("12/28/1899 12:00:00")))', '-2.5'],
+  ['CStr(CDbl(CDate("12/29/1899 06:00:00")))', '-1.25'],
+  ['CStr(CDbl(CDate("12/30/1899 12:00:00")))', '0.5'],
+  ['CStr(CDbl(CDate("12/30/1899 06:00:00")))', '0.25'],
+  ['CStr(CDbl(CDate("12/31/1899 12:00:00")))', '1.5'],
+  ['CStr(CDate(-1.5))', '12/29/1899 12:00:00 PM'],
+  ['CStr(CDate(-0.5))', '12:00:00 PM'],
+  ['CStr(CDate(-2.5))', '12/28/1899 12:00:00 PM'],
+  ['CStr(CDate(-0.25))', '6:00:00 AM'],
+  ['CStr(CDate("12/29/1899") + 0.5)', '12:00:00 PM'],
+  ['CStr(DateDiff("d", CDate("12/29/1899"), CDate("12/31/1899")))', '2'],
 ];
 
 describe('the strings CDate reads are the ones vbscript.dll reads', () => {
   for (const [lcid, expression, expected] of DATE_STRING_CELLS) {
     it(`under ${lcid}, ${expression} is ${expected}`, () => {
       expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});
+
+describe('a day count below zero counts its time away from zero', () => {
+  for (const [expression, expected] of NEGATIVE_SERIAL_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(answer(expression, 1033)).toBe(expected);
     });
   }
 });

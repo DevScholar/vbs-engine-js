@@ -25,22 +25,33 @@ const PERSIAN = 22;
 const RLM = '\u200f';
 
 /** The OLE Automation number of a date: whole days since 30 December 1899, time of day as the fraction. */
+/**
+ * The OLE Automation number of a date: whole days since 30 December 1899, time of day as the fraction.
+ *
+ * A date before that epoch counts its time of day away from zero rather than toward it, which a fresh cscript
+ * shows: CDbl(CDate("12/29/1899 12:00:00")) is -1.5 rather than -0.5, and the day alone is -1.
+ */
 export function dateToSerial(date: Date): number {
-  const wallClock = Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-    date.getMilliseconds()
+  const dayCount = Math.round(
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - OLE_EPOCH_UTC) / MS_PER_DAY
   );
-  return (wallClock - OLE_EPOCH_UTC) / MS_PER_DAY;
+  const timeOfDay =
+    (date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds()) / 86400 +
+    date.getMilliseconds() / MS_PER_DAY;
+  return dayCount < 0 && timeOfDay > 0 ? dayCount - timeOfDay : dayCount + timeOfDay;
 }
 
-/** The date an OLE Automation number stands for, as local wall-clock time. */
+/**
+ * The date an OLE Automation number stands for, as local wall-clock time.
+ *
+ * The whole days are truncated toward zero and the fraction is read as time after them, which is what a
+ * negative number means: CDate(-1.5) is 29 December 1899 at noon and CDate(-0.5) is 30 December 1899 at noon,
+ * both measured on a fresh cscript.
+ */
 export function serialToDate(serial: number): Date {
-  const wallClock = new Date(OLE_EPOCH_UTC + Math.round(serial * MS_PER_DAY));
+  const wholeDays = Math.trunc(serial);
+  const timeOfDay = Math.abs(serial - wholeDays);
+  const wallClock = new Date(OLE_EPOCH_UTC + Math.round((wholeDays + timeOfDay) * MS_PER_DAY));
   return new Date(
     wallClock.getUTCFullYear(),
     wallClock.getUTCMonth(),
@@ -1241,21 +1252,44 @@ function parseDatePart(text: string, locale: string): Date | null {
   if (iso) return validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3]));
 
   const { order, separator } = dateOrderOf(locale);
-  // "/" and "-" are read everywhere; the locale's own separator is read too, and it holds the text to the
-  // locale's own order instead of letting the other order rescue it ("29.9.26" is no date in Hungarian).
+  // "/" and "-" are read everywhere, a comma is read too, and the locale's own separator is read as well.
+  // The locale's own separator holds the text to the locale's own order instead of letting the other order
+  // rescue it ("29.9.26" is no date in Hungarian).
   const own = separator === '/' || separator === '-' ? null : separator;
-  const separatorAllowed = (mark: string): boolean => mark === '/' || mark === '-' || mark === own;
+  const separatorAllowed = (mark: string): boolean =>
+    mark === '/' || mark === '-' || mark === ',' || mark === own;
 
-  const two = /^(\d{1,4})([./-])(\d{1,4})$/.exec(text);
+  const two = /^(\d{1,4})([.,/-])(\d{1,4})$/.exec(text);
   if (two && separatorAllowed(two[2])) {
-    // "1/2" is the 1st of February in German and 2 January in English, in the current year.
     const year = new Date().getFullYear();
-    const [day, month] =
-      order === 'DMY' ? [Number(two[1]), Number(two[3])] : [Number(two[3]), Number(two[1])];
-    return validDate(year, month, day) ?? validDate(year, day, month);
+    const first = Number(two[1]);
+    const second = Number(two[3]);
+    // A two field date is read as a day and a month first, the locale's own way round, and then as a month
+    // and a year, and then as a year and a month. Measured against a fresh cscript under 1031, where the
+    // date separator is a dot: "5.1" is 5 January and "31.12" is 31 December, "12.31" is 31 December too
+    // because the first field cannot be a day there, "2.30" is February 2030 and "0.5" is May 2000.
+    const byDayAndMonth: [number, number, number][] =
+      order === 'DMY'
+        ? [
+            [year, second, first],
+            [year, first, second],
+          ]
+        : [
+            [year, first, second],
+            [year, second, first],
+          ];
+    const byMonthAndYear: [number, number, number][] = [
+      [yearOf(two[3]), first, 1],
+      [yearOf(two[1]), second, 1],
+    ];
+    for (const [candidateYear, month, day] of [...byDayAndMonth, ...byMonthAndYear]) {
+      const date = validDate(candidateYear, month, day);
+      if (date) return date;
+    }
+    return null;
   }
 
-  const match = /^(\d{1,4})([./-])(\d{1,2})\2(\d{1,4})$/.exec(text);
+  const match = /^(\d{1,4})([.,/-])(\d{1,2})\2(\d{1,4})$/.exec(text);
   if (!match || !separatorAllowed(match[2])) return null;
 
   const [first, second, third] = [match[1], match[3], match[4]];
@@ -1348,10 +1382,41 @@ const LATEST_SERIAL = 2958465;
  * CDate("&H10") is the 16th day and CDate(" +7") the 7th, and it has to land inside the range a date holds:
  * CDate("2958465") is 31 December 9999 while CDate("2958466") and CDate("-657435") are a type mismatch.
  */
-export function parseVbDateAsCdate(text: string, locale: string): Date | null {
+export function parseVbDateAsCdate(text: string, locale: string, decimalMark = '.'): Date | null {
   const literal = readVbNumberLiteral(text);
   if (literal !== null) return literal;
-  return parseVbDate(text, locale);
+  const date = parseVbDate(text, locale);
+  if (date !== null) return date;
+  return readMarkedNumber(text, decimalMark);
+}
+
+/**
+ * A number written with the marks a locale uses between digits, read as a day count.
+ *
+ * Measured under 1031 and 1033, and only CDate reads these: IsDate("13.45") is False under 1031, and
+ * IsDate("2.60"), IsDate("123.456") and IsDate("60.5") are False under 1033.
+ *
+ *   * The locale's decimal mark is read as a decimal point, and the other mark comes out, so under 1033
+ *     "123.456" is the day count 123.456 while "13,45" is 1345 since a comma is not its decimal mark.
+ *   * Under 1031 it is the other way round, because a comma is the decimal mark there and a dot the date
+ *     separator: "13,45" is 13.45 and "13.45" is 1345, "1.2.3.4" is 1234 and "-1.5" is -15.
+ *
+ * A number with more than one decimal mark left is not a number, which is what makes CDate("1.2.3.4") a type
+ * mismatch under 1033. The whole days have to land inside the range a date holds, which is why
+ * CDate("2958466") refuses while CDate("2958465.5") is 31 December 9999 at noon.
+ */
+function readMarkedNumber(text: string, decimalMark: string): Date | null {
+  const trimmed = text.trim();
+  if (!/^[+-]?[\d.,]+$/.test(trimmed)) return null;
+  const otherMark = decimalMark === '.' ? /,/g : /\./g;
+  const withoutOtherMark = trimmed.replace(otherMark, '');
+  const written =
+    decimalMark === '.' ? withoutOtherMark : withoutOtherMark.replaceAll(decimalMark, '.');
+  const serial = Number(written);
+  if (!Number.isFinite(serial)) return null;
+  const wholeDays = Math.trunc(serial);
+  if (wholeDays < EARLIEST_SERIAL || wholeDays > LATEST_SERIAL) return null;
+  return serialToDate(serial);
 }
 
 /** A whole number written the way VB writes one, as a day count, or null when the text is something else. */
