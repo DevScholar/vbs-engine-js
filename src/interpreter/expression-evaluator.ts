@@ -645,10 +645,13 @@ export class ExpressionEvaluator {
       case '&':
         return { type: 'String', value: toString(left) + toString(right) };
       case 'Is':
-        return {
-          type: 'Boolean',
-          value: left.type === 'Object' && right.type === 'Object' && left.value === right.value,
-        };
+        // VBScript compares two object references and nothing else. Anything that is not an object on
+        // either side is "Object required", measured for every pair of twelve types under 1033: even
+        // "Empty Is Empty" and "2 Is 2" are error 424 rather than False.
+        if (left.type !== 'Object' || right.type !== 'Object') {
+          throw createVbError(VbErrorCodes.ObjectRequired, 'Object required: Is');
+        }
+        return { type: 'Boolean', value: left.value === right.value };
       default:
         return VbEmpty;
     }
