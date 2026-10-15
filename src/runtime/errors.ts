@@ -48,7 +48,7 @@ export const VBS_COMPILE_SOURCE = 'Microsoft VBScript compilation error';
  * through unchanged.
  */
 export function toHresult(code: number): number {
-  return (code & 0xffff0000) !== 0 ? code : (0x800a0000 | code) | 0;
+  return (code & 0xffff0000) !== 0 ? code : 0x800a0000 | code | 0;
 }
 
 export const VbErrorCodes = {
@@ -76,6 +76,8 @@ export const VbErrorCodes = {
   BadFileNameOrNumber: 52,
   TooManyFiles: 67,
   DeviceUnavailable: 68,
+  /** An `Exit` statement in the text a script handed to `Execute` or `ExecuteGlobal`, measured as 1039. */
+  CannotExitProcedure: 1039,
 };
 
 export function createVbError(code: number, description: string, source?: string): VbError {
@@ -153,6 +155,7 @@ export const VbErrorDescriptions: Record<number, string> = {
   505: 'Invalid or unqualified reference',
   1001: 'Out of Memory',
   1002: 'Syntax error',
+  1039: 'Cannot exit a procedure',
 };
 
 /**
@@ -182,7 +185,8 @@ export function isHresult(hresult: number): boolean {
  */
 export function createVbErrorFromHost(err: unknown): VbError {
   const e = (err ?? {}) as Error & { hresult?: unknown; number?: unknown };
-  const raw = typeof e.hresult === 'number' ? e.hresult : typeof e.number === 'number' ? e.number : undefined;
+  const raw =
+    typeof e.hresult === 'number' ? e.hresult : typeof e.number === 'number' ? e.number : undefined;
   if (raw !== undefined && isHresult(raw)) {
     const code = hresultToCode(raw);
     const description = VbErrorDescriptions[code] ?? e.message;

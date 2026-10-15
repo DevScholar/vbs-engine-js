@@ -59,6 +59,18 @@ export class VbContext {
     helpContext: 0,
   };
   public currentInstance: VbObjectInstance | null = null;
+  /**
+   * Whether the running statements came from the text a script handed to `Execute` or `ExecuteGlobal`, where
+   * an `Exit` statement is error 1039 rather than a way out of the procedure it stands in.
+   */
+  public insideExecutedText: boolean = false;
+  /**
+   * Set when the text a script handed to `Execute` or `ExecuteGlobal` raised the 1039 an Exit in it raises.
+   * The procedure that text stands in is left at once, which is what Windows does as well.
+   */
+  public leftProcedureThroughExecute: boolean = false;
+
+  private procedureStack: Array<'sub' | 'function' | 'property'> = [];
   public inPropertyGet: boolean = false;
   public propertyGetName: string = '';
   public evaluate: ((code: string) => VbValue) | null = null;
@@ -119,13 +131,29 @@ export class VbContext {
   pushCall(name: string): void {
     this.callStack.push(name);
   }
-
   popCall(): void {
     this.callStack.pop();
   }
 
   getCurrentCall(): string | undefined {
     return this.callStack[this.callStack.length - 1];
+  }
+
+  /** Marks the procedure the statements about to run belong to, so an exit can name its target. */
+  pushProcedure(target: 'sub' | 'function' | 'property'): void {
+    this.procedureStack.push(target);
+  }
+
+  popProcedure(): void {
+    this.procedureStack.pop();
+  }
+
+  /**
+   * The target an `Exit` should carry for the procedure whose statements are running, or null when the
+   * statements are a script's own, where there is no procedure to leave.
+   */
+  getCurrentCallTarget(): 'sub' | 'function' | 'property' | null {
+    return this.procedureStack[this.procedureStack.length - 1] ?? null;
   }
 
   setExitFlag(flag: typeof this.exitFlag): void {

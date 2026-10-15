@@ -1,6 +1,7 @@
 import type { Expression, Program, Statement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty, createVbError } from '../runtime/index.ts';
+import { VbContext, VbEmpty, VbErrorCodes, createVbError } from '../runtime/index.ts';
+import type { Vbscope } from '../runtime/index.ts';
 import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 import { registerBuiltins } from '../builtins/index.ts';
@@ -260,19 +261,78 @@ export class Interpreter {
   }
 
   executeInCurrentScope(code: string): VbValue {
-    const ast = parse(code);
-    return this.executeStatements(ast.body);
+    return this.executeNestedCode(code, this.context.currentScope);
   }
 
   executeInGlobalScope(code: string): VbValue {
-    const savedScope = this.context.currentScope;
-    this.context.currentScope = this.context.globalScope;
+    return this.executeNestedCode(code, this.context.globalScope);
+  }
+
+  /**
+   * Runs the code a script handed to `Execute` or `ExecuteGlobal`.
+   *
+   * Three rules of Windows are measured and followed here. Malformed text is error 1002 and not the error the
+   * parser itself raises, the same reading `Eval` gets. Code that fails at run time stops where it failed,
+   * even where the caller is under `On Error Resume Next`: measured on a fresh cscript, with the caller under
+   * that handler, `Execute "result = ""before"" : x = 1 / 0 : result = ""after"""` answers 11 with result
+   * still "before", while the same text with its own `On Error Resume Next` written inside it answers 11 with
+   * result "after". The handler therefore belongs to the code that was handed over, and the caller's handler
+   * is put back afterwards so that the call itself is one the caller's handler may resume from. And an `Exit`
+   * statement in that text is error 1039 and leaves the procedure it stands in running: measured,
+   * `Execute "Exit Sub"` inside a Sub answers 1039 and the Sub carries on to its end, and the same text inside
+   * a Function leaves that Function answering Empty rather than the value it had reached.
+   */
+  private executeNestedCode(code: string, scope: Vbscope): VbValue {
+    let ast;
     try {
-      const ast = parse(code);
-      return this.executeStatements(ast.body);
-    } finally {
-      this.context.currentScope = savedScope;
+      ast = parse(code);
+    } catch {
+      throw createVbError(1002, 'Syntax error');
     }
+
+    const savedScope = this.context.currentScope;
+    const savedHandler = this.context.onErrorResumeNext;
+    const savedInside = this.context.insideExecutedText;
+    this.context.currentScope = scope;
+    this.context.onErrorResumeNext = false;
+    this.context.insideExecutedText = true;
+    try {
+      return this.executeStatements(ast.body);
+    } catch (error) {
+      // An Exit in the handed over text is error 1039, and Windows also stops the procedure the call stands
+      // in: measured, `Execute "Exit Sub"` inside a Sub answers 1039 and the Sub's own work after the call
+      // does not run. The flag says so, and the procedure's own statement handling reads it when it catches
+      // this error; it is cleared here so that a helper the text called and the text then returned from leaves
+      // nothing behind.
+      if (error instanceof ControlFlowSignal && error.type === 'exit') {
+        this.context.insideExecutedText = false;
+        throw createVbError(VbErrorCodes.CannotExitProcedure, 'Cannot exit a procedure');
+      }
+      if (this.isCannotExitProcedure(error)) {
+        this.context.leftProcedureThroughExecute = true;
+        // At a script's own level there is no procedure to leave, so the run stops where the handed over text
+        // did: measured, `Execute "result = ""first"" : Exit Sub"` written in a script leaves result Empty, so
+        // even the work the text finished before the Exit does not stand.
+        if (this.context.getCurrentCallTarget() === null) {
+          this.context.leftProcedureThroughExecute = false;
+          throw new ControlFlowSignal('exit');
+        }
+      }
+      throw error;
+    } finally {
+      this.context.onErrorResumeNext = savedHandler;
+      this.context.currentScope = savedScope;
+      this.context.insideExecutedText = savedInside;
+    }
+  }
+
+  /** Whether an error is the 1039 an Exit inside executed text raises. */
+  private isCannotExitProcedure(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { number?: unknown }).number === VbErrorCodes.CannotExitProcedure
+    );
   }
 
   /**

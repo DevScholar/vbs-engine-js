@@ -581,6 +581,31 @@ temporary probe directory, and `src/__tests__/class-events.test.ts` is the durab
 
 ---
 
+## Execute and ExecuteGlobal
+
+Every rule below was read off a fresh `cscript`, one family of cells per process, since the cells of a family
+are meant to see what that family's earlier cells left behind. The probe, its capture and the comparison
+script live in the temporary probe directory, and `src/__tests__/execute-and-executeglobal.test.ts` is the
+durable copy of its 43 cells.
+
+| Rule | Status | Notes |
+|------|--------|-------|
+| The scope it runs in | ✔️ | `Execute` runs in the caller's scope, so a variable the caller holds is read and written: inside a Sub it reads that Sub's own locals, and at script level a name it writes stays for the statements after it |
+| A name it declares | ✔️ | `Dim` in the handed over text declares into the scope the text runs in, so a `Dim x` inside `Execute` in a Sub is that Sub's local and is gone when the Sub returns |
+| `ExecuteGlobal` | ✔️ | Its text runs in the script's global scope, so a name it declares is the script's own wherever it was called from |
+| Sub and Function definitions | ✔️ | A procedure the text defines is available to the statements after it, and redefining it replaces what was there before |
+| A class definition | ✔️ | `Execute` may define a class, which `New` finds afterwards |
+| An empty text | ✔️ | `Execute ""` runs and answers nothing |
+| A Null argument | ✔️ | `Execute Null` runs the empty text rather than raising |
+| A syntax error in the text | ✔️ | Error 1002, the same reading `Eval` gets |
+| A run time error in the text | ✔️ | Error 11 for `x = 1 / 0`, which stops the handed over text where it failed |
+| `On Error Resume Next` in the caller | ✔️ | The caller's own run continues after the error, and the text that was handed over still stops at the error rather than resuming inside itself: measured, `Execute "result = ""before"" : x = 1 / 0 : result = ""after"""` under that handler answers 11 with result still "before", while the same text with its own handler written inside it answers 11 with result "after" |
+| `Err.Raise` in the text | ✔️ | The number it raises is the one the caller sees |
+| `Exit` in the text | ✔️ | Error 1039, and it also stops the procedure the call stands in: measured, a Sub whose `Execute "Exit Sub"` answered 1039 does not run its own statements after the call, and a Function in that place answers the value it had reached, or Empty when it had not written its name yet. The same holds for `Exit For`, `Exit Do`, `Execute "Exit Function"` and `ExecuteGlobal` |
+| Before and after the text | ✔️ | A statement before the call stands, and the text's own work up to the `Exit` does too when the call is at script level |
+
+---
+
 ## Non-Standard Extensions
 
 These features are not part of the VBScript specification and do not exist in
@@ -640,6 +665,13 @@ matches `vbscript.dll`:
   script ends, and both sides free every one of them, but not in the same order. The order follows the order
   the host keeps its globals in, which neither `cscript` nor this engine writes down, so only the set of
   releases is compared.
+* **Two `Execute` scope cells.** The scope family of the `Execute` probe holds five cells, and three of them
+  are compared. The other two write a module variable from inside a Sub through `Execute` while the probe's
+  own helper subs are in the file, and the engine answers the same statements differently there and only
+  there: the same statements written out answer 12 and 77 on both sides, which
+  `src/__tests__/execute-and-executeglobal.test.ts` records, and the probe's capture answers 12 and 77 as well
+  with the file's own file-writing helper in place. What makes the two reads differ was not found, so the two
+  cells are honest open points rather than answered ones.
 * **`ExecuteGlobal` and `Execute`.** No test and no probe, so their scoping rules are unmeasured.
 * **Parts of the `Err` object.** `Err.Source` has no test, `Err.Description` and `Err.HelpContext` have one
   each, and the arguments of `Err.Raise` are not compared.

@@ -94,6 +94,13 @@ export class ControlFlowSignal extends Error {
   ) {
     super(type);
   }
+
+  /**
+   * Set when the signal carries the answer of the statement that left the procedure, which is what a Function
+   * answers with after the text a script handed to `Execute` left it: measured, the function answers the value
+   * it had reached rather than one read out of its scope.
+   */
+  public carriesThisStatement = false;
 }
 
 export class GotoSignal extends ControlFlowSignal {
@@ -280,8 +287,29 @@ export class StatementExecutor {
     let result: VbValue = VbEmpty;
     for (const stmt of node.body) {
       result = this.execute(stmt);
+      this.leaveProcedureIfExecuteLeftIt(result);
     }
     return result;
+  }
+
+  /**
+   * Leaves the procedure when the text a script handed to `Execute` or `ExecuteGlobal` raised the 1039 an Exit
+   * in it raises, which is what Windows does: measured, a Sub whose `Execute "Exit Sub"` answered 1039 does not
+   * run the rest of its own statements, and the value a Function had reached is the answer it gives.
+   *
+   * The mark is the interpreter's, so a `Run` that stands in for this engine's own `Execute` call is what sets
+   * it, and it is cleared here before the signal goes out, since the caller of this procedure has nothing to do
+   * with it. The signal carries the answer as it stands, which is what the procedure gives back.
+   */
+  private leaveProcedureIfExecuteLeftIt(answer: VbValue): void {
+    if (!this.context.leftProcedureThroughExecute) return;
+    this.context.leftProcedureThroughExecute = false;
+    const target = this.context.getCurrentCallTarget();
+    if (target === null) return;
+    this.context.setExitFlag(target);
+    const signal = new ControlFlowSignal('exit', answer);
+    signal.carriesThisStatement = true;
+    throw signal;
   }
 
   private executeIfStatement(node: IfStatement): VbValue {
@@ -756,6 +784,13 @@ export class StatementExecutor {
   }
 
   private executeExitStatement(node: VbExitStatement): VbValue {
+    // An Exit written in the text a script handed to Execute or ExecuteGlobal cannot leave anything, which a
+    // fresh cscript shows with error 1039: `Execute "Exit Sub"` inside a Sub answers 1039 and the Sub carries
+    // on, and the same text inside a Function leaves that Function answering Empty. The rest of the handed
+    // over text stops there with it.
+    if (this.context.insideExecutedText) {
+      throw createVbError(VbErrorCodes.CannotExitProcedure, 'Cannot exit a procedure');
+    }
     this.context.setExitFlag(
       node.target.toLowerCase() as 'sub' | 'function' | 'property' | 'do' | 'for' | 'select'
     );
@@ -776,6 +811,7 @@ export class StatementExecutor {
     const subFunc = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(subName);
+      self.context.pushProcedure('sub');
 
       try {
         self.bindParameters(node.params, args, refs);
@@ -802,6 +838,7 @@ export class StatementExecutor {
           throw signal;
         }
       } finally {
+        self.context.popProcedure();
         self.context.popCall();
         self.context.popScope();
       }
@@ -833,6 +870,7 @@ export class StatementExecutor {
     const func = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(funcName);
+      self.context.pushProcedure('function');
 
       self.context.declareVariable(funcName, VbEmpty);
 
@@ -856,7 +894,11 @@ export class StatementExecutor {
         ) {
           if (signal.type === 'exit') self.context.clearExitFlag();
           self.updateByRefArgs(node.params, args);
-          result = self.context.getVariable(funcName);
+          // An `Execute "Exit Function"` left the function where it stood, so the value the signal carries is
+          // the answer: measured, the function answers Empty when it had not written its name yet.
+          result = signal.carriesThisStatement
+            ? (signal.value ?? VbEmpty)
+            : self.context.getVariable(funcName);
         } else {
           throw signal;
         }
@@ -867,6 +909,7 @@ export class StatementExecutor {
         // marked as one the procedure made, so the place the caller stores it in takes that reference rather
         // than a second one.
         markMadeValue(result!);
+        self.context.popProcedure();
         self.context.popCall();
         self.context.popScope();
       }
@@ -1038,6 +1081,7 @@ export class StatementExecutor {
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
+            self.context.pushProcedure('sub');
             try {
               self.bindParameters(memberNode.params, args);
               self.executeBlockStatement(memberNode.body);
@@ -1051,6 +1095,7 @@ export class StatementExecutor {
               }
               self.context.clearExitFlag();
             } finally {
+              self.context.popProcedure();
               self.context.popScope();
               self.context.currentInstance = prevInstance;
             }
@@ -1069,6 +1114,7 @@ export class StatementExecutor {
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
+            self.context.pushProcedure('function');
             self.context.declareVariable(memberNode.name.name, VbEmpty);
             self.bindParameters(memberNode.params, args);
             let result: VbValue;
@@ -1082,7 +1128,9 @@ export class StatementExecutor {
                   signal.type === 'return')
               ) {
                 if (signal.type === 'exit') self.context.clearExitFlag();
-                result = self.context.getVariable(memberNode.name.name);
+                result = signal.carriesThisStatement
+                  ? (signal.value ?? VbEmpty)
+                  : self.context.getVariable(memberNode.name.name);
               } else {
                 throw signal;
               }
@@ -1090,6 +1138,7 @@ export class StatementExecutor {
               // Same reading as a plain Function's answer above: the answer's own reference is kept, so a
               // member that answers a fresh instance hands the caller a reference that survives the return.
               markMadeValue(result!);
+              self.context.popProcedure();
               self.context.popScope();
               self.context.currentInstance = prevInstance;
             }
@@ -1112,6 +1161,7 @@ export class StatementExecutor {
           self.context.inPropertyGet = true;
           self.context.propertyGetName = memberNode.name.name.toLowerCase();
           self.context.pushScope();
+          self.context.pushProcedure('property');
           self.context.declareVariable(memberNode.name.name, VbEmpty);
           let result: VbValue;
           try {
@@ -1126,11 +1176,14 @@ export class StatementExecutor {
               throw signal;
             }
             self.context.clearExitFlag();
-            result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
+            result = signal.carriesThisStatement
+              ? (signal.value ?? VbEmpty)
+              : (self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty);
           } finally {
             // Same reading as a plain Function's answer above: a Property Get that answers an object hands the
             // caller a reference of its own, which survives the scope the property ran in.
             markMadeValue(result!);
+            self.context.popProcedure();
             self.context.popScope();
             self.context.currentInstance = prevInstance;
             self.context.inPropertyGet = prevInPropertyGet;
