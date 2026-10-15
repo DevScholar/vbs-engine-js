@@ -1,5 +1,5 @@
 import type { VbContext, VbValue } from '../runtime/index.ts';
-import { createVbError, VbErrorCodes, parseVbDate } from '../runtime/index.ts';
+import { createVbError, VbErrorCodes, isNumeric, parseVbDate } from '../runtime/index.ts';
 import { stringFunctions } from './string.ts';
 import { mathFunctions, constants } from './math.ts';
 import { dateFunctions } from './date.ts';
@@ -191,7 +191,8 @@ export function registerBuiltins(context: VbContext): void {
   });
 
   context.functionRegistry.register('TypeName', (expression: VbValue): VbValue => {
-    if (expression.type === 'Object' && expression.value === null) return { type: 'String', value: 'Nothing' };
+    if (expression.type === 'Object' && expression.value === null)
+      return { type: 'String', value: 'Nothing' };
     if (expression.type === 'Object' && expression.value && typeof expression.value === 'object') {
       const obj = expression.value as { classInfo?: { name: string } };
       if (obj.classInfo && obj.classInfo.name) {
@@ -250,15 +251,9 @@ export function registerBuiltins(context: VbContext): void {
   });
 
   context.functionRegistry.register('IsNumeric', (expression: VbValue): VbValue => {
-    const numericTypes = ['Integer', 'Long', 'Single', 'Double', 'Currency', 'Byte'];
-    if (numericTypes.includes(expression.type)) {
-      return { type: 'Boolean', value: true };
-    }
-    if (expression.type === 'String') {
-      const num = Number(expression.value);
-      return { type: 'Boolean', value: !isNaN(num) };
-    }
-    return { type: 'Boolean', value: false };
+    // The reading the conversions use, so that a string written with the locale's own marks counts:
+    // IsNumeric("1,5") is True under 1031 and False under 1033, and both are what a fresh cscript answers.
+    return { type: 'Boolean', value: isNumeric(expression) };
   });
 
   context.functionRegistry.register('IsDate', (expression: VbValue): VbValue => {
@@ -266,7 +261,10 @@ export function registerBuiltins(context: VbContext): void {
       return { type: 'Boolean', value: true };
     }
     if (expression.type === 'String') {
-      return { type: 'Boolean', value: parseVbDate(expression.value, getCurrentBCP47Locale()) !== null };
+      return {
+        type: 'Boolean',
+        value: parseVbDate(expression.value, getCurrentBCP47Locale()) !== null,
+      };
     }
     return { type: 'Boolean', value: false };
   });

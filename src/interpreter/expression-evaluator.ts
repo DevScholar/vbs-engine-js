@@ -650,7 +650,9 @@ export class ExpressionEvaluator {
     if (left.type === 'Null' || right.type === 'Null') {
       return VbNull;
     }
-    if (left.type === 'String' || right.type === 'String') {
+    if (left.type === 'String' && right.type === 'String') {
+      // Two strings join. A string beside a number is added instead, and the string has to be a number: a
+      // fresh cscript answers "1" + 1 with the Double 2 and "a" + 1 with a type mismatch.
       return { type: 'String', value: toString(left) + toString(right) };
     }
     if (left.type === 'LongLong' || right.type === 'LongLong') {
@@ -720,6 +722,9 @@ export class ExpressionEvaluator {
     value: number
   ): VbValue {
     const types = [left.type, right.type];
+    // A string beside a number always gives a Double, which a fresh cscript shows for "1" + 1 and for
+    // "1" + True (the Double 0, since True counts as -1).
+    if (types.includes('String')) return { type: 'Double', value };
     const hasDouble = types.includes('Double');
     const hasSingle = types.includes('Single');
     const hasLong = types.includes('Long');

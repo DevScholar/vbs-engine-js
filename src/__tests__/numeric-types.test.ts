@@ -114,7 +114,7 @@ const CONVERSION_CELLS: ReadonlyArray<readonly [string, string]> = [
   ['CInt(32767.6)', 'ERR 6'],
   ['CInt(-32768)', 'Integer | -32768'],
   ['CInt(-32769)', 'ERR 6'],
-  ['CInt("1.5")', 'Integer | 2'],
+  ['CInt("1,5")', 'Integer | 2'],
   ['CInt(Empty)', 'Integer | 0'],
   ['CInt(CCur(1.5))', 'Integer | 2'],
   ['CInt(CSng(1.5))', 'Integer | 2'],
