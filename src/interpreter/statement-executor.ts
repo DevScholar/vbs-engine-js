@@ -373,9 +373,21 @@ export class StatementExecutor {
     const to = this.exprEvaluator.evaluate(node.to);
     const step = node.step ? this.exprEvaluator.evaluate(node.step) : createVbValue(1);
 
-    const startValue = toNumber(init);
-    const endValue = toNumber(to);
-    const stepValue = toNumber(step);
+    // A bound or a step that is no number is the loop's own error 92, measured on a fresh cscript:
+    // "For i = 1 To Null", "For i = 1 To 3 Step Null" and "For i = \"a\" To \"c\"" are all error 92, and not
+    // the type mismatch or the invalid use of Null the conversion itself would raise. A text that is a
+    // number is read as one, so "For i = 1 To \"3\"" runs three times.
+    const readForBound = (value: VbValue): number => {
+      try {
+        return toNumber(value);
+      } catch {
+        throw createVbError(92, 'For loop not initialized');
+      }
+    };
+
+    const startValue = readForBound(init);
+    const endValue = readForBound(to);
+    const stepValue = readForBound(step);
 
     this.context.declareVariable(node.left.name, createVbValue(startValue));
 
@@ -474,6 +486,11 @@ export class StatementExecutor {
       }
     }
 
+    // For Each leaves its loop variable empty afterwards, which a fresh cscript shows: the variable reads
+    // Empty once the loop is over, whether the loop ran or not. A For...Next loop is the other way round and
+    // keeps the value that stopped it, so only this loop clears it.
+    this.context.setVariable(loopVar, VbEmpty);
+
     return VbEmpty;
   }
 
@@ -553,7 +570,7 @@ export class StatementExecutor {
         return VbEmpty;
       }
 
-      const matches = this.matchCase(caseClause.test, discriminant);
+      const matches = this.matchCase(caseClause.test, discriminant, node.discriminant);
 
       if (matches) {
         for (const stmt of caseClause.consequent) {
@@ -566,65 +583,73 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private matchCase(test: Expression | Expression[] | null, discriminant: VbValue): boolean {
+  private matchCase(
+    test: Expression | Expression[] | null,
+    discriminant: VbValue,
+    discriminantNode: Expression
+  ): boolean {
     if (!test) return false;
 
     const tests = Array.isArray(test) ? test : [test];
 
     for (const t of tests) {
+      // Select Case asks the comparison operators' own question of its value, so it reads text case
+      // sensitively and raises a type mismatch for a number written out beside a text, exactly as `=` does:
+      // measured, `Select Case "b"` matches `Case "b"` and not `Case "B"`, and `Select Case "abc"` with
+      // `Case 1` is error 13. A Null answer matches nothing, which is why a Null value and a `Case Null`
+      // both fall through to Case Else.
       if (
         t.type === 'BinaryExpression' &&
         'left' in t &&
         (t.left as Expression).type === 'Identifier' &&
         (t.left as Expression as { name: string }).name === '__select_expr__'
       ) {
-        const right = this.exprEvaluator.evaluate(t.right as Expression);
-        const operator = t.operator;
+        const rightNode = t.right as Expression;
+        const right = this.exprEvaluator.evaluate(rightNode);
+        this.exprEvaluator.checkNumberLiteralBesideText(
+          discriminantNode,
+          rightNode,
+          discriminant,
+          right
+        );
+        const order = this.exprEvaluator.compareValues(discriminant, right);
+        if (order === null) continue;
 
-        switch (operator) {
+        switch (t.operator) {
           case '==':
-            if (toConditionBoolean(this.equals(discriminant, right))) return true;
+            if (order === 0) return true;
             break;
           case '<':
-            if (toNumber(discriminant) < toNumber(right)) return true;
+            if (order < 0) return true;
             break;
           case '>':
-            if (toNumber(discriminant) > toNumber(right)) return true;
+            if (order > 0) return true;
             break;
           case '<=':
-            if (toNumber(discriminant) <= toNumber(right)) return true;
+            if (order <= 0) return true;
             break;
           case '>=':
-            if (toNumber(discriminant) >= toNumber(right)) return true;
+            if (order >= 0) return true;
             break;
           case '!=':
-            if (!toConditionBoolean(this.equals(discriminant, right))) return true;
+            if (order !== 0) return true;
             break;
         }
       } else {
         const testValue = this.exprEvaluator.evaluate(t);
-        if (toConditionBoolean(this.equals(discriminant, testValue))) {
+        this.exprEvaluator.checkNumberLiteralBesideText(
+          discriminantNode,
+          t,
+          discriminant,
+          testValue
+        );
+        if (this.exprEvaluator.compareValues(discriminant, testValue) === 0) {
           return true;
         }
       }
     }
 
     return false;
-  }
-
-  private equals(left: VbValue, right: VbValue): VbValue {
-    if (left.type === 'Empty' && right.type === 'Empty') {
-      return { type: 'Boolean', value: true };
-    }
-    if (left.type === 'Null' || right.type === 'Null') {
-      return { type: 'Boolean', value: false };
-    }
-    if (left.type === 'String' || right.type === 'String') {
-      const leftStr = left.type === 'String' ? (left.value as string) : String(toNumber(left));
-      const rightStr = right.type === 'String' ? (right.value as string) : String(toNumber(right));
-      return { type: 'Boolean', value: leftStr.toLowerCase() === rightStr.toLowerCase() };
-    }
-    return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
   }
 
   private executeWithStatement(node: WithStatement): VbValue {

@@ -54,11 +54,13 @@ describe('Interpreter', () => {
       expect(x.value).toBe(8);
     });
 
-    it('should evaluate string comparison case-insensitively', () => {
+    it('should evaluate string comparison case sensitively', () => {
+      // Text is compared character by character, so "HELLO" = "hello" is False. Measured on a fresh cscript
+      // under 1033, 1031, 1036 and 2052, which all answer False for that and for "b" < "B".
       const engine = new VbsEngine();
       engine.executeStatement('x = "HELLO" = "hello"');
       const x = engine._getVariable('x');
-      expect(x.value).toBe(true);
+      expect(x.value).toBe(false);
     });
 
     it('should evaluate Not operator', () => {
@@ -826,11 +828,14 @@ result = IsObject(obj)
   });
 
   describe('IE compatibility - string comparison', () => {
-    it('should compare strings case-insensitively', () => {
+    it('should compare strings case sensitively', () => {
+      // Internet Explorer used the same vbscript.dll, whose comparison is binary: "HELLO" = "hello" is
+      // False, measured on a fresh cscript under 1033, 1031, 1036 and 2052. A script that wants a
+      // case-insensitive reading asks for one, as StrComp("a", "A", vbTextCompare) does.
       const engine = new VbsEngine();
       engine.executeStatement('result = ("HELLO" = "hello")');
       const result = engine._getVariable('result');
-      expect(result.value).toBe(true);
+      expect(result.value).toBe(false);
     });
 
     it('should compare strings with < operator', () => {

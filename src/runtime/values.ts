@@ -211,39 +211,68 @@ export function createVbValue(value: unknown): VbValue {
 }
 
 /**
- * Converts a VbValue to a JavaScript boolean.
- * Follows VBScript type coercion rules.
+ * Converts a VbValue to a JavaScript boolean, the way CBool does.
+ *
+ * Measured against a fresh cscript over the values a condition is written with, since a condition and CBool
+ * read a value the same way (the one difference is a Null, which a condition takes as False and CBool
+ * refuses):
+ *
+ *   * A number, a Byte or a LongLong is true when it is not zero, and a Date is true.
+ *   * An Empty is false.
+ *   * A Null is the invalid use of Null.
+ *   * A text is read as a number, so "1", " 1 ", "1.5" and "&H10" are true and "0" is false, and a text that
+ *     is no number at all is a type mismatch: "x", "1x", "" and " " are all error 13. The words True and
+ *     False are read as themselves, which a fresh cscript shows for CBool("True").
+ *   * An array is a type mismatch, Nothing is error 91, and any other object is error 438, the error its
+ *     missing default member answers.
  *
  * @param value - The VbValue to convert
  * @returns The boolean representation
- * @throws Error if the value cannot be converted (e.g., Null)
+ * @throws Error if the value cannot be converted
  */
 export function toBoolean(value: VbValue): boolean {
   if (value.type === 'Boolean') return value.value;
   if (value.type === 'Empty') return false;
-  // Real VBScript's error 94 ("Invalid use of Null") for exactly this case -
-  // must be a real, catchable VbError (not a plain Error) so `On Error
-  // Resume Next` around a construct that puts Null in a boolean context
-  // (`If Null Then`, `While Null`, etc.) can actually suppress it, matching
-  // real VBScript behavior. Found via Wine's own vbscript.dll conformance
-  // suite, dlls/vbscript/tests/lang.vbs.
+  // Real VBScript's error 94 ("Invalid use of Null") for exactly this case - must be a real, catchable
+  // VbError (not a plain Error) so `On Error Resume Next` around a construct that puts Null in a boolean
+  // context (CBool, `If Null Then`, ...) can actually suppress it. A condition reads Null as False instead:
+  // see toConditionBoolean in statement-executor.ts.
   if (value.type === 'Null')
     throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'String') {
-    const str = value.value;
-    if (str === '') return false;
-    const num = parseFloat(str);
-    if (!isNaN(num)) return num !== 0;
-    return str.toLowerCase() !== 'false';
+    const text = value.value.trim();
+    if (/^true$/i.test(text)) return true;
+    if (/^false$/i.test(text)) return false;
+    const parsed = parseVbNumericString(text);
+    if (parsed === null) {
+      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.value}`);
+    }
+    return parsed !== 0;
+  }
+  if (value.type === 'Array') {
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Array');
+  }
+  if (value.type === 'Object') {
+    // Nothing is the object variable that is not set, and any other object is asked for its default member,
+    // which it does not have: `Not Nothing` is 91 and `Not someObject` is 438 on a fresh cscript.
+    if (value.value === null) {
+      throw createVbError(VbErrorCodes.ObjectVariableNotSet, 'Object variable not set');
+    }
+    throw createVbError(
+      VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+      "Object doesn't support this property or method"
+    );
   }
   if (
     value.type === 'Integer' ||
     value.type === 'Long' ||
     value.type === 'Double' ||
     value.type === 'Single' ||
-    value.type === 'Byte'
+    value.type === 'Byte' ||
+    value.type === 'Currency' ||
+    value.type === 'Date'
   ) {
-    return value.value !== 0;
+    return Number(value.value) !== 0;
   }
   if (value.type === 'LongLong') {
     return value.value !== BigInt(0);

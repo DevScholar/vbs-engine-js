@@ -60,6 +60,7 @@ export const VbErrorCodes = {
   Overflow: 6,
   InvalidProcedureCall: 5,
   ObjectRequired: 424,
+  ObjectVariableNotSet: 91,
   ActiveXComponentCantCreateObject: 429,
   ObjectDoesntSupportPropertyOrMethod: 438,
   VariableNotDefined: 500,

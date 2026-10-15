@@ -147,12 +147,40 @@ function readBitwiseOperand(value: VbValue, emptyKind: BitwiseKind = 'Long'): Bi
   }
 }
 
+/** Whether a value is a number proper, which is what a text beside it is read as one for. */
+function isNumberValue(value: VbValue): boolean {
+  return (
+    value.type === 'Integer' ||
+    value.type === 'Long' ||
+    value.type === 'LongLong' ||
+    value.type === 'Double' ||
+    value.type === 'Single' ||
+    value.type === 'Byte' ||
+    value.type === 'Currency'
+  );
+}
+
+/** The order of two numbers, which is all a comparison needs of them. */
+function compareNumbers(left: number, right: number): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 /** The type a bitwise answer keeps: the wider of the two operands. */
 function bitwiseKind(left: BitwiseKind, right: BitwiseKind): BitwiseKind {
   if (left === right) return left;
   const narrow = (kind: BitwiseKind): boolean =>
     kind === 'Boolean' || kind === 'Byte' || kind === 'Integer';
   return narrow(left) && narrow(right) ? 'Integer' : 'Long';
+}
+
+/** The operators that compare two values rather than working on them. */
+const COMPARISON_OPERATORS = new Set(['==', '=', '!=', '<>', '<', '<=', '>', '>=']);
+
+/** Whether an expression is a number written out in the source, which reads differently beside a text. */
+function isNumberLiteralNode(node: Expression): boolean {
+  const candidate = node as { type?: string; value?: unknown };
+  return candidate.type === 'Literal' && typeof candidate.value === 'number';
 }
 
 /**
@@ -691,6 +719,10 @@ export class ExpressionEvaluator {
     const left = this.evaluate(node.left);
     const right = this.evaluate(node.right);
 
+    if (COMPARISON_OPERATORS.has(node.operator)) {
+      this.rejectNumberLiteralBesideText(node.left, node.right, left, right);
+    }
+
     switch (node.operator) {
       case '+':
         return this.add(left, right);
@@ -996,42 +1028,52 @@ export class ExpressionEvaluator {
     return { type: 'Double', value };
   }
 
-  // Real VBScript propagates Null through every comparison operator (=, <>,
-  // <, <=, >, >=) - the result is Null, not a definite True/False - the same
-  // "Null infects the result" rule this engine already applied to arithmetic
-  // (add/subtract/etc. above). `equals` previously hardcoded `false` for a
-  // Null operand instead of propagating, and lessThan/lessThanOrEqual/
-  // greaterThan/greaterThanOrEqual had no Null handling at all, so comparing
-  // anything against Null (`x < Null`) crashed with "Type mismatch: Null
-  // cannot be converted to Number" instead of yielding Null. Found via
-  // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
-  //
-  // Two more real VBScript comparison quirks, both confirmed against Wine's
-  // lang.vbs comments/assertions rather than guessed: (1) an Array operand
-  // on EITHER side of any comparison always raises type mismatch (error 13)
-  // - this wins even over Null propagation and Empty/Object special-casing,
-  // so it must be checked first. (2) Boolean compared against String never
-  // does numeric coercion or Null-style handling: it's always a plain
-  // string comparison against CStr(bool) ("True"/"False"), case-sensitive,
-  // no trimming, never errors - so it must be checked before the generic
-  // String branch below (which lowercases for case-insensitive equality,
-  // wrong for this specific combination).
-  private checkComparisonOperands(left: VbValue, right: VbValue): void {
-    if (left.type === 'Array' || right.type === 'Array') {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
+  /**
+   * Whether a comparison raises a type mismatch because a number is written out beside a text.
+   *
+   * Measured on a fresh cscript, and it turns on how the number was written rather than on its type:
+   * `"abc" = 1` and `"abc" = (1)` are error 13, and so are `"abc" < 1`, `1 = "abc"` and `Select Case "abc"`
+   * with `Case 1`, while a number that came from anywhere else is compared as text instead and simply
+   * answers False: `"abc" = 1 * 1`, `"abc" = 1 + 0`, `"abc" = CInt(1)`, `"abc" = Len("a")` and
+   * `"abc" = heldNumber` (with heldNumber = 1) are all False. A text that is a number is compared as a
+   * number either way, which is why `"1" = 1` is True.
+   */
+  checkNumberLiteralBesideText(
+    leftNode: Expression,
+    rightNode: Expression,
+    left: VbValue,
+    right: VbValue
+  ): void {
+    this.rejectNumberLiteralBesideText(leftNode, rightNode, left, right);
+  }
+
+  private rejectNumberLiteralBesideText(
+    leftNode: Expression,
+    rightNode: Expression,
+    left: VbValue,
+    right: VbValue
+  ): void {
+    const pairs: ReadonlyArray<readonly [Expression, VbValue]> = [
+      [leftNode, right],
+      [rightNode, left],
+    ];
+    for (const [node, other] of pairs) {
+      if (!isNumberLiteralNode(node) || other.type !== 'String') continue;
+      if (parseVbNumericString(other.value.trim()) === null) {
+        throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${other.value}`);
+      }
     }
   }
 
-  private compareBooleanString(left: VbValue, right: VbValue): number | undefined {
-    if (
-      (left.type === 'Boolean' && right.type === 'String') ||
-      (left.type === 'String' && right.type === 'Boolean')
-    ) {
-      const ls = toString(left);
-      const rs = toString(right);
-      return ls < rs ? -1 : ls > rs ? 1 : 0;
-    }
-    return undefined;
+  /**
+   * The order of two values as every comparison operator reads them, or null when the answer is Null.
+   *
+   * Select Case shares this reading rather than comparing its own way, which is what a fresh cscript shows:
+   * `Select Case "b"` matches `Case "b"` and not `Case "B"`, and `Select Case "abc"` with `Case 1` is error
+   * 13, exactly as the = operator answers for the same pair.
+   */
+  compareValues(left: VbValue, right: VbValue): number | null {
+    return this.compareOperands(left, right);
   }
 
   /**
@@ -1053,114 +1095,100 @@ export class ExpressionEvaluator {
     return left.type === 'Currency' ? [currencySide.value, scaled] : [scaled, currencySide.value];
   }
 
-  private equals(left: VbValue, right: VbValue): VbValue {
-    this.checkComparisonOperands(left, right);
-    if (left.type === 'Empty' && right.type === 'Empty') {
-      return { type: 'Boolean', value: true };
+  // Every comparison operator reads its two sides the same way, which a fresh cscript shows over the pairs
+  // below. The rules, each measured:
+  //
+  //   * An Array on either side is a type mismatch, and it wins over Null propagation.
+  //   * A Null on either side answers Null, whatever the other side is: `"x" = Null`, `1 = Null`,
+  //     `"x" < Null` and `Null <> Null` are all Null.
+  //   * An Object on either side is error 91 when it is Nothing and error 438 otherwise, since the
+  //     comparison asks it for a value it does not have. Two objects are not compared at all, which is
+  //     what the Is operator is for: `someObject = someObject` is 438.
+  //   * A text beside a number is read as a number, so "1" = 1, "1.5" = 1.5, " 1 " = 1 and "2" < 10 are
+  //     all True, while a text that is no number is a type mismatch: "abc" = 1 and "abc" < 1 are error 13.
+  //   * A text beside anything else is compared as text, character by character and case sensitively:
+  //     "b" = "B" is False and "B" < "b" is True. This is why "True" = True is True and "1" = True is
+  //     False, why "" = Empty is True, and why "" = "x" and "x" < Empty are False.
+  //   * Anything else is compared as a number, with a Currency on one side bringing the other side to the
+  //     Currency's own scale first (see currencyComparison).
+  private compareOperands(left: VbValue, right: VbValue): number | null {
+    if (left.type === 'Array' || right.type === 'Array') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
     }
-    if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull;
+    if (left.type === 'Null' || right.type === 'Null') return null;
+    if (left.type === 'Object' || right.type === 'Object') {
+      const isNothing = [left, right].some(side => side.type === 'Object' && side.value === null);
+      if (isNothing) {
+        throw createVbError(VbErrorCodes.ObjectVariableNotSet, 'Object variable not set');
+      }
+      throw createVbError(
+        VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+        "Object doesn't support this property or method"
+      );
     }
-    if (left.type === 'Object' && right.type === 'Object') {
-      return { type: 'Boolean', value: left.value === right.value };
-    }
-    const boolStr = this.compareBooleanString(left, right);
-    if (boolStr !== undefined) {
-      return { type: 'Boolean', value: boolStr === 0 };
-    }
+
     if (left.type === 'String' || right.type === 'String') {
-      return {
-        type: 'Boolean',
-        value: toString(left).toLowerCase() === toString(right).toLowerCase(),
-      };
+      const textSide = left.type === 'String' ? left : right;
+      const otherSide = textSide === left ? right : left;
+      // A text that is a number is compared as a number, so "1" = 1, "1.5" = 1.5 and " 1 " = 1 are all
+      // True. A text beside a number that is no number at all is compared as text, which answers False
+      // unless the number was written out as a literal, in which case the caller has already raised error
+      // 13: see rejectNumberLiteralBesideText.
+      const parsed = isNumberValue(otherSide)
+        ? parseVbNumericString(toString(textSide).trim())
+        : null;
+      if (parsed !== null) {
+        const order = compareNumbers(parsed, toNumber(otherSide));
+        return textSide === left ? order : -order;
+      }
+      const text = toString(textSide);
+      const otherText = toString(otherSide);
+      const order = text < otherText ? -1 : text > otherText ? 1 : 0;
+      return textSide === left ? order : -order;
     }
+
     const currencyPair = this.currencyComparison(left, right);
     if (currencyPair !== null) {
-      return { type: 'Boolean', value: currencyPair[0] === currencyPair[1] };
+      if (currencyPair[0] === currencyPair[1]) return 0;
+      return currencyPair[0] < currencyPair[1] ? -1 : 1;
     }
-    return { type: 'Boolean', value: toNumber(left) === toNumber(right) };
+    return compareNumbers(toNumber(left), toNumber(right));
+  }
+
+  private equals(left: VbValue, right: VbValue): VbValue {
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order === 0 };
   }
 
   private notEquals(left: VbValue, right: VbValue): VbValue {
-    const eq = this.equals(left, right);
-    if (eq.type === 'Null') return VbNull;
-    return { type: 'Boolean', value: !toBoolean(eq) };
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order !== 0 };
   }
 
   private lessThan(left: VbValue, right: VbValue): VbValue {
-    this.checkComparisonOperands(left, right);
-    if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull;
-    }
-    const boolStr = this.compareBooleanString(left, right);
-    if (boolStr !== undefined) {
-      return { type: 'Boolean', value: boolStr < 0 };
-    }
-    if (left.type === 'String' || right.type === 'String') {
-      return { type: 'Boolean', value: toString(left) < toString(right) };
-    }
-    const currencyPair = this.currencyComparison(left, right);
-    if (currencyPair !== null) {
-      return { type: 'Boolean', value: currencyPair[0] < currencyPair[1] };
-    }
-    return { type: 'Boolean', value: toNumber(left) < toNumber(right) };
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order < 0 };
   }
 
   private lessThanOrEqual(left: VbValue, right: VbValue): VbValue {
-    this.checkComparisonOperands(left, right);
-    if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull;
-    }
-    const boolStr = this.compareBooleanString(left, right);
-    if (boolStr !== undefined) {
-      return { type: 'Boolean', value: boolStr <= 0 };
-    }
-    if (left.type === 'String' || right.type === 'String') {
-      return { type: 'Boolean', value: toString(left) <= toString(right) };
-    }
-    const currencyPair = this.currencyComparison(left, right);
-    if (currencyPair !== null) {
-      return { type: 'Boolean', value: currencyPair[0] <= currencyPair[1] };
-    }
-    return { type: 'Boolean', value: toNumber(left) <= toNumber(right) };
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order <= 0 };
   }
 
   private greaterThan(left: VbValue, right: VbValue): VbValue {
-    this.checkComparisonOperands(left, right);
-    if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull;
-    }
-    const boolStr = this.compareBooleanString(left, right);
-    if (boolStr !== undefined) {
-      return { type: 'Boolean', value: boolStr > 0 };
-    }
-    if (left.type === 'String' || right.type === 'String') {
-      return { type: 'Boolean', value: toString(left) > toString(right) };
-    }
-    const currencyPair = this.currencyComparison(left, right);
-    if (currencyPair !== null) {
-      return { type: 'Boolean', value: currencyPair[0] > currencyPair[1] };
-    }
-    return { type: 'Boolean', value: toNumber(left) > toNumber(right) };
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order > 0 };
   }
 
   private greaterThanOrEqual(left: VbValue, right: VbValue): VbValue {
-    this.checkComparisonOperands(left, right);
-    if (left.type === 'Null' || right.type === 'Null') {
-      return VbNull;
-    }
-    const boolStr = this.compareBooleanString(left, right);
-    if (boolStr !== undefined) {
-      return { type: 'Boolean', value: boolStr >= 0 };
-    }
-    if (left.type === 'String' || right.type === 'String') {
-      return { type: 'Boolean', value: toString(left) >= toString(right) };
-    }
-    const currencyPair = this.currencyComparison(left, right);
-    if (currencyPair !== null) {
-      return { type: 'Boolean', value: currencyPair[0] >= currencyPair[1] };
-    }
-    return { type: 'Boolean', value: toNumber(left) >= toNumber(right) };
+    const order = this.compareOperands(left, right);
+    if (order === null) return VbNull;
+    return { type: 'Boolean', value: order >= 0 };
   }
 
   private evaluateUnary(node: UnaryExpression): VbValue {

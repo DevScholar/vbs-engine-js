@@ -51,7 +51,8 @@ This document tracks the compatibility between this VBScript engine implementati
 | Modulo (Mod) | ✔️ | |
 | Exponentiation (^) | ✔️ | |
 | Concatenation (&) | ✔️ | |
-| Comparison (=, <>, <, >, <=, >=) | ✔️ | |
+| Comparison (=, <>, <, >, <=, >=) | ✔️ | Text is compared character by character and case sensitively, so `"b" = "B"` is False. A text beside a number is read as a number when it is one (`"1" = 1` is True), and beside anything else as text (`"True" = True` is True and `"1" = True` is False). A Null on either side answers Null, an object is error 91 or 438 and an array is error 13 |
+| Comparison with a literal number | ✔️ | A text that is no number beside a number written out in the source is the type mismatch Windows raises: `"abc" = 1` and `"abc" = (1)` are error 13. A number that came from anywhere else is compared as text instead and answers False, which is what `"abc" = 1 * 1`, `"abc" = CInt(1)` and `"abc" = Len("a")` do |
 | Is | ✔️ | |
 | And | ✔️ | |
 | Or | ✔️ | |
@@ -67,11 +68,11 @@ This document tracks the compatibility between this VBScript engine implementati
 |---------|--------|-------|
 | If...Then...Else | ✔️ | Single-line and multi-line |
 | ElseIf | ✔️ | |
-| For...Next | ✔️ | With Step support |
-| For Each...Next | ✔️ | |
-| Do...Loop | ✔️ | While/Until variants |
+| For...Next | ✔️ | With Step support. A bound or a step that is no number is error 92, the loop's own "For loop not initialized" |
+| For Each...Next | ✔️ | Leaves its loop variable empty after the loop, which is what Windows does; For...Next keeps the value that stopped it |
+| Do...Loop | ✔️ | While/Until variants. A Null or an Empty condition is false rather than an error |
 | While...Wend | ✔️ | |
-| Select Case | ✔️ | With Case Else |
+| Select Case | ✔️ | With Case Else. A case is a plain expression or a comma list, as in VBScript: `Case 1 To 5` is a parse error there and here. It compares the way the operators do, so it reads text case sensitively and raises error 13 for a text beside a literal number |
 | Exit (Do/For/Sub/Function/Property) | ✔️ | |
 | With...End With | ✔️ | |
 | GoTo | ✔️ | With label support |
@@ -560,7 +561,8 @@ and are intended for Node.js/JavaScript interoperability.
 |---------|--------|-------|
 | `As Type` annotations | ✔️ | `Dim x As Integer` initializes to typed default; applies to variables, parameters, return types |
 | `Enum...End Enum` | ✔️ | Global read-only constants; auto-increment from 0 or last explicit value; `Public`/`Private` |
-| `Collection` class | ✔️ | `New Collection`; `Add`, `Remove`, `Item`, `Count`; 1-based index or string key |
+| `Collection` class | ✔️ | `New Collection`; `Add`, `Remove`, `Item`, `Count`; 1-based index or string key. Not a class of `vbscript.dll`, which answers a runtime error for `New Collection`, so there is nothing to compare it against; it is kept because VB6 and VBA have it |
+| `Case Is` in Select Case | ✔️ | `Select Case x : Case Is > 5` runs here and is a compile error in `vbscript.dll`, which allows only a plain expression or a comma list. Kept because VB6 and VBA have it. A range (`Case 1 To 5`) is not accepted either way |
 | `LongLong` (64-bit integer) | ✔️ | Backed by `BigInt`; `CLngLng()` conversion; `VarType` = 20; arithmetic stays `LongLong` |
 | `Val()` and `Str()` | ✔️ | Not functions of `vbscript.dll`, which answers error 13 for both: a direct call to a name it does not know raises error 500 and a call through `Eval` raises error 13. They are kept because VB6 and VBA have them. `Val` reads a leading number and stops at the first character that is not one, and `Str` writes a leading space for the sign |
 | `Type...End Type` (user-defined types) | ✔️ | Struct-like; fields typed to VB6 defaults; `Dim x As MyType` creates initialized instance |
