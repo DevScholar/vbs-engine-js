@@ -142,6 +142,28 @@ const DATE_STRING_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [1033, 'CStr(IsDate("2.60"))', 'False'],
   [1033, 'CStr(IsDate("123.456"))', 'False'],
   [1033, 'CStr(IsDate("60.5"))', 'False'],
+  // The order two written numbers are read in comes from the Windows short date picture, never from Intl.
+  // Intl disagrees with Windows about five locales: 1065 (fa-IR) and 4100 (zh-SG) are day first for Windows
+  // and year first for Intl, 2077 (sv-FI) is year first for Windows and day first for Intl, 9225 (en-CB) is
+  // day first for Windows and month first for Intl, and 1077 (zu-ZA) is month first for Windows and year
+  // first for Intl. A two field text is a day and a month where the picture is day first and a month and a
+  // day everywhere else, so the wrong source answers the other date.
+  [1031, 'CStr(CDbl(CDate("1,5")))', '46143'],
+  [1033, 'CStr(CDbl(CDate("1,5")))', '46027'],
+  [1065, 'CStr(CDbl(CDate("1,5")))', '46143'],
+  [2077, 'CStr(CDbl(CDate("1,5")))', '46027'],
+  [4100, 'CStr(CDbl(CDate("1,5")))', '46143'],
+  [9225, 'CStr(CDbl(CDate("1,5")))', '46143'],
+  // Only a year the text itself names is read as a Buddhist one under 1054, so a two field date with no year
+  // is the current Gregorian year there.
+  [1054, 'CStr(CDbl(CDate("1,5")))', '46143'],
+  [1054, 'CStr(CDate("1,5"))', '1/5/2569'],
+  // A number written with marks, which only CDate reads, is read with the marks the locale's own row names.
+  // A mark the locale does not name is not a mark, so a full stop is no day count where the locale groups
+  // with a space and its fraction mark is a comma.
+  [1033, 'CStr(CDbl(CDate("29.9")))', '29.9'],
+  [1036, 'CStr(CDbl(CDate("29.9")))', 'ERR 13'],
+  [1065, 'CStr(CDbl(CDate("29.9")))', 'ERR 13'],
 ];
 
 // A day count below zero, which counts its time of day away from zero instead of toward it. Measured the same

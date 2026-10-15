@@ -2,6 +2,7 @@
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
 import { nlsDateFormat } from './nls-date-table.generated.ts';
+import { parseVbNumericString } from './nls-number.ts';
 import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
 import { currentLcid } from '../builtins/locale.ts';
@@ -1114,17 +1115,55 @@ function monthOfWord(word: string, locale: string): number | null {
 
 type DateOrder = 'DMY' | 'MDY' | 'YMD';
 
-function dateOrderOf(locale: string): { order: DateOrder; separator: string } {
-  const parts = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(2026, 8, 29));
-  const order = parts
-    .filter(part => part.type === 'day' || part.type === 'month' || part.type === 'year')
-    .map(part => part.type[0].toUpperCase())
-    .join('') as DateOrder;
-  const separator = parts.find(part => part.type === 'literal')?.value.trim() || '/';
+/** A date that was read, with whether the text named a year of its own. */
+interface WrittenDate {
+  date: Date;
+  yearWritten: boolean;
+}
+
+/** A date the reader found, tagged with whether the text named a year. */
+function written(date: Date | null, yearWritten: boolean): WrittenDate | null {
+  return date === null ? null : { date, yearWritten };
+}
+
+/**
+ * The field order and the separator a locale's own short date uses, read from the Windows picture string.
+ *
+ * The order decides which of two numbers in a written date is the month, and Windows reads a two field date
+ * as day and month where its picture is day first and as month and day everywhere else. Intl answers the
+ * order differently from Windows in five of the 132 locales: 1065 (fa-IR) and 4100 (zh-SG) are day first for
+ * Windows and year first for Intl, 2077 (sv-FI) is year first for Windows and day first for Intl, 9225
+ * (en-CB) is day first for Windows and month first for Intl, and 1077 (zu-ZA) is month first for Windows and
+ * year first for Intl. Asking Intl therefore reads CDate("1,5") as the other date under all five.
+ *
+ * The picture is walked rather than searched, so a quoted literal is never mistaken for a field, and a
+ * picture that separates its fields with a word (1028 writes "yyyy/M/d") keeps that word out of the reading.
+ */
+function dateOrderOf(): { order: DateOrder; separator: string } {
+  const picture = nlsDateFormat(currentLcid())?.shortDate ?? '';
+  const fields: string[] = [];
+  let separator = '/';
+  let separatorSeen = false;
+  for (let index = 0; index < picture.length;) {
+    const character = picture[index]!;
+    if (character === "'") {
+      const end = picture.indexOf("'", index + 1);
+      index = end < 0 ? picture.length : end + 1;
+      continue;
+    }
+    let run = 1;
+    while (picture[index + run] === character) run++;
+    const token = character.repeat(run);
+    if (token === 'd' || token === 'dd') fields.push('D');
+    else if (token === 'M' || token === 'MM') fields.push('M');
+    else if (/^y+$/.test(token)) fields.push('Y');
+    else if (!separatorSeen && fields.length > 0 && !/[A-Za-z]/.test(token)) {
+      separator = token;
+      separatorSeen = true;
+    }
+    index += run;
+  }
+  const order = fields.join('');
   return { order: order === 'MDY' || order === 'YMD' ? order : 'DMY', separator };
 }
 
@@ -1172,12 +1211,12 @@ function validDate(year: number, month: number, day: number): Date | null {
 }
 
 /** A date written with a month name: "1 Jan 2026", "Jan 1, 2026", "März 1 2026", "Jan 2026", "1 Jan". */
-function parseMonthNameDate(text: string, locale: string): Date | null {
+function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // A month name is set off from the rest by a space, a comma, a slash, a hyphen or the locale's own date
   // mark. A dot counts only where the locale writes its dates with dots, which a fresh cscript shows: under
   // 1033 "5. Januar 2026" is a type mismatch while "Januar. 5, 2026" reads, because the dot there belongs to
   // the name, and under 1031 both read.
-  const ownMark = dateOrderOf(locale).separator;
+  const ownMark = dateOrderOf().separator;
   const separators = ownMark === '.' ? /[\s,./-]+/ : /[\s,/-]+/;
   const words = text.split(separators).filter(word => word !== '');
   if (words.length < 2 || words.length > 3) return null;
@@ -1193,8 +1232,9 @@ function parseMonthNameDate(text: string, locale: string): Date | null {
   // "Jan 2026" is January 1st of that year; "1 Jan" is the 1st of January this year.
   if (numbers.length === 1) {
     const [only] = numbers;
-    if (only.length === 4 || Number(only) > 31) return validDate(yearOf(only), month, 1);
-    return validDate(new Date().getFullYear(), month, Number(only));
+    if (only.length === 4 || Number(only) > 31)
+      return written(validDate(yearOf(only), month, 1), true);
+    return written(validDate(new Date().getFullYear(), month, Number(only)), false);
   }
 
   // A four-digit number names the year wherever it stands ("1 Jan 2026"). With two short numbers the
@@ -1204,11 +1244,11 @@ function parseMonthNameDate(text: string, locale: string): Date | null {
   const fourDigit = numbers.find(number => number.length === 4);
   if (fourDigit !== undefined) {
     const other = numbers.find(number => number !== fourDigit) as string;
-    return validDate(Number(fourDigit), month, Number(other));
+    return written(validDate(Number(fourDigit), month, Number(other)), true);
   }
-  const { order } = dateOrderOf(locale);
+  const { order } = dateOrderOf();
   const [year, day] = order === 'YMD' ? [first, second] : [second, first];
-  return validDate(yearOf(year), month, Number(day));
+  return written(validDate(yearOf(year), month, Number(day)), true);
 }
 
 /**
@@ -1217,7 +1257,7 @@ function parseMonthNameDate(text: string, locale: string): Date | null {
  * actually uses are accepted, and a part that is not digits-then-marker bails out and leaves the text to
  * the other readers.
  */
-function parseLocalizedDate(text: string, locale: string): Date | null {
+function parseLocalizedDate(text: string, locale: string): WrittenDate | null {
   const parts = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'long',
@@ -1259,14 +1299,14 @@ function parseLocalizedDate(text: string, locale: string): Date | null {
   };
 
   const own = read(new RegExp(`${pattern}$`), order);
-  if (own) return own;
+  if (own) return written(own, true);
   // The ideographic form as well as the locale's own markers: vbscript.dll reads "2026年9月29日" under
   // Korean too, even though Korean writes its own dates as "2026년 9월 29일". Measured on 2052, 1028,
   // 1041 and 1042; en-US and de-DE reject both forms.
-  return read(/^(\d{1,4})年(\d{1,2})月(\d{1,2})日$/, ['year', 'month', 'day']);
+  return written(read(/^(\d{1,4})年(\d{1,2})月(\d{1,2})日$/, ['year', 'month', 'day']), true);
 }
 
-function parseDatePart(text: string, locale: string): Date | null {
+function parseDatePart(text: string, locale: string): WrittenDate | null {
   const named = parseMonthNameDate(text, locale);
   if (named) return named;
 
@@ -1276,9 +1316,9 @@ function parseDatePart(text: string, locale: string): Date | null {
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
   // The year goes through the same reading as any other year field, so a written year under a hundred is a
   // year of the near past or present: CDate("0001-01-01") is 1 January 2001, as a fresh cscript answers.
-  if (iso) return validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3]));
+  if (iso) return written(validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3])), true);
 
-  const { order, separator } = dateOrderOf(locale);
+  const { order, separator } = dateOrderOf();
   // "/" and "-" are read everywhere, a comma is read too, and the locale's own separator is read as well.
   // The locale's own separator holds the text to the locale's own order instead of letting the other order
   // rescue it ("29.9.26" is no date in Hungarian).
@@ -1316,7 +1356,7 @@ function parseDatePart(text: string, locale: string): Date | null {
     ];
     for (const [candidateYear, month, day] of [...byDayAndMonth, ...byMonthAndYear]) {
       const date = validDate(candidateYear, month, day);
-      if (date) return date;
+      if (date) return written(date, false);
     }
     return null;
   }
@@ -1347,7 +1387,7 @@ function parseDatePart(text: string, locale: string): Date | null {
   }
   for (const [year, month, day] of candidates) {
     const date = validDate(year, month, day);
-    if (date) return date;
+    if (date) return written(date, true);
   }
   return null;
 }
@@ -1402,11 +1442,21 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  *   * A German month name with a dot under 1042, whose dates are written with dots: Windows answers a type
  *     mismatch for "5. Januar 2026" where the engine reads it, since no other locale separates a month name
  *     from the day with a dot of its own.
+ *
+ * One reading is wider than Windows and is not yet narrowed. A text whose fields are separated by a full stop
+ * is read as a date under every locale whose picture carries a dot, and Windows reads a dotted date there
+ * only in the locale's own spaced form. Measured across the 132 locales, 33 cells differ under four of them:
+ *
+ *   * 1038 (hu-HU), 1051 (sk-SK) and 1060 (sl-SI) write their dates with dots, and Windows reads "1.5" as
+ *     1:05 there and "29.9" as the day count 299, while the engine reads a date. The engine also refuses
+ *     "2026. 05. 01.", which is the form Windows does read there.
+ *   * 1054 (th-TH) writes its dates with slashes and its fraction mark is a full stop, so Windows reads
+ *     "1.5" and "29.9" as the day counts 1.5 and 29.9, while the engine reads a time.
  */
 export function parseVbDate(text: string, locale: string): Date | null {
-  const date = parseVbDateInItsOwnCalendar(text, locale);
-  if (date === null) return null;
-  return fromBuddhistYear(date, locale);
+  const read = parseVbDateInItsOwnCalendar(text, locale);
+  if (read === null) return null;
+  return read.yearWritten ? fromBuddhistYear(read.date, locale) : read.date;
 }
 
 /**
@@ -1416,6 +1466,10 @@ export function parseVbDate(text: string, locale: string): Date | null {
  * "5/1/2026", while CDate("5 มกราคม 2569") is the Gregorian year 2026 and writes as "5/1/2569". The other
  * calendars do not shift a year that was written: under ar-SA CDate("5 يناير 2026") prints "05/01/2026",
  * which is the Gregorian year 2026 there.
+ *
+ * Only a year the text itself names is shifted. A date written without one is filled in with the current
+ * Gregorian year, and a time alone is on a Gregorian day 0, so shifting those answers a date that Windows
+ * never answers: under 1054 CDate("1,5") is 1 May 2026 and CDate("1:05") is 1:05 on 30 December 1899.
  */
 function fromBuddhistYear(date: Date, locale: string): Date {
   if (new Intl.DateTimeFormat(locale).resolvedOptions().calendar !== 'buddhist') return date;
@@ -1427,30 +1481,30 @@ function fromBuddhistYear(date: Date, locale: string): Date {
 /** The years between the Buddhist and the Gregorian count. */
 const BUDDHIST_YEAR_OFFSET = 543;
 
-function parseVbDateInItsOwnCalendar(text: string, locale: string): Date | null {
+function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate | null {
   const trimmed = text.trim();
   if (trimmed === '') return null;
 
   const time = parseTimePart(trimmed);
-  if (time) return new Date(1899, 11, 30, ...time);
+  if (time) return written(new Date(1899, 11, 30, ...time), false);
 
   const words = trimmed.split(/\s+/);
   for (let split = words.length - 1; split >= 1; split--) {
-    const date = parseDatePart(words.slice(0, split).join(' '), locale);
-    if (!date) continue;
+    const read = parseDatePart(words.slice(0, split).join(' '), locale);
+    if (!read) continue;
     const timeOfDay = parseTimePart(words.slice(split).join(' '));
     if (!timeOfDay) continue;
-    date.setHours(...timeOfDay);
-    return date;
+    read.date.setHours(...timeOfDay);
+    return read;
   }
   const date = parseDatePart(trimmed, locale);
   if (date) return date;
   // A time whose fields are marked with a dot, which Windows reads where a dot is not the date separator:
   // under 1033 CDate("2.5") is 2:05 in the morning and CDate("2.5 PM") is 2:05 in the afternoon, while under
   // 1031 a dot is the date separator and the same text is 2 May.
-  if (dateOrderOf(locale).separator !== '.') {
+  if (dateOrderOf().separator !== '.') {
     const dottedTime = parseDottedTimePart(trimmed);
-    if (dottedTime) return new Date(1899, 11, 30, ...dottedTime);
+    if (dottedTime) return written(new Date(1899, 11, 30, ...dottedTime), false);
   }
   return null;
 }
@@ -1468,12 +1522,12 @@ const LATEST_SERIAL = 2958465;
  * CDate("&H10") is the 16th day and CDate(" +7") the 7th, and it has to land inside the range a date holds:
  * CDate("2958465") is 31 December 9999 while CDate("2958466") and CDate("-657435") are a type mismatch.
  */
-export function parseVbDateAsCdate(text: string, locale: string, decimalMark = '.'): Date | null {
+export function parseVbDateAsCdate(text: string, locale: string): Date | null {
   const literal = readVbNumberLiteral(text);
   if (literal !== null) return literal;
   const date = parseVbDate(text, locale);
   if (date !== null) return date;
-  return readMarkedNumber(text, decimalMark);
+  return readMarkedNumber(text);
 }
 
 /**
@@ -1482,24 +1536,24 @@ export function parseVbDateAsCdate(text: string, locale: string, decimalMark = '
  * Measured under 1031 and 1033, and only CDate reads these: IsDate("13.45") is False under 1031, and
  * IsDate("2.60"), IsDate("123.456") and IsDate("60.5") are False under 1033.
  *
- *   * The locale's decimal mark is read as a decimal point, and the other mark comes out, so under 1033
- *     "123.456" is the day count 123.456 while "13,45" is 1345 since a comma is not its decimal mark.
- *   * Under 1031 it is the other way round, because a comma is the decimal mark there and a dot the date
- *     separator: "13,45" is 13.45 and "13.45" is 1345, "1.2.3.4" is 1234 and "-1.5" is -15.
+ *   * The number is read with the marks the locale's own row in the Windows number table names, the same
+ *     reading CDbl uses, so under 1033 "123.456" is the day count 123.456 while "13,45" is 1345 because a
+ *     comma groups there, and under 1031 it is the other way round ("13,45" is 13.45 and "13.45" is 1345).
+ *   * A mark the locale does not name is not a mark at all. The earlier rule took whichever of the full
+ *     stop and the comma was not the fraction mark out of the number, which reads "29.9" as the day count
+ *     299 under every locale that groups with a space. Windows answers a type mismatch there, as a fresh
+ *     cscript shows under 1036, 1053, 1063, 1065, 1072, 1073, 1078, 1091, 2070, 2077, 2115, 3084, 5130
+ *     and 7177.
  *
- * A number with more than one decimal mark left is not a number, which is what makes CDate("1.2.3.4") a type
- * mismatch under 1033. The whole days have to land inside the range a date holds, which is why
- * CDate("2958466") refuses while CDate("2958465.5") is 31 December 9999 at noon.
+ * Only digits and the two marks between them are read here, so a currency symbol, a pair of parentheses and
+ * an exponent are left to the other readers. The whole days have to land inside the range a date holds,
+ * which is why CDate("2958466") refuses while CDate("2958465.5") is 31 December 9999 at noon.
  */
-function readMarkedNumber(text: string, decimalMark: string): Date | null {
+function readMarkedNumber(text: string): Date | null {
   const trimmed = text.trim();
   if (!/^[+-]?[\d.,]+$/.test(trimmed)) return null;
-  const otherMark = decimalMark === '.' ? /,/g : /\./g;
-  const withoutOtherMark = trimmed.replace(otherMark, '');
-  const written =
-    decimalMark === '.' ? withoutOtherMark : withoutOtherMark.replaceAll(decimalMark, '.');
-  const serial = Number(written);
-  if (!Number.isFinite(serial)) return null;
+  const serial = parseVbNumericString(trimmed);
+  if (serial === null || !Number.isFinite(serial)) return null;
   const wholeDays = Math.trunc(serial);
   if (wholeDays < EARLIEST_SERIAL || wholeDays > LATEST_SERIAL) return null;
   return serialToDate(serial);

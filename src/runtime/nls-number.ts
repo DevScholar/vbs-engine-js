@@ -1,8 +1,9 @@
 import { nlsNumberFormat, type NlsNumberFormat } from './nls-number-table.generated.ts';
+import { currentLcid } from '../builtins/locale.ts';
 
 /**
- * Writes numbers the way vbscript.dll writes them, from the Windows NLS values in
- * nls-number-table.generated.ts.
+ * Writes a number the way vbscript.dll writes it, and reads one the way it reads it, from the Windows NLS
+ * values in nls-number-table.generated.ts. The reader is at the end of the file: parseVbNumericString.
  *
  * Why this is not Intl.NumberFormat with a few characters swapped:
  *
@@ -191,6 +192,20 @@ function localeDigits(style: NlsNumberStyle, facts: NlsNumberFormat, asked?: num
 }
 
 /**
+ * The negative shape a caller asked for.
+ *
+ * useParensForNegativeNumbers is a tristate: True puts the amount in parentheses, False writes the locale's
+ * own shape with the sign where the parentheses were, and anything else leaves the locale's shape alone.
+ * False is therefore not "a leading minus". 1065 (fa-IR) writes a negative as "1,234/50-" and answers the
+ * same for False, while 1033 answers "-1,234.50" because its own shape is the parenthesised one.
+ */
+function negativeShape(facts: NlsNumberFormat, parens?: number): number {
+  if (parens === -1) return 0;
+  if (parens === 0) return facts.negativeNumber === 0 ? 1 : facts.negativeNumber;
+  return facts.negativeNumber;
+}
+
+/**
  * Writes a number as vbscript.dll writes it under an LCID.
  *
  * @param value - The number to write.
@@ -242,14 +257,13 @@ export function formatNlsNumber(
 
   if (style === 'percent') {
     if (!negative) return text + '%';
+    // The percent sign sits inside the parentheses when the caller asks for them: "(50.00%)".
     if (options.parens === -1) return '(' + text + '%)';
-    if (options.parens === 0) return sign + text + '%';
-    return negativeNumber(text, sign, facts.negativeNumber) + '%';
+    return negativeNumber(text, sign, negativeShape(facts, options.parens)) + '%';
   }
 
   if (!negative) return text;
-  const pattern = options.parens === -1 ? 0 : options.parens === 0 ? 1 : facts.negativeNumber;
-  return negativeNumber(text, sign, pattern);
+  return negativeNumber(text, sign, negativeShape(facts, options.parens));
 }
 
 /**
@@ -340,4 +354,85 @@ export function formatVbCurrencyText(scaled: bigint, lcid: number): string {
   const written = fractionPart === '' ? wholePart : wholePart + '.' + fractionPart;
   const signed = scaled < 0n ? '-' + written : written;
   return facts.decimal === '.' ? signed : signed.replace('.', facts.decimal);
+}
+
+const HEX_STRING_RE = /^&[hH]([0-9a-fA-F]+)&?$/;
+const OCTAL_STRING_RE = /^&[oO]?([0-7]+)&?$/;
+const DECIMAL_STRING_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eEdD][+-]?\d+)?$/;
+
+/** A regular expression that matches one character of text and nothing else. */
+function escapeForPattern(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Strictly parses a trimmed string as a VBScript number, with the marks the current locale writes.
+ *
+ * Measured against a fresh cscript in all 132 locales Windows answers for. Windows reads four marks and not
+ * two: LOCALE_SDECIMAL and LOCALE_SMONDECIMALSEP both stand for the fraction, and LOCALE_STHOUSAND and
+ * LOCALE_SMONTHOUSANDSEP both come out as grouping. The two sets are not always the same, and the
+ * difference shows. Under 3079 (de-AT) a full stop groups a plain number, because its money mark is the
+ * one that holds it, and under 1102 (mr-IN) a backtick is a fraction mark for the same reason.
+ *
+ * A space is one more group mark wherever the locale groups with a space of its own. "1 234" is 1234 under
+ * 1026, 1036 and 3079, and a type mismatch under 1031, 1033, 1065, 1102 and 2055. No other blank counts
+ * anywhere: a tab, a narrow no-break space and an em space are all type mismatches, even under the locales
+ * that do group with a space.
+ *
+ * A group mark is dropped only where a digit stands before it, which is why ",5" is a half under 1031 but a
+ * type mismatch under 1033. The locale's own currency symbol may stand before or after the number ("$1.5"
+ * under 1033, "1,5 €" under 1031), a pair of parentheses around the amount means a negative, an exponent is
+ * read with e, E, d or D, and the VB literal prefixes (&H, &O) are read as they always were.
+ *
+ * Everything else is not a number, an empty string and a string of spaces included, and the whole string has
+ * to be one: "50%" and "abc" are type mismatches. A full stop that is not one of this locale's fraction
+ * marks is not a number either, which is what makes "1.5" a type mismatch under 1026 while it is 1,5 under
+ * its neighbours. Returns null rather than throwing, so the callers can decide what to do.
+ */
+export function parseVbNumericString(trimmed: string): number | null {
+  if (trimmed === '') return null;
+  const hexMatch = HEX_STRING_RE.exec(trimmed);
+  if (hexMatch) return parseInt(hexMatch[1]!, 16);
+  const octalMatch = OCTAL_STRING_RE.exec(trimmed);
+  if (octalMatch) return parseInt(octalMatch[1]!, 8);
+
+  const facts = nlsNumberFormat(currentLcid());
+  const decimalMarks = [facts?.decimal ?? '.', facts?.monDecimal ?? '.'];
+  const groupMarks = [facts?.thousand ?? '', facts?.monThousand ?? ''];
+  // A plain space groups a number in every locale whose own group mark is a space.
+  if (facts !== undefined && /\s/.test(facts.thousand)) groupMarks.push(' ');
+  const currencySymbol = facts?.currencySymbol ?? '';
+
+  let written = trimmed;
+  if (currencySymbol !== '') {
+    const afterPrefix = written.startsWith(currencySymbol)
+      ? written.slice(currencySymbol.length).trim()
+      : written;
+    written = afterPrefix.endsWith(currencySymbol)
+      ? afterPrefix.slice(0, -currencySymbol.length).trim()
+      : afterPrefix;
+  }
+  let negative = false;
+  if (written.startsWith('(') && written.endsWith(')')) {
+    negative = true;
+    written = written.slice(1, -1).trim();
+  }
+  if (written.startsWith('+') || written.startsWith('-')) {
+    if (written.startsWith('-')) negative = !negative;
+    written = written.slice(1);
+  }
+  for (const groupMark of groupMarks) {
+    // A mark that is also a fraction mark is read as a fraction mark, never as grouping.
+    if (groupMark === '' || decimalMarks.includes(groupMark)) continue;
+    written = written.replace(new RegExp(`(?<=\\d)${escapeForPattern(groupMark)}`, 'g'), '');
+  }
+  // A full stop this locale does not name as one of its two fraction marks is not part of a number.
+  if (!decimalMarks.includes('.') && written.includes('.')) return null;
+  for (const decimalMark of decimalMarks) {
+    if (decimalMark !== '.') written = written.split(decimalMark).join('.');
+  }
+  if (!DECIMAL_STRING_RE.test(written)) return null;
+  const num = parseFloat(written.replace(/[dD]/, 'e'));
+  if (isNaN(num)) return null;
+  return negative ? -num : num;
 }

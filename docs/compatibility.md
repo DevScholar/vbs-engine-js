@@ -195,7 +195,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | CBool | ✔️ | |
 | CByte | ✔️ | |
 | CCur | ✔️ | |
-| CDate | ✔️ | |
+| CDate | ✔️ | Reads a written date with the locale's own order, from the Windows short date picture. Measured across the 132 locales that answer, with one gap still open: a text whose fields are separated by a full stop differs under 1038, 1051, 1060 and 1054 |
 | CDbl | ✔️ | |
 | CInt | ✔️ | |
 | CLng | ✔️ | |
@@ -216,7 +216,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | IsDate | ✔️ | |
 | IsEmpty | ✔️ | |
 | IsNull | ✔️ | |
-| IsNumeric | ✔️ | Reads a string the way the conversions do, with the locale's own marks, so `IsNumeric("1 234")` and `IsNumeric("50%")` are `False` |
+| IsNumeric | ✔️ | Reads a string the way the conversions do, with the locale's own marks, so `IsNumeric("50%")` is `False` and `IsNumeric("1 234")` is `False` under 1031 but `True` under 1026, where a space is the group mark |
 | IsObject | ✔️ | |
 | VarType | ✔️ | |
 | TypeName | ✔️ | |
