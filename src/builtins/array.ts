@@ -1,6 +1,7 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
   toNumber,
+  toString,
   VbArray,
   createVbArrayFromValues,
   createVbError,
@@ -13,9 +14,11 @@ export const arrayFunctions = {
     return { type: 'Array', value: arr };
   },
 
+  // The bounds of something that is not an array are a type mismatch, a Null included: LBound(Null) is error
+  // 13 and not the invalid use of Null, and a dimension outside the array is error 9, which getBounds raises.
   LBound: (arrayname: VbValue, dimension?: VbValue): VbValue => {
     if (arrayname.type !== 'Array') {
-      throw new Error('Type mismatch: LBound');
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: LBound');
     }
     const arr = arrayname.value as VbArray;
     const dim = dimension ? Math.floor(toNumber(dimension)) : 1;
@@ -25,7 +28,7 @@ export const arrayFunctions = {
 
   UBound: (arrayname: VbValue, dimension?: VbValue): VbValue => {
     if (arrayname.type !== 'Array') {
-      throw new Error('Type mismatch: UBound');
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: UBound');
     }
     const arr = arrayname.value as VbArray;
     const dim = dimension ? Math.floor(toNumber(dimension)) : 1;
@@ -51,14 +54,15 @@ export const arrayFunctions = {
       throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null: Filter');
     }
     if (inputStrings.type !== 'Array') {
-      throw new Error('Type mismatch: Filter');
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Filter');
     }
     const arr = (inputStrings.value as VbArray).toArray();
-    const searchValue = (value.value as string).toLowerCase();
+    // Both sides are read as text, so Filter(Array(1, 2), 1) answers with the element 1.
+    const searchValue = toString(value).toLowerCase();
     const shouldInclude = include ? toNumber(include) !== 0 : true;
 
     const filtered = arr.filter(item => {
-      const str = (item.value as string).toLowerCase();
+      const str = toString(item).toLowerCase();
       const found = str.includes(searchValue);
       return shouldInclude ? found : !found;
     });

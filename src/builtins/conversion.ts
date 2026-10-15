@@ -298,7 +298,8 @@ export const inspectionFunctions = {
       Variant: 12,
       Byte: 17,
       LongLong: 20,
-      Array: 8192,
+      // An array of variants is VT_ARRAY with VT_VARIANT, which a fresh cscript answers with 8204.
+      Array: 8204,
     };
     return { type: 'Integer', value: typeMap[expression.type] ?? 12 };
   },

@@ -36,6 +36,7 @@ import {
   toSinglePrecision,
   isPlainNumber,
   checkCurrencyRange,
+  VbArray,
   checkLongLongRange,
   CURRENCY_SCALE,
 } from '../runtime/index.ts';
@@ -132,6 +133,13 @@ function bitwiseResultType(left: VbValue, right: VbValue): 'Boolean' | 'Long' {
 function makeBitwiseResult(value: number, left: VbValue, right: VbValue): VbValue {
   const type = bitwiseResultType(left, right);
   return type === 'Boolean' ? { type: 'Boolean', value: value !== 0 } : { type: 'Long', value };
+}
+
+/** An array is copied where it is assigned, so a copy is what goes into the variable. */
+function cloneIfArray(value: VbValue): VbValue {
+  if (value.type !== 'Array') return value;
+  const array = value.value as VbArray;
+  return { type: 'Array', value: array.clone() };
 }
 
 export class ExpressionEvaluator {
@@ -1144,7 +1152,9 @@ export class ExpressionEvaluator {
         const oldValue = this.context.getVariable(node.left.name);
         this.callTerminateIfNeeded(oldValue, value);
       }
-      this.context.setVariable(node.left.name, value);
+      // An array is copied where it is assigned, which a fresh cscript shows: after b = a, changing b(0) or
+      // erasing b leaves a as it was.
+      this.context.setVariable(node.left.name, cloneIfArray(value));
       return value;
     }
 

@@ -258,8 +258,10 @@ export class StatementExecutor {
     for (const decl of node.declarations) {
       let value: VbValue = VbEmpty;
 
-      if (decl.isArray && decl.arrayBounds) {
-        const bounds = decl.arrayBounds.map(b => {
+      if (decl.isArray) {
+        // Dim a() makes a dynamic array with no size yet: IsArray answers True, UBound raises error 9, and a
+        // later ReDim gives it its bounds. Measured on a fresh cscript, as is VarType 8204 for it.
+        const bounds = (decl.arrayBounds ?? []).map(b => {
           const boundValue = this.exprEvaluator.evaluate(b);
           return toNumber(boundValue);
         });
@@ -313,20 +315,21 @@ export class StatementExecutor {
 
   private executeReDimStatement(node: VbReDimStatement): VbValue {
     for (const decl of node.declarations) {
-      if (!decl.isArray || !decl.arrayBounds) continue;
+      if (!decl.isArray) continue;
 
-      const bounds = decl.arrayBounds.map(b => {
+      const bounds = (decl.arrayBounds ?? []).map(b => {
         const boundValue = this.exprEvaluator.evaluate(b);
         return toNumber(boundValue);
       });
-
       const existingVar = this.context.currentScope.get(decl.id.name);
 
       if (existingVar && existingVar.value.type === 'Array') {
         const arr = existingVar.value.value as VbArray;
         arr.redim(bounds, node.preserve);
       } else {
-        const arr = createVbArray(bounds);
+        // A ReDim always makes a dynamic array, so that Erase frees it later.
+        const arr = createVbArray([]);
+        arr.redim(bounds, false);
         this.context.setVariable(decl.id.name, { type: 'Array', value: arr });
       }
     }
@@ -342,12 +345,16 @@ export class StatementExecutor {
       throw new Error(`Variable '${arrayName}' not defined`);
     }
 
+    // Erasing something that is not an array is a type mismatch, which a fresh cscript shows for Erase x.
     if (variable.value.type !== 'Array') {
-      throw new Error(`Type mismatch: '${arrayName}' is not an array`);
+      throw createVbError(
+        VbErrorCodes.TypeMismatch,
+        `Type mismatch: '${arrayName}' is not an array`
+      );
     }
 
     const arr = variable.value.value as VbArray;
-    arr.erase();
+    arr.erase(arr.isDynamic());
 
     return VbEmpty;
   }
@@ -406,10 +413,7 @@ export class StatementExecutor {
     const collection = this.exprEvaluator.evaluate(node.right as Expression);
 
     if (collection.type !== 'Array' && collection.type !== 'Object') {
-      throw createVbError(
-        VbErrorCodes.TypeMismatch,
-        'Type mismatch: expected array or collection'
-      );
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: expected array or collection');
     }
 
     let items: VbValue[];
@@ -831,7 +835,11 @@ export class StatementExecutor {
               try {
                 self.executeBlockStatement(memberNode.body);
               } catch (signal) {
-                if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+                if (!(
+                  signal instanceof ControlFlowSignal &&
+                  signal.type === 'exit' &&
+                  self.context.getExitFlag() === 'sub'
+                )) {
                   throw signal;
                 }
                 self.context.clearExitFlag();
@@ -855,7 +863,11 @@ export class StatementExecutor {
               try {
                 self.executeBlockStatement(memberNode.body);
               } catch (signal) {
-                if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+                if (!(
+                  signal instanceof ControlFlowSignal &&
+                  signal.type === 'exit' &&
+                  self.context.getExitFlag() === 'sub'
+                )) {
                   throw signal;
                 }
                 self.context.clearExitFlag();
@@ -879,7 +891,11 @@ export class StatementExecutor {
               self.bindParameters(memberNode.params, args);
               self.executeBlockStatement(memberNode.body);
             } catch (signal) {
-              if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'sub')) {
+              if (!(
+                signal instanceof ControlFlowSignal &&
+                signal.type === 'exit' &&
+                self.context.getExitFlag() === 'sub'
+              )) {
                 throw signal;
               }
               self.context.clearExitFlag();
@@ -942,7 +958,11 @@ export class StatementExecutor {
             self.executeBlockStatement(memberNode.body);
             result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
           } catch (signal) {
-            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+            if (!(
+              signal instanceof ControlFlowSignal &&
+              signal.type === 'exit' &&
+              self.context.getExitFlag() === 'property'
+            )) {
               throw signal;
             }
             self.context.clearExitFlag();
@@ -972,7 +992,11 @@ export class StatementExecutor {
           try {
             self.executeBlockStatement(memberNode.body);
           } catch (signal) {
-            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+            if (!(
+              signal instanceof ControlFlowSignal &&
+              signal.type === 'exit' &&
+              self.context.getExitFlag() === 'property'
+            )) {
               throw signal;
             }
             self.context.clearExitFlag();
@@ -998,7 +1022,11 @@ export class StatementExecutor {
           try {
             self.executeBlockStatement(memberNode.body);
           } catch (signal) {
-            if (!(signal instanceof ControlFlowSignal && signal.type === 'exit' && self.context.getExitFlag() === 'property')) {
+            if (!(
+              signal instanceof ControlFlowSignal &&
+              signal.type === 'exit' &&
+              self.context.getExitFlag() === 'property'
+            )) {
               throw signal;
             }
             self.context.clearExitFlag();
