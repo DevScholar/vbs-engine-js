@@ -184,7 +184,11 @@ export function createVbValue(value: unknown): VbValue {
       if (value >= -32768 && value <= 32767) {
         return { type: 'Integer', value };
       }
-      return { type: 'Long', value };
+      // A VBScript Long is 32 bits, and a whole number past that is a Double: measured with TypeName,
+      // 32767 is an Integer, 2147483647 a Long and 2147483648 a Double, and so is 1000000 * 1000000.
+      if (value >= -2147483648 && value <= 2147483647) {
+        return { type: 'Long', value };
+      }
     }
     return { type: 'Double', value };
   }
@@ -326,7 +330,9 @@ export function toString(value: VbValue): string {
     return String(value.value);
   }
   if (value.type === 'Double' || value.type === 'Single' || value.type === 'Currency') {
-    return formatVbNumberText(value.value, currentLcid());
+    const kind =
+      value.type === 'Single' ? 'single' : value.type === 'Currency' ? 'currency' : 'double';
+    return formatVbNumberText(value.value, currentLcid(), kind);
   }
   if (value.type === 'Date') {
     return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());

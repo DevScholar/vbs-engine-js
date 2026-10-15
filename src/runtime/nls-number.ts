@@ -57,9 +57,6 @@ const ASCII_FALLBACK: NlsNumberFormat = {
   nativeDigits: '0123456789',
 };
 
-/** Rounding, and only rounding, comes from here: en-US digits are the ones every locale writes. */
-const PLAIN = new Intl.NumberFormat('en-US', { useGrouping: false });
-
 const roundedMagnitude = (value: number, digits: number): string =>
   new Intl.NumberFormat('en-US', {
     minimumFractionDigits: digits,
@@ -234,9 +231,78 @@ export function formatNlsNumber(
 /**
  * Writes a number the way CStr writes one: the locale's fraction mark, no grouping, and no trailing
  * zeros beyond what the value itself needs.
+ *
+ * Each VBScript type carries its own precision, and the three were measured against a fresh cscript:
+ *
+ *   * A Double keeps fifteen significant digits (CStr(1/3) is "0,333333333333333", and CStr(0.1+0.2) is
+ *     "0,3" where the value itself is 0.30000000000000004).
+ *   * A Single keeps seven (CStr(CSng(1/3)) is "0,3333333", and CStr(CSng(1234567.89)) is "1234568").
+ *   * A Currency keeps four decimal places rather than a count of significant digits, and it keeps the
+ *     sign through a rounding to zero: CStr(CCur(0.00005)) is "0,0001" and CStr(CCur(-0.00005)) is
+ *     "-0,0001", while CStr(CCur(0.00004)) is "0".
+ *
+ * Outside a window of exponents the value is written with one, and the exponent carries a sign and at
+ * least two digits: a Double writes "1E+15" and "1E-16" plainly either side, and a Single writes
+ * "1,234568E+07" and "4E-08" either side of its own narrower window. The window is the count of
+ * significant digits on each side of the point, so it is fifteen for a Double and seven for a Single.
  */
-export function formatVbNumberText(value: number, lcid: number): string {
+
+/** How many significant digits each type keeps. */
+const SIGNIFICANT_DIGITS: Record<'single' | 'double', number> = { single: 7, double: 15 };
+
+/** How many decimal places a Currency keeps. */
+const CURRENCY_DECIMALS = 4;
+
+/** Writes a value with a fixed count of significant digits, in an exponent only outside the plain window. */
+function significantText(value: number, significantDigits: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  const magnitude = Math.abs(value);
+  if (magnitude === 0) return '0';
+  const precise = magnitude.toPrecision(significantDigits);
+  const [rawMantissa, rawExponent] = precise.split('e');
+  let digits = rawMantissa.replace('.', '');
+  let leadingPower =
+    rawExponent === undefined
+      ? (rawMantissa.includes('.') ? rawMantissa.indexOf('.') : rawMantissa.length) - 1
+      : Number(rawExponent);
+  // A mantissa below one starts with zeros that are not significant: drop them and move the power with
+  // them, so the first digit written is the first significant one.
+  const leadingZeros = digits.length - digits.replace(/^0+/, '').length;
+  digits = digits.slice(leadingZeros).replace(/0+$/, '');
+  leadingPower -= leadingZeros;
+  const sign = value < 0 ? '-' : '';
+  if (leadingPower >= -significantDigits && leadingPower <= significantDigits - 1) {
+    if (leadingPower < 0) return sign + '0.' + '0'.repeat(-leadingPower - 1) + digits;
+    if (digits.length <= leadingPower + 1)
+      return sign + digits + '0'.repeat(leadingPower + 1 - digits.length);
+    return sign + digits.slice(0, leadingPower + 1) + '.' + digits.slice(leadingPower + 1);
+  }
+  const mantissa = digits.length === 1 ? digits : digits[0] + '.' + digits.slice(1);
+  const exponent = (leadingPower < 0 ? '-' : '+') + String(Math.abs(leadingPower)).padStart(2, '0');
+  return sign + mantissa + 'E' + exponent;
+}
+
+/** Rounds to the decimals a Currency keeps, away from zero, then writes what is left as it stands. */
+function currencyText(value: number): string {
+  const scale = 10 ** CURRENCY_DECIMALS;
+  const rounded = Math.round(Math.abs(value) * scale) / scale;
+  return String(value < 0 ? -rounded : rounded);
+}
+
+/**
+ * Writes a number the way CStr writes one.
+ *
+ * @param value - The number to write.
+ * @param lcid - The LCID whose fraction mark applies.
+ * @param kind - Which VBScript type is being written, since the three carry different precision.
+ */
+export function formatVbNumberText(
+  value: number,
+  lcid: number,
+  kind: 'single' | 'double' | 'currency' = 'double'
+): string {
   const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
-  const plain = PLAIN.format(value);
-  return facts.decimal === '.' ? plain : plain.replace('.', facts.decimal);
+  const written =
+    kind === 'currency' ? currencyText(value) : significantText(value, SIGNIFICANT_DIGITS[kind]);
+  return facts.decimal === '.' ? written : written.replace('.', facts.decimal);
 }
