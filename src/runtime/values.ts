@@ -1,5 +1,11 @@
 import { createVbError, VbErrorCodes } from './errors.ts';
-import { dateToSerial, formatVbDate, parseVbDate, serialToDate } from './vb-date.ts';
+import {
+  dateToSerial,
+  formatVbDate,
+  parseVbDate,
+  parseVbDateAsCdate,
+  serialToDate,
+} from './vb-date.ts';
 import { CURRENCY_DIGITS, formatVbCurrencyText, formatVbNumberText } from './nls-number.ts';
 import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
@@ -538,6 +544,18 @@ export function toVbDate(value: VbValue): Date {
     VbErrorCodes.TypeMismatch,
     `Type mismatch: ${value.type} cannot be converted to Date`
   );
+}
+
+/**
+ * A date as CDate reads one, which accepts one more shape of string than IsDate and DateValue do: a plain
+ * number standing for a day count. See parseVbDateAsCdate for the measurements behind it.
+ */
+export function toVbDateForCdate(value: VbValue): Date {
+  if (value.type === 'String') {
+    const date = parseVbDateAsCdate(value.value, getCurrentBCP47Locale());
+    if (date !== null) return date;
+  }
+  return toVbDate(value);
 }
 
 /**

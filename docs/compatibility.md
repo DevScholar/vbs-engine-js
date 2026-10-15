@@ -203,8 +203,6 @@ This document tracks the compatibility between this VBScript engine implementati
 | CStr | ✔️ | |
 | CVar | ✔️ | |
 | CVErr | ✔️ | |
-| Val | ✔️ | |
-| Str | ✔️ | |
 | FormatNumber | ✔️ | Reads the Windows NLS number table, so the fraction mark, the group marks and the fraction count are the locale's own |
 | FormatCurrency | ✔️ | The symbol, its position, the fraction count and the shape of a negative amount come from the locale's row in the same table |
 | FormatPercent | ✔️ | Reads the Windows NLS number table, and writes the percent sign the way Windows does |
@@ -571,5 +569,6 @@ and are intended for Node.js/JavaScript interoperability.
 | `Enum...End Enum` | ✔️ | Global read-only constants; auto-increment from 0 or last explicit value; `Public`/`Private` |
 | `Collection` class | ✔️ | `New Collection`; `Add`, `Remove`, `Item`, `Count`; 1-based index or string key |
 | `LongLong` (64-bit integer) | ✔️ | Backed by `BigInt`; `CLngLng()` conversion; `VarType` = 20; arithmetic stays `LongLong` |
+| `Val()` and `Str()` | ✔️ | Not functions of `vbscript.dll`, which answers error 13 for both: a direct call to a name it does not know raises error 500 and a call through `Eval` raises error 13. They are kept because VB6 and VBA have them. `Val` reads a leading number and stops at the first character that is not one, and `Str` writes a leading space for the sign |
 | `Type...End Type` (user-defined types) | ✔️ | Struct-like; fields typed to VB6 defaults; `Dim x As MyType` creates initialized instance |
 

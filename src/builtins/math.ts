@@ -141,16 +141,6 @@ export const mathFunctions = {
     void _number; // Intentionally unused - matches VBScript signature
     return VbEmpty;
   },
-
-  Oct: (number: VbValue): VbValue => {
-    const num = Math.floor(toNumber(number));
-    return { type: 'String', value: num.toString(8) };
-  },
-
-  Hex: (number: VbValue): VbValue => {
-    const num = Math.floor(toNumber(number));
-    return { type: 'String', value: num.toString(16).toUpperCase() };
-  },
 };
 
 export const constants: Record<string, VbValue> = {

@@ -185,6 +185,7 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 
 - **Which strings are dates follows the locale**, because that is what `SetLocale` is for: `IsDate("29.09.2026")` is `True` under `1031` and `False` under `1033`, and month names come from the locale (English names are read only for Chinese, Japanese and Korean, whose own names `vbscript.dll` does not match).
 - **Which types are dates does not.** `DateValue` and `TimeValue` take a date or a string only: a number, a Boolean or Empty is error 13 there and `Null` is error 94, in every locale. Only `CDate` reads numbers, Booleans and Empty.
+- **`CDate` reads a plain number inside a string as a day count, and `IsDate` does not.** `CDate("2026")` is 18 July 1905, the 2026th day after 30 December 1899, while `IsDate("2026")` is `False` and `DateValue("2026")` is error 13. A year under a hundred is read as 2000 to 2049 and 1950 to 1999, by value rather than by the digits written, so `CDate("0001-01-01")` is 1 January 2001 while `CDate("1/1/100")` is the year 100 and prints as `01.01.100`.
 
 `CStr` writes the date from Windows NLS, shipped with the engine as data (`src/runtime/nls-date-table.generated.ts`), because a browser has no NLS to ask and CLDR disagrees with it for most locales. The engine matches `vbscript.dll` for every locale it knows.
 

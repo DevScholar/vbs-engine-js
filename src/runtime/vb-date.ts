@@ -402,7 +402,9 @@ function dateNumericToken(
     case 'yy':
       return pad(year % 100, 2);
     case 'yyyy':
-      return pad(year, 4);
+      // Windows writes the digits a year has, so year 100 is "100" and not "0100": under 1031,
+      // CDate("1/1/100") is written "01.01.100" by a fresh cscript.
+      return String(year);
     default:
       return null;
   }
@@ -482,7 +484,9 @@ function localizedToken(
     case 'yy':
       return String(yearValue(year, date, locale) % 100).padStart(2, '0');
     case 'yyyy':
-      return String(yearValue(year, date, locale)).padStart(4, '0');
+      // Windows writes the digits a year has, so year 100 is "100" and not "0100": under 1031,
+      // CDate("1/1/100") is written "01.01.100" by a fresh cscript.
+      return String(yearValue(year, date, locale));
     case 'tt':
       return meridiem;
     case 't':
@@ -1110,14 +1114,21 @@ function dateOrderOf(locale: string): { order: DateOrder; separator: string } {
   return { order: order === 'MDY' || order === 'YMD' ? order : 'DMY', separator };
 }
 
-function toFullYear(year: number, digits: number): number {
-  if (digits > 2) return year;
-  return year < 30 ? 2000 + year : 1900 + year;
+/**
+ * A year under a hundred, read as the year it stands for.
+ *
+ * Measured against a fresh cscript under 1031 and 1033, for every value from 00 to 99: 00 to 49 are 2000 to
+ * 2049 and 50 to 99 are 1950 to 1999. The window does not move with the current year. It reads the VALUE and
+ * not the digits written, so CDate("0001-01-01") is 1 January 2001 while CDate("1/1/100") is year 100.
+ */
+function toFullYear(year: number): number {
+  return year < 50 ? 2000 + year : 1900 + year;
 }
 
-/** A year field: two digits are a year of the near past or present, as vbscript.dll reads them. */
+/** A year field: a value under a hundred is a year of the near past or present, as vbscript.dll reads it. */
 function yearOf(field: string): number {
-  return field.length > 2 ? Number(field) : toFullYear(Number(field), field.length);
+  const value = Number(field);
+  return value < 100 ? toFullYear(value) : value;
 }
 
 function validDate(year: number, month: number, day: number): Date | null {
@@ -1225,7 +1236,9 @@ function parseDatePart(text: string, locale: string): Date | null {
   if (localized) return localized;
 
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
-  if (iso) return validDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  // The year goes through the same reading as any other year field, so a written year under a hundred is a
+  // year of the near past or present: CDate("0001-01-01") is 1 January 2001, as a fresh cscript answers.
+  if (iso) return validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3]));
 
   const { order, separator } = dateOrderOf(locale);
   // "/" and "-" are read everywhere; the locale's own separator is read too, and it holds the text to the
@@ -1310,5 +1323,48 @@ export function parseVbDate(text: string, locale: string): Date | null {
     date.setHours(...timeOfDay);
     return date;
   }
-  return parseDatePart(trimmed, locale);
+  const date = parseDatePart(trimmed, locale);
+  if (date) return date;
+  // A time whose fields are marked with a dot, which Windows reads where a dot is not the date separator:
+  // under 1033 CDate("2.5") is 2:05 in the morning and CDate("2.5 PM") is 2:05 in the afternoon, while under
+  // 1031 a dot is the date separator and the same text is 2 May.
+  if (dateOrderOf(locale).separator !== '.') {
+    const dottedTime = parseTimePart(trimmed.replace(/\./g, ':'));
+    if (dottedTime) return new Date(1899, 11, 30, ...dottedTime);
+  }
+  return null;
+}
+
+/** The day counts a date holds: 1 January 100 is the earliest and 31 December 9999 the latest. */
+const EARLIEST_SERIAL = -657434;
+const LATEST_SERIAL = 2958465;
+
+/**
+ * A date as CDate reads one from a string, which is a wider set than IsDate and DateValue read.
+ *
+ * The extra shape is a plain number, read as an OLE day count: CDate("2026") is 18 July 1905. Only CDate
+ * reads it, since IsDate("2026") is False and DateValue("2026") is a type mismatch, all measured on a fresh
+ * cscript. The number may carry a sign, spaces around it, leading zeros or a VB literal prefix, so
+ * CDate("&H10") is the 16th day and CDate(" +7") the 7th, and it has to land inside the range a date holds:
+ * CDate("2958465") is 31 December 9999 while CDate("2958466") and CDate("-657435") are a type mismatch.
+ */
+export function parseVbDateAsCdate(text: string, locale: string): Date | null {
+  const literal = readVbNumberLiteral(text);
+  if (literal !== null) return literal;
+  return parseVbDate(text, locale);
+}
+
+/** A whole number written the way VB writes one, as a day count, or null when the text is something else. */
+function readVbNumberLiteral(text: string): Date | null {
+  const match = /^([+-]?)(?:&[Hh]([0-9A-Fa-f]+)|&[Oo]([0-7]+)|(\d+))$/.exec(text.trim());
+  if (!match) return null;
+  const magnitude =
+    match[2] !== undefined
+      ? parseInt(match[2], 16)
+      : match[3] !== undefined
+        ? parseInt(match[3], 8)
+        : Number(match[4]);
+  const serial = match[1] === '-' ? -magnitude : magnitude;
+  if (serial < EARLIEST_SERIAL || serial > LATEST_SERIAL) return null;
+  return serialToDate(serial);
 }

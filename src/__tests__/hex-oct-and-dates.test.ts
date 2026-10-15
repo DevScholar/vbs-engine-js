@@ -1,0 +1,124 @@
+import { describe, it, expect } from 'vitest';
+import { VbsEngine } from '../index.ts';
+
+// Hex and Oct, and the strings CDate reads. Every cell was read off a fresh cscript on Windows build 26200.
+//
+// Hex and Oct write a negative value as its two's complement, and the width follows the type as well as the
+// size:
+//
+//   * An Integer, a Boolean or a Byte fills sixteen bits while its magnitude fits a signed sixteen bit value,
+//     so Hex(-1) is "FFFF" and Oct(-1) is "177777".
+//   * Everything else fills thirty two, so Hex(CLng(-1)), Hex(CDbl(-1)) and Hex(CCur(-1)) are all "FFFFFFFF".
+//   * A value of -32768 is written in thirty two bits even as an Integer, because its magnitude no longer
+//     fits sixteen: Hex(-32768) is "FFFF8000".
+//   * The value is rounded to a whole number first, a tie going to the even neighbour: Hex(0.5) is "0",
+//     Hex(1.5) is "2", Hex(2.5) is "2". A value past the Long range is Overflow.
+const DIGIT_CELLS: ReadonlyArray<readonly [string, string]> = [
+  ['Hex(255)', 'FF'],
+  ['Hex(0)', '0'],
+  ['Hex(Empty)', '0'],
+  ['Hex("255")', 'FF'],
+  ['Hex(-1)', 'FFFF'],
+  ['Hex(True)', 'FFFF'],
+  ['Hex(CLng(-1))', 'FFFFFFFF'],
+  ['Hex(CDbl(-1))', 'FFFFFFFF'],
+  ['Hex(CSng(-1))', 'FFFFFFFF'],
+  ['Hex(CCur(-1))', 'FFFFFFFF'],
+  ['Hex("-1")', 'FFFFFFFF'],
+  ['Hex(-32767)', '8001'],
+  ['Hex(-32768)', 'FFFF8000'],
+  ['Hex(-32769)', 'FFFF7FFF'],
+  ['Hex(-2147483648)', '80000000'],
+  ['Hex(2147483647)', '7FFFFFFF'],
+  ['Hex(0.5)', '0'],
+  ['Hex(1.5)', '2'],
+  ['Hex(2.5)', '2'],
+  ['Hex(-0.5)', '0'],
+  ['Hex(-1.5)', 'FFFFFFFE'],
+  ['Hex(CSng(255.6))', '100'],
+  ['Hex(CCur(1.5))', '2'],
+  ['Hex(4294967295)', 'ERR 6'],
+  ['Hex(4294967296)', 'ERR 6'],
+  ['Hex(CCur(2147483648))', 'ERR 6'],
+  ['Oct(8)', '10'],
+  ['Oct(CByte(255))', '377'],
+  ['Oct(-1)', '177777'],
+  ['Oct(-32767)', '100001'],
+  ['Oct(-32768)', '37777700000'],
+  ['Oct(CLng(-1))', '37777777777'],
+  ['Oct(CDbl(-1))', '37777777777'],
+  ['Oct(CCur(-1))', '37777777777'],
+  ['Oct(2147483647)', '17777777777'],
+  ['Oct(2.5)', '2'],
+];
+
+function answer(expression: string, lcid = 1031): unknown {
+  const engine = new VbsEngine();
+  try {
+    engine.executeStatement(`SetLocale ${lcid}\nr = (${expression})`);
+    const failure = engine.error;
+    if (failure) return 'ERR ' + String(failure.number);
+    return engine.eval('r');
+  } finally {
+    engine.executeStatement('SetLocale 1033');
+  }
+}
+
+describe('Hex and Oct write the width the value type asks for', () => {
+  for (const [expression, expected] of DIGIT_CELLS) {
+    it(`${expression} is ${expected}`, () => {
+      expect(answer(expression)).toBe(expected);
+    });
+  }
+});
+
+// The strings CDate reads, which are a wider set than IsDate and DateValue read:
+//
+//   * A plain number is a day count: CDate("2026") is 18 July 1905. Only CDate reads it, since IsDate("2026")
+//     is False and DateValue("2026") is a type mismatch. It may carry a sign, spaces, leading zeros or a VB
+//     literal prefix, and it has to land inside the range a date holds, which is 1 January 100 to
+//     31 December 9999.
+//   * A year under a hundred is read as 2000 to 2049 and 1950 to 1999, by VALUE and not by the digits
+//     written, so CDate("0001-01-01") is 1 January 2001 while CDate("1/1/100") is year 100.
+//   * A year is written with the digits it has: CDate("1/1/100") prints "01.01.100" and not "01.01.0100".
+//   * A time may be marked with dots where a dot is not the locale's date separator: under 1033 CDate("2.5")
+//     is 2:05 in the morning, while under 1031 a dot is the date separator and the same text is 2 May.
+const DATE_STRING_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1031, 'CStr(CDate("1/5/49"))', '01.05.2049'],
+  [1031, 'CStr(CDate("1/5/50"))', '01.05.1950'],
+  [1033, 'CStr(CDate("1/5/99"))', '1/5/1999'],
+  [1033, 'CStr(CDate("1/5/50"))', '1/5/1950'],
+  [1031, 'CStr(CDate("1/1/100"))', '01.01.100'],
+  [1033, 'CStr(CDate("1/1/999"))', '1/1/999'],
+  [1031, 'CStr(CDate("0999-01-05"))', '05.01.999'],
+  [1031, 'CStr(CDate("0001-01-01"))', '01.01.2001'],
+  [1031, 'CStr(CDate("2026"))', '18.07.1905'],
+  [1033, 'CStr(CDate("2026"))', '7/18/1905'],
+  [1031, 'CStr(CDate("0"))', '00:00:00'],
+  [1031, 'CStr(CDate("-1"))', '29.12.1899'],
+  [1031, 'CStr(CDate("&H10"))', '15.01.1900'],
+  [1031, 'CStr(CDate(" +7"))', '06.01.1900'],
+  [1031, 'CStr(CDate("  7  "))', '06.01.1900'],
+  [1031, 'CStr(CDate("2958465"))', '31.12.9999'],
+  [1031, 'CDate("2958466")', 'ERR 13'],
+  [1031, 'CStr(CDate("-657434"))', '01.01.100'],
+  [1031, 'CDate("-657435")', 'ERR 13'],
+  [1031, 'CDate("99999999999")', 'ERR 13'],
+  [1031, 'CStr(IsDate("2026"))', 'False'],
+  [1031, 'DateValue("2026")', 'ERR 13'],
+  [1031, 'TimeValue("2026")', 'ERR 13'],
+  [1033, 'CStr(CDate("2.5"))', '2:05:00 AM'],
+  [1031, 'CStr(CDate("2.5"))', '02.05.2026'],
+  [1033, 'CStr(CDate("2.5 PM"))', '2:05:00 PM'],
+  [1033, 'CStr(IsDate("2.5"))', 'True'],
+  [1031, 'CStr(IsDate("2.5"))', 'True'],
+  [1033, 'CStr(CDate("13.45"))', '1:45:00 PM'],
+];
+
+describe('the strings CDate reads are the ones vbscript.dll reads', () => {
+  for (const [lcid, expression, expected] of DATE_STRING_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});

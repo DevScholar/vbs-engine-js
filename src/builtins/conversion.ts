@@ -9,7 +9,7 @@ import {
   toSinglePrecision,
   toString,
   toBoolean,
-  toVbDate,
+  toVbDateForCdate,
   VbErrorCodes,
   isEmpty,
   isNull,
@@ -19,6 +19,32 @@ import {
 } from '../runtime/index.ts';
 import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
 import { formatNlsNumber } from '../runtime/nls-number.ts';
+
+/**
+ * The digits Hex and Oct write, with the two's complement width the value's type asks for.
+ *
+ * Measured against a fresh cscript. A negative value is written as its two's complement, and the width
+ * follows the type as well as the size: an Integer, a Boolean or a Byte fills sixteen bits while its
+ * magnitude fits a signed sixteen bit value (Hex(-1) is "FFFF", Oct(-1) is "177777"), and everything else
+ * fills thirty-two (Hex(CLng(-1)), Hex(CDbl(-1)) and Hex(CCur(-1)) are all "FFFFFFFF", and Oct(CCur(-1)) is
+ * "37777777777"). A value of -32768 is written in thirty-two bits even as an Integer, because its magnitude
+ * no longer fits: Hex(-32768) is "FFFF8000" and Oct(-32768) is "37777700000".
+ *
+ * The value is rounded to a whole number first, a tie going to the even neighbour (Hex(0.5) is "0", Hex(1.5)
+ * is "2", Hex(2.5) is "2"), and a value outside the Long range is Overflow: Hex(4294967295) and
+ * Hex(CCur(2147483648)) both refuse.
+ */
+function toBaseDigits(number: VbValue, radix: 8 | 16, functionName: string): VbValue {
+  const value = roundHalfToEven(toNumber(number));
+  if (value < -2147483648 || value > 2147483647) {
+    throw createVbError(VbErrorCodes.Overflow, `Overflow: ${functionName}`);
+  }
+  if (value >= 0) return { type: 'String', value: value.toString(radix).toUpperCase() };
+  const narrowType =
+    number.type === 'Integer' || number.type === 'Boolean' || number.type === 'Byte';
+  const width = narrowType && value >= -32767 ? 16 : 32;
+  return { type: 'String', value: (2 ** width + value).toString(radix).toUpperCase() };
+}
 
 export const conversionFunctions = {
   CBool: (expression: VbValue): VbValue => {
@@ -38,7 +64,7 @@ export const conversionFunctions = {
   },
 
   CDate: (expression: VbValue): VbValue => {
-    return { type: 'Date', value: toVbDate(expression) };
+    return { type: 'Date', value: toVbDateForCdate(expression) };
   },
 
   CDbl: (expression: VbValue): VbValue => {
@@ -188,15 +214,9 @@ export const conversionFunctions = {
     };
   },
 
-  Hex: (number: VbValue): VbValue => {
-    const num = Math.floor(toNumber(number));
-    return { type: 'String', value: num.toString(16).toUpperCase() };
-  },
+  Hex: (number: VbValue): VbValue => toBaseDigits(number, 16, 'Hex'),
 
-  Oct: (number: VbValue): VbValue => {
-    const num = Math.floor(toNumber(number));
-    return { type: 'String', value: num.toString(8) };
-  },
+  Oct: (number: VbValue): VbValue => toBaseDigits(number, 8, 'Oct'),
 };
 
 export const inspectionFunctions = {
