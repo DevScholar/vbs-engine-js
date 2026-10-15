@@ -13,6 +13,12 @@ import { VbsEngine } from '../core/index.ts';
  *
  * The helpers the probe writes its rows with are written here in VBScript, since the host object it uses is not
  * one this engine supplies. Each row is one label and one value line, exactly as the capture holds it.
+ *
+ * The three row writers are followed by the helpers the families themselves call. They are copied from the
+ * helper block of the probe's `execute-probe-template.vbs`, which stands above the family marker, so a family's
+ * own text does not hold them. Leaving them out is what once made the two scope cells look like an engine
+ * difference: every call to a helper was undefined, `On Error Resume Next` swallowed it, and the cell wrote the
+ * empty value the name still had. Keep the block in step with the template.
  */
 const HELPERS = `Dim probeTrace, probeRows
 probeTrace = ""
@@ -30,6 +36,51 @@ Sub EmitTrace(label)
   probeRows = probeRows & label & vbTab & probeTrace & vbLf
   probeTrace = ""
 End Sub
+
+Sub Broken()
+  Trace "brokenRan"
+  x = 1 / 0
+End Sub
+
+' Helpers a family of cells calls, so that what Execute does inside a procedure can be read.
+Sub LocalDeclarer()
+  Execute "Dim localOnly" & vbCrLf & "localOnly = 1"
+End Sub
+
+Sub LocalReader()
+  Execute "moduleValue = moduleValue + 1"
+  globalSeen = moduleValue
+End Sub
+
+Sub LocalWriter()
+  Execute "moduleValue = 77"
+  moduleAfter = moduleValue
+End Sub
+
+Function FunctionScoped()
+  Execute "globalSeen2 = 5"
+  FunctionScoped = "called"
+End Function
+
+Function GlobalFromFunction()
+  ExecuteGlobal "globalSeen = 99"
+  GlobalFromFunction = "called"
+End Function
+
+' The same three helpers for ExecuteGlobal, so that what ExecuteGlobal does inside a procedure can be read.
+Sub GlobalDeclarer()
+  ExecuteGlobal "Dim globalOnly" & vbCrLf & "globalOnly = 1"
+End Sub
+
+Sub GlobalReader()
+  ExecuteGlobal "moduleValue = moduleValue + 1"
+  globalSeen = moduleValue
+End Sub
+
+Sub GlobalWriter()
+  ExecuteGlobal "moduleValue = 77"
+  moduleAfter = moduleValue
+End Sub
 `;
 
 interface Cell {
@@ -38,9 +89,9 @@ interface Cell {
   /** The rows the cell writes, as the capture holds them: one label and one value each. */
   readonly rows: readonly string[];
   /**
-   * The reason a cell's rows are not compared, or undefined when they are. Two reasons stand here: the engine
-   * stops a script where the handed over text did, so a row the cell writes afterwards never appears, and the
-   * two scope cells whose reading under this harness is an open point.
+   * The reason a cell's rows are not compared, or undefined when they are. One reason stands here now: the
+   * engine stops a script where the handed over text did, so a row the cell writes afterwards never appears.
+   * The probe writes that row, because cscript let the script run on past the call.
    */
   readonly knownDifference?: string;
 }
@@ -127,21 +178,17 @@ const FAMILIES: readonly Family[] = [
       {
         label: 'execute.scope.readsModule',
         code: 'moduleValue = 11\nLocalReader\nSetValue "execute.scope.readsModule", globalSeen',
-        rows: [],
-        knownDifference:
-          'Open point: the engine answers these statements differently only under the probe harness own own helper subs. See OPEN-execute-scope-cells.md in the probe directory.',
+        rows: ['execute.scope.readsModule	12'],
       },
       {
         label: 'execute.scope.globalToModule',
         code: 'LocalWriter\nSetValue "execute.scope.globalToModule", moduleAfter',
-        rows: [],
-        knownDifference: 'Open point: the same as execute.scope.readsModule.',
+        rows: ['execute.scope.globalToModule	77'],
       },
       {
         label: 'execute.scope.insideFunction',
         code: 'SetValue "execute.scope.insideFunction", FunctionScoped()',
-        rows: [],
-        knownDifference: 'Open point: the same as execute.scope.readsModule.',
+        rows: ['execute.scope.insideFunction	called'],
       },
       {
         label: 'execute.scope.insideSubDeclares',
@@ -190,28 +237,27 @@ const FAMILIES: readonly Family[] = [
       {
         label: 'executeglobal.declaresGlobal',
         code: 'GlobalDeclarer\nSetValue "executeglobal.declaresGlobal", CStr(globalOnly)',
-        rows: ['executeglobal.declaresGlobal	'],
+        rows: ['executeglobal.declaresGlobal	1'],
       },
       {
         label: 'executeglobal.readsModule',
         code: 'moduleValue = 21\nGlobalReader\nSetValue "executeglobal.readsModule", globalSeen',
-        rows: ['executeglobal.readsModule	'],
+        rows: ['executeglobal.readsModule	22'],
       },
       {
         label: 'executeglobal.writesModule',
         code: 'GlobalWriter\nSetValue "executeglobal.writesModule", moduleAfter',
-        rows: ['executeglobal.writesModule	'],
+        rows: ['executeglobal.writesModule	77'],
       },
       {
         label: 'executeglobal.insideFunction',
         code: 'SetValue "executeglobal.insideFunction", GlobalFromFunction()',
-        rows: [],
-        knownDifference: 'Open point: the same as execute.scope.readsModule.',
+        rows: ['executeglobal.insideFunction	called'],
       },
       {
         label: 'executeglobal.insideSub',
         code: 'GlobalDeclarer\nSetValue "executeglobal.insideSub", CStr(IsEmpty(globalOnly))',
-        rows: ['executeglobal.insideSub	True'],
+        rows: ['executeglobal.insideSub	False'],
       },
       {
         label: 'executeglobal.definition',
@@ -312,7 +358,7 @@ const FAMILIES: readonly Family[] = [
       {
         label: 'execute.inSub.trace',
         code: 'Sub Traced()\n  Trace "enter"\n  Execute "Trace ""inside"""\n  Trace "leave"\nEnd Sub\nTraced\nEmitTrace "execute.inSub.trace"',
-        rows: [],
+        rows: ['execute.inSub.trace	enter;inside;leave;'],
       },
     ],
   },

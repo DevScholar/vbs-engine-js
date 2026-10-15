@@ -588,11 +588,18 @@ are meant to see what that family's earlier cells left behind. The probe, its ca
 script live in the temporary probe directory, and `src/__tests__/execute-and-executeglobal.test.ts` is the
 durable copy of its 43 cells.
 
+The families call helper procedures. The probe holds them above the family marker, and the comparison script and
+the durable copy hold them as well. They have to stand in the source on both sides: without them every helper
+call is a name that was never defined, `On Error Resume Next` swallows the error, and the cell compares the empty
+value the name still had instead of an answer. Two scope cells were read that way for a while and looked like an
+engine difference, while the engine agreed with Windows all along.
+
 | Rule | Status | Notes |
 |------|--------|-------|
 | The scope it runs in | ✔️ | `Execute` runs in the caller's scope, so a variable the caller holds is read and written: inside a Sub it reads that Sub's own locals, and at script level a name it writes stays for the statements after it |
 | A name it declares | ✔️ | `Dim` in the handed over text declares into the scope the text runs in, so a `Dim x` inside `Execute` in a Sub is that Sub's local and is gone when the Sub returns |
 | `ExecuteGlobal` | ✔️ | Its text runs in the script's global scope, so a name it declares is the script's own wherever it was called from |
+| `ExecuteGlobal` called from a Sub | ✔️ | Measured: a Sub that runs `ExecuteGlobal "Dim globalOnly"` leaves `globalOnly` at script level, where the `Execute` form leaves the `Dim` of its own text in the Sub. A name the text writes reaches the script's own either way: a Sub that reads `moduleValue` through `Execute` answers 12 when the script set it to 11, and one that reads it through `ExecuteGlobal` answers 22 when the script set it to 21 |
 | Sub and Function definitions | ✔️ | A procedure the text defines is available to the statements after it, and redefining it replaces what was there before |
 | A class definition | ✔️ | `Execute` may define a class, which `New` finds afterwards |
 | An empty text | ✔️ | `Execute ""` runs and answers nothing |
@@ -665,14 +672,6 @@ matches `vbscript.dll`:
   script ends, and both sides free every one of them, but not in the same order. The order follows the order
   the host keeps its globals in, which neither `cscript` nor this engine writes down, so only the set of
   releases is compared.
-* **Two `Execute` scope cells.** The scope family of the `Execute` probe holds five cells, and three of them
-  are compared. The other two write a module variable from inside a Sub through `Execute` while the probe's own
-  helper subs are in the file, and the engine answers the same statements differently there and only there: the
-  same statements written out answer 12 and 77 on both sides, which
-  `src/__tests__/execute-and-executeglobal.test.ts` records, and the probe's own text run under `cscript`
-  answers 11 and empty just as the engine does. What makes the two reads differ was not found, so the two cells
-  are honest open points rather than answered ones; the probe directory's `OPEN-execute-scope-cells.md` holds
-  everything that was tried and the helpers for the next attempt.
 * **One `Execute` cell row.** The row the `execute.error.exitInsideTextStops` cell writes comes after the
   statement that stops the script, so the engine never reaches it while the probe's capture holds it. The rule
   itself is measured and followed: a script that calls `Execute "Exit Sub"` at its own level stops there.
