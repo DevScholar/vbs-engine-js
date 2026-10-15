@@ -413,7 +413,11 @@ export class StatementExecutor {
     const collection = this.exprEvaluator.evaluate(node.right as Expression);
 
     if (collection.type !== 'Array' && collection.type !== 'Object') {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: expected array or collection');
+      // A value that is no collection is error 451 in Windows, measured on a fresh cscript for a number, a
+      // text, an Empty, a Null, a Boolean and a Date alike: "For Each y In 5" answers "Object is not a
+      // collection" there, and not the type mismatch this used to raise. An object the engine cannot
+      // enumerate answers it too, which the check further down takes care of.
+      throw createVbError(451, 'Object is not a collection');
     }
 
     let items: VbValue[];

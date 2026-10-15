@@ -75,7 +75,7 @@ export class ExpressionParser {
   }
 
   parseStatementExpression(): Expression {
-    return this.parseStatementAssignment();
+    return this.parseStatementAssignment(true);
   }
 
   parseCallExpression(): Expression {
@@ -156,7 +156,7 @@ export class ExpressionParser {
     };
   }
 
-  private parseStatementAssignment(): Expression {
+  private parseStatementAssignment(atStatementLevel = false): Expression {
     // A statement can also START with one of the keywords usable as a name (`Step = 4`). Without
     // them the statement never enters the assignment path at all: it falls through to the
     // expression path, where `Step = 4` parses as the COMPARISON `Step = 4`, its value is
@@ -268,7 +268,8 @@ export class ExpressionParser {
         // via the same production table script as the CallExpression/Comma fix
         // above (Chance, Playmatic 1971) - a second, distinct instance of the
         // "statement-call arg list starts unusually" gap, not a duplicate.
-        (this.isStatementCallArgumentStart() || this.state.check('Comma' as TokenType))
+        (this.isStatementCallArgumentStart(atStatementLevel) ||
+          this.state.check('Comma' as TokenType))
       ) {
         const args = this.parseStatementCallArguments();
         const callExpr: CallExpression = {
@@ -302,7 +303,14 @@ export class ExpressionParser {
     return left;
   }
 
-  private isStatementCallArgumentStart(): boolean {
+  private isStatementCallArgumentStart(atStatementLevel: boolean): boolean {
+    // A statement may open with a signed argument, which a fresh cscript shows: "Show1 -5" calls Show1 with
+    // -5, and "x - 1" where x is a plain variable is a type mismatch rather than an arithmetic statement.
+    // An assignment's right hand side is the other way round ("y = x + i" is an addition, not a call), so
+    // this reading is taken only at the statement level, where a call is the only thing a bare name can be.
+    if (atStatementLevel && this.state.checkAny('Minus' as TokenType, 'Plus' as TokenType)) {
+      return true;
+    }
     return this.state.checkAny(
       'StringLiteral' as TokenType,
       'NumberLiteral' as TokenType,

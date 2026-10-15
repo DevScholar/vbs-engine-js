@@ -1,5 +1,12 @@
 import type { VbContext, VbValue } from '../runtime/index.ts';
-import { createVbError, VbErrorCodes } from '../runtime/index.ts';
+import {
+  createVbError,
+  VbErrorCodes,
+  VbErrorDescriptions,
+  parseVbNumericString,
+  roundHalfToEven,
+  toNumber,
+} from '../runtime/index.ts';
 import { stringFunctions } from './string.ts';
 import { mathFunctions, constants } from './math.ts';
 import { dateFunctions } from './date.ts';
@@ -74,6 +81,37 @@ function wrapCOMProxy(ax: unknown): Record<string, unknown> {
     },
   });
 }
+
+/**
+ * The number an error keeps, which Windows rounds to a whole number and then holds only inside a range.
+ *
+ * Measured with the error probe: 7 stays 7, 5.7 becomes 6, "9" becomes 9, -5 stays -5, and 70000 becomes 5,
+ * the invalid procedure call. A negative number is kept, which is how Err.Raise vbObjectError + 2000 arrives
+ * as -2147219504. A text that is no number is a type mismatch, and a Null is one too.
+ *
+ * `zeroIsKept` is the one place Err.Number and Err.Raise differ: writing the property a zero leaves a zero,
+ * while Err.Raise 0 answers 5, measured on a fresh cscript.
+ */
+function readErrorNumber(value: VbValue, zeroIsKept: boolean): number {
+  if (value.type === 'Null') {
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Null');
+  }
+  let written: number;
+  if (value.type === 'String') {
+    const parsed = parseVbNumericString(value.value.trim());
+    if (parsed === null) throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
+    written = parsed;
+  } else {
+    written = toNumber(value);
+  }
+  const whole = roundHalfToEven(written);
+  if (whole === 0) return zeroIsKept ? 0 : 5;
+  if (whole < 0) return whole;
+  return whole <= 65535 ? whole : 5;
+}
+
+/** The source Windows puts on an error nobody named one for. */
+const RAISED_SOURCE = 'Microsoft VBScript runtime error';
 
 export function registerBuiltins(context: VbContext): void {
   Object.entries(stringFunctions).forEach(([name, func]) => {
@@ -327,6 +365,8 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Long', value: rgbValue };
   });
 
+
+
   const errObject = {
     getProperty: (name: string): VbValue => {
       const lowerName = name.toLowerCase();
@@ -354,7 +394,7 @@ export function registerBuiltins(context: VbContext): void {
     setProperty: (name: string, value: VbValue): void => {
       const lowerName = name.toLowerCase();
       if (lowerName === 'number') {
-        context.err.number = Number(value.value) || 0;
+        context.err.number = readErrorNumber(value, true);
       } else if (lowerName === 'description') {
         context.err.description = String(value.value ?? '');
       } else if (lowerName === 'source') {
@@ -387,9 +427,15 @@ export function registerBuiltins(context: VbContext): void {
             helpFile?: VbValue,
             helpContext?: VbValue
           ): VbValue => {
-            context.err.number = Number(number.value) || 0;
-            context.err.source = source ? String(source.value ?? '') : '';
-            context.err.description = description ? String(description.value ?? '') : '';
+            const raised = readErrorNumber(number, false);
+            context.err.number = raised;
+            // Windows fills in what the caller left out: the runtime's own name for the source, and the
+            // standard text for the number as the description ("Unknown runtime error" where the number has
+            // no standard text of its own, which Err.Raise 60000 answers).
+            context.err.source = source ? String(source.value ?? '') : RAISED_SOURCE;
+            context.err.description = description
+              ? String(description.value ?? '')
+              : (VbErrorDescriptions[raised] ?? 'Unknown runtime error');
             context.err.helpFile = helpFile ? String(helpFile.value ?? '') : '';
             context.err.helpContext = helpContext ? Number(helpContext.value) || 0 : 0;
             return { type: 'Empty', value: undefined };

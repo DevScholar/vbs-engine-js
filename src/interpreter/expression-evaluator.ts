@@ -555,7 +555,13 @@ export class ExpressionEvaluator {
       if (callee.type === 'Object' && callee.value !== null) {
         return this.callObjectMethod(callee, callArgs);
       }
-      throw invalidProcedureCall(name);
+      // A name nothing holds is "Variable is undefined" and a value that is simply not callable is a type
+      // mismatch, both measured on a fresh cscript: undefinedName(1) is error 500 while v(1), with v = 1,
+      // is error 13.
+      if (!this.context.hasVariable(name)) {
+        throw createVbError(VbErrorCodes.VariableNotDefined, `Variable is undefined: '${name}'`);
+      }
+      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: '${name}'`);
     }
 
     if (calleeExpr.type === 'MemberExpression') {
@@ -591,7 +597,10 @@ export class ExpressionEvaluator {
     if (callee.type === 'Object' && callee.value !== null) {
       return this.callObjectMethod(callee, callArgs);
     }
-    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call');
+    // A value that is simply not callable is a type mismatch and not an invalid procedure call, which a
+    // fresh cscript shows for every shape: with v = 1, "v 1", "v 1, 2", "v" and "v(1)" are all error 13, and
+    // so is "abc"(1) and Empty(1).
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
   }
 
   private callObjectMethod(objValue: VbObjectValue, callArgs: Expression[]): VbValue {

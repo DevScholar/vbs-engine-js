@@ -998,7 +998,7 @@ describe('Error number and position', () => {
     ['type mismatch', 'x = CInt("abc")', 13],
     ['division by zero', 'x = 1/0', 11],
     ['object required', 'Dim o\nx = o.Foo', 424],
-    ['invalid procedure call', 'Dim v\nv = 1\nv 1, 2', 5],
+    ['a value that is not callable', 'Dim v\nv = 1\nv 1, 2', 13],
   ])('reports %s as its real VBScript code', (_label, source, code) => {
     const engine = new VbsEngine();
     engine.executeStatement(source);
