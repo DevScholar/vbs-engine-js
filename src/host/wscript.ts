@@ -1,5 +1,6 @@
 import type { VbValue, VbObjectValueData } from '../runtime/values.ts';
 import { VbEmpty } from '../runtime/values.ts';
+import { createVbError, VbErrorCodes } from '../runtime/errors.ts';
 
 /**
  * The WSH-compatible `WScript` host object, provided by the host (the run-script
@@ -124,6 +125,15 @@ function callableObject<T extends object>(target: T, invoke: (args: unknown[]) =
 
 function makeItemMethod(items: string[]): (index: VbValue) => VbValue {
   return (index: VbValue): VbValue => {
+    // A collection called without its argument is a wrong number of arguments rather than a JavaScript
+    // failure, which `WScript.Arguments.Item` reaches: a fresh cscript answers 450 for that both as a
+    // statement and inside an expression.
+    if (index === undefined) {
+      throw createVbError(
+        VbErrorCodes.InvalidQualifier,
+        "Wrong number of arguments or invalid property assignment: 'Item'"
+      );
+    }
     const n = Math.floor(Number(index.value ?? index));
     const value = items[n];
     return value === undefined ? VbEmpty : { type: 'String', value };

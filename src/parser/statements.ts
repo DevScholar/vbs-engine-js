@@ -88,6 +88,8 @@ export class StatementsParser {
       callee,
       arguments: args,
       optional: false,
+      // The `Call` keyword is a statement call in every shape, an array included.
+      statementCall: true,
       loc: createLocation(callToken, this.state.previous),
     };
 
@@ -176,6 +178,38 @@ export class StatementsParser {
 
   parseExpressionStatement(): Statement {
     const expr = this.exprParser.parseStatementExpression();
+
+    // A statement that is just a name is a call on that name with no arguments, which a fresh cscript shows
+    // from every side: "NoSuchFunction" alone is error 13, a variable holding a number, a text, an Empty, a
+    // Null or an array is 13 as well, `NoArgs` and `NoArgFunction` run the Sub or Function they name,
+    // `holder.DoIt`, `holder.GetIt` and `holder.Prop` run the method or property, and `holder` where the class
+    // has no default member is 438. A statement that is a literal is a compile error there ("Empty" alone and
+    // `5` alone are both refused), and this leaves those as they are.
+    if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
+      return {
+        type: 'ExpressionStatement',
+        expression: {
+          type: 'CallExpression',
+          callee: expr,
+          arguments: [],
+          optional: false,
+          // A statement and an expression read a bare name differently, and Eval is handed an expression:
+          // Eval("number") is 5 and Eval("NoSuchFunction") is 0, where `number` and `NoSuchFunction` written
+          // as statements are both error 13. The mark is what lets Eval read the callee as a value again.
+          statementCall: true,
+          bareName: true,
+          loc: expr.loc,
+        },
+        loc: expr.loc,
+      };
+    }
+
+    // A whole statement that is a call is a Sub call rather than a read, which tells an array apart: a fresh
+    // cscript answers `arr(9)` written as a statement with error 13 while `x = arr(9)` indexes it, so the
+    // mark is carried on the call the statement already had.
+    if (expr.type === 'CallExpression') {
+      expr.statementCall = true;
+    }
 
     return {
       type: 'ExpressionStatement',

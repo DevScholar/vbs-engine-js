@@ -246,6 +246,14 @@ function cloneIfArray(value: VbValue): VbValue {
 }
 
 export class ExpressionEvaluator {
+  /**
+   * Whether the member read that just finished was a Property Get, which a bare statement reads and drops.
+   *
+   * Set by getObjectProperty and read straight after it by the member call path, with nothing in between that
+   * reads a member of its own beyond the arguments a call with no arguments does not have.
+   */
+  private lastMemberWasGetter = false;
+
   constructor(private context: VbContext) {}
 
   evaluateProgram(program: Program): VbValue {
@@ -277,7 +285,11 @@ export class ExpressionEvaluator {
       case 'MemberExpression':
         return this.evaluateMemberAsValue(node);
       case 'CallExpression':
-        return this.evaluateCallInternal(node.callee as Expression, node.arguments);
+        return this.evaluateCallInternal(
+          node.callee as Expression,
+          node.arguments,
+          node.statementCall
+        );
       case 'BinaryExpression':
         return this.evaluateBinary(node);
       case 'UnaryExpression':
@@ -315,6 +327,13 @@ export class ExpressionEvaluator {
     }
 
     if (this.context.functionRegistry.has(name)) {
+      // A Sub has no value to give, so naming one where a value is expected is a type mismatch, measured on a
+      // fresh cscript: `result = NoArgs` is 13 for a Sub of any arity, while `result = NoArgFunction` is 0 and
+      // `result = OneArgFunction` is the 450 that Function raises when it is called with no arguments.
+      const info = this.context.functionRegistry.get(name);
+      if (info?.isSub === true) {
+        throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: '${name}'`);
+      }
       return this.context.functionRegistry.call(name, []);
     }
 
@@ -489,6 +508,7 @@ export class ExpressionEvaluator {
       // A class instance answers 438 for a member it does not have, and for a Private member reached from
       // outside the class, which a fresh cscript shows for first.NoSuchMember and for first.hiddenCount
       // alike. A host object keeps the older, lenient reading.
+      this.lastMemberWasGetter = false;
       if (isVbClassInstance(obj)) {
         const instance = obj as unknown as VbObjectInstance;
         if (!instance.isMemberVisible(propertyName, this.context.currentInstance)) {
@@ -503,6 +523,7 @@ export class ExpressionEvaluator {
             `Object doesn't support this property or method: '${propertyName}'`
           );
         }
+        this.lastMemberWasGetter = instance.hasGetter(propertyName);
       }
       if (obj.hasMethod?.(propertyName)) {
         return { type: 'Object', value: { type: 'method', object: obj, method: propertyName } };
@@ -550,7 +571,11 @@ export class ExpressionEvaluator {
     return { type: 'String', value: String(value) };
   }
 
-  private evaluateCallInternal(calleeExpr: Expression, callArgs: Expression[]): VbValue {
+  private evaluateCallInternal(
+    calleeExpr: Expression,
+    callArgs: Expression[],
+    statementCall = false
+  ): VbValue {
     if (calleeExpr.type === 'Identifier') {
       const name = calleeExpr.name;
 
@@ -586,6 +611,21 @@ export class ExpressionEvaluator {
 
       const variable = this.context.currentScope.get(name);
       if (variable) {
+        // A whole statement naming an array is a Sub call on it rather than an index read, which a fresh
+        // cscript shows: `arr(9)` written as a statement is error 13 while `x = arr(9)` is error 9 there.
+        if (variable.value.type === 'Array' && statementCall) {
+          throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: '${name}'`);
+        }
+        // An object named as a whole statement is a Sub call on it, which a fresh cscript answers with 438:
+        // `WScript.Arguments` and `WScript.StdOut` alone are both 438, and so is `WScript.Arguments(0)`. A
+        // Nothing is the other way round and stays a type mismatch, which `heldObject` is after
+        // `Set heldObject = Nothing`.
+        if (variable.value.type === 'Object' && variable.value.value !== null && statementCall) {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            `Object doesn't support this property or method: '${name}'`
+          );
+        }
         if (variable.value.type === 'Array') {
           const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
           const arr = variable.value.value as unknown as { get: (indices: number[]) => VbValue };
@@ -603,6 +643,14 @@ export class ExpressionEvaluator {
 
       const callee = this.context.getVariable(name);
       if (callee.type === 'Object' && callee.value !== null) {
+        // The same reading as above for a name that resolves outside the script's own scope, which is where a
+        // host object such as WScript lives.
+        if (statementCall) {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            `Object doesn't support this property or method: '${name}'`
+          );
+        }
         return this.callObjectMethod(callee, callArgs);
       }
       // A call on a name nothing holds indexes the Empty it stands for, which is a type mismatch, and the same
@@ -626,12 +674,44 @@ export class ExpressionEvaluator {
       // nested-array WRITES were separately broken (see parseStatementAssignment
       // above), so `arr(0)` never actually held a populated array to expose this.
       if (memberResult.type === 'Array') {
+        // The same reading a bare array name gets: as a statement this is a Sub call, so `holder.Items(0)`
+        // alone is error 13 where `x = holder.Items(0)` indexes.
+        if (statementCall) {
+          throw createVbError(
+            VbErrorCodes.TypeMismatch,
+            `Type mismatch: '${memberExpressionName(calleeExpr)}'`
+          );
+        }
         const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
         const arr = memberResult.value as unknown as { get: (indices: number[]) => VbValue };
         return arr.get(indices);
       }
       if (memberResult.type === 'Object' && memberResult.value !== null) {
+        // A member that is no method but holds an object is a Sub call when the whole statement names it,
+        // which a fresh cscript answers with 438 for `WScript.Arguments` and for `WScript.Arguments(0)` alike,
+        // where the same text inside an expression calls the object's default member.
+        if (statementCall && !isVbMethodObject(memberResult.value as VbObjectValueData)) {
+          throw createVbError(
+            VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+            `Object doesn't support this property or method: '${memberExpressionName(calleeExpr)}'`
+          );
+        }
         return this.callObjectMethod(memberResult, callArgs);
+      }
+      // A bare statement that names a Property Get reads it and discards the value, which a fresh cscript
+      // shows: `heldObject.Prop` is 0 where `heldObject.Value`, a public field, is 5 and
+      // `heldObject.Value(1)` is 438.
+      if (callArgs.length === 0 && this.lastMemberWasGetter) {
+        return memberResult;
+      }
+      // A call on a member that holds no procedure is error 5 written without arguments and error 438 written
+      // with them, both measured on a fresh cscript: `heldObject.Value`, a public field, is 5 while
+      // `heldObject.Value(1)` is 438. A member holding an object answers 438 either way.
+      if (callArgs.length > 0) {
+        throw createVbError(
+          VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+          `Object doesn't support this property or method: '${memberExpressionName(calleeExpr)}'`
+        );
       }
       throw invalidProcedureCall(memberExpressionName(calleeExpr));
     }
@@ -697,7 +777,13 @@ export class ExpressionEvaluator {
       }
     }
 
-    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call');
+    // An object that is no procedure and has no default member is error 438, measured on a fresh cscript:
+    // `heldObject` alone, where the class has no default member, is 438, and so is `WScript` and
+    // `heldObject(1)`. Calling a plain value with an argument is the other way round and answered above.
+    throw createVbError(
+      VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+      "Object doesn't support this property or method"
+    );
   }
 
   private vbToJs(value: VbValue): unknown {

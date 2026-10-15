@@ -1,10 +1,21 @@
-import type { Program, Statement, VbLabelStatement } from '../ast/index.ts';
+import type { Expression, Program, Statement, VbLabelStatement } from '../ast/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbContext, VbEmpty, createVbError } from '../runtime/index.ts';
 import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
 import { ExpressionEvaluator } from './expression-evaluator.ts';
 import { registerBuiltins } from '../builtins/index.ts';
 import { parse } from '../parser/index.ts';
+
+/**
+ * Takes the whole-statement marks off an expression, which Eval needs since it is handed an expression and
+ * not a statement list.
+ */
+function clearStatementCallMarks(expression: Expression): void {
+  if (expression.type === 'CallExpression') {
+    expression.statementCall = false;
+    expression.bareName = false;
+  }
+}
 
 interface LabelInfo {
   index: number;
@@ -182,6 +193,27 @@ export class Interpreter {
       throw createVbError(1002, 'Syntax error');
     }
     const evaluator = new ExpressionEvaluator(this.context);
+    // Eval reads an expression, and a bare name in an expression is the value it holds or the procedure it
+    // names rather than the call a bare name statement is. A fresh cscript answers Eval("number") with 5 and
+    // Eval("NoSuchFunction") with 0, where `number` and `NoSuchFunction` written as statements are both error
+    // 13, and Eval("Len") is the 450 the builtin raises when it is called with no arguments.
+    //
+    // The marks a statement list puts on a whole-statement call are cleared for the one expression Eval is
+    // handed, since those marks change how an array and a host object are read: `WScript.Arguments(0)` alone
+    // is 438 and `arr(9)` alone is 13, while Eval of either is the argument and the element.
+    const body = ast.body;
+    if (body.length === 1) {
+      const only = body[0]!;
+      if (only.type === 'ExpressionStatement') {
+        const expression = only.expression;
+        const wasBareName = expression.type === 'CallExpression' && expression.bareName === true;
+        clearStatementCallMarks(expression);
+        if (wasBareName) {
+          return evaluator.evaluate((expression as { callee: Expression }).callee);
+        }
+        return evaluator.evaluate(expression);
+      }
+    }
     return evaluator.evaluateProgram(ast);
   }
 

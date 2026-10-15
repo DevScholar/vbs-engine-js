@@ -243,7 +243,7 @@ This document tracks the compatibility between this VBScript engine implementati
 
 | Function | Status | Notes |
 |----------|--------|-------|
-| Eval | ✔️ | |
+| Eval | ✔️ | Reads its text as an expression, so a bare name is the value it holds or the procedure it names rather than the call a bare name statement is: `Eval("number")` is 5 and `Eval("NoSuchFunction")` is 0, where those names written as statements are both error 13 |
 | Execute | ✔️ | Dynamic code execution in current scope |
 | ExecuteGlobal | ✔️ | Dynamic code execution in global scope |
 | MsgBox | ✔️ | Browser simulation using alert/confirm |
@@ -345,7 +345,8 @@ directly without wrapping.
 | GoTo | ✔️ | |
 | If...Then...Else | ✔️ | |
 | On Error | ✔️ | |
-| Option Explicit | ✔️ | |
+| Option Explicit | ✔️ | An undeclared name is error 500 in every position, where without it a call on such a name indexes the Empty it stands for and is error 13 |
+| A statement that is just a name | ✔️ | A whole statement naming something is a call on it with no arguments, as it is in Windows: a name holding a number, a text, an Empty, a Null or an array is error 13, a name holding an object is 438, and a procedure is called, with 450 when it needs an argument. `arr(9)` alone is error 13 where `x = arr(9)` is error 9, a member holding a field is 5 with no arguments and 438 with them, and a Property Get reads and drops its value. A literal as a statement is a compile error in Windows and is not accepted here either |
 | Private | ✔️ | |
 | Property Get/Let/Set | ✔️ | |
 | Public | ✔️ | |

@@ -154,6 +154,16 @@ export interface CallExpression extends BaseExpression {
   callee: Expression | Super;
   arguments: Array<Expression | SpreadElement>;
   optional: boolean;
+  /**
+   * Set on a call written as a whole statement, which reads an array as a Sub call rather than an index read.
+   * See parseExpressionStatement and ExpressionEvaluator.evaluateCallInternal.
+   */
+  statementCall?: boolean;
+  /**
+   * Set on the call a bare name statement becomes, and only there, so that Eval can read that same text as the
+   * expression it is: Eval("number") is 5 while `number` written as a statement is error 13.
+   */
+  bareName?: boolean;
 }
 
 export interface NewExpression extends BaseExpression {

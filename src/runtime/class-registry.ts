@@ -112,6 +112,16 @@ export class VbObjectInstance {
   }
 
   /**
+   * Whether a member is a Property Get, which a bare statement reads and discards rather than calls.
+   *
+   * Measured: `heldObject.Prop`, where Prop is a Property Get, is 0 while `heldObject.Value`, a public field,
+   * is error 5 and `heldObject.Value(1)` is error 438.
+   */
+  hasGetter(name: string): boolean {
+    return this.propertyAccessors.get(name.toLowerCase())?.get !== undefined;
+  }
+
+  /**
    * Whether the instance has a member of this name at all, private ones included.
    *
    * Windows answers error 438 for a member a class does not have, and error 438 for a Private one reached
