@@ -31,6 +31,7 @@ import {
   toString,
   createVbError,
   VbErrorCodes,
+  serialToDate,
 } from '../runtime/index.ts';
 
 interface VbMethodObject {
@@ -72,7 +73,8 @@ function invalidProcedureCall(name: string) {
 function memberExpressionName(node: MemberExpression): string {
   const objectName =
     node.object.type === 'Identifier' ? `${(node.object as Identifier).name}.` : '';
-  const propertyName = node.property.type === 'Identifier' ? (node.property as Identifier).name : '';
+  const propertyName =
+    node.property.type === 'Identifier' ? (node.property as Identifier).name : '';
   return objectName + propertyName;
 }
 
@@ -225,10 +227,7 @@ export class ExpressionEvaluator {
           value: Reflect.construct(ctor as unknown as new (...a: unknown[]) => unknown, args),
         };
       }
-      throw createVbError(
-        VbErrorCodes.InvalidProcedureCall,
-        `Unknown class: ${className}`
-      );
+      throw createVbError(VbErrorCodes.InvalidProcedureCall, `Unknown class: ${className}`);
     }
 
     // Dotted path (e.g. New Forms.Form, New NS.Sub.Class): evaluate the
@@ -539,7 +538,11 @@ export class ExpressionEvaluator {
     // Identifier branch; this covers member expressions like `WScript.Arguments(0)`
     // whose callee evaluates to a VbObjectValueData carrying getMethod/hasMethod.
     if (typeof obj.hasMethod === 'function' && typeof obj.getMethod === 'function') {
-      const defaultName = obj.hasMethod('default') ? 'default' : obj.hasMethod('item') ? 'item' : null;
+      const defaultName = obj.hasMethod('default')
+        ? 'default'
+        : obj.hasMethod('item')
+          ? 'item'
+          : null;
       if (defaultName) {
         const method = obj.getMethod(defaultName);
         const args = callArgs.map(arg => this.evaluate(arg));
@@ -649,6 +652,11 @@ export class ExpressionEvaluator {
     }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
+    // A date survives addition in VBScript, from either side and with a plain number as the other
+    // operand: TypeName(#2026-01-05# + 1) is Date, and so is TypeName(1 + #2026-01-05#).
+    if (left.type === 'Date' || right.type === 'Date') {
+      return { type: 'Date', value: serialToDate(leftNum + rightNum) };
+    }
     return createVbValue(leftNum + rightNum);
   }
 
@@ -661,6 +669,15 @@ export class ExpressionEvaluator {
     }
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
+    // One date and one number subtracts to a date, but two dates subtract to a plain number, which is
+    // how a script gets "how many days apart" out of VBScript.
+    const dates = (left.type === 'Date' ? 1 : 0) + (right.type === 'Date' ? 1 : 0);
+    if (dates === 1) {
+      return { type: 'Date', value: serialToDate(leftNum - rightNum) };
+    }
+    if (dates === 2) {
+      return { type: 'Double', value: leftNum - rightNum };
+    }
     return createVbValue(leftNum - rightNum);
   }
 
@@ -1022,7 +1039,7 @@ export class ExpressionEvaluator {
       const arr = object.value as unknown as { set: (indices: number[], v: VbValue) => void };
       const subscripts = node.vbIndices ?? [node.property as Expression];
       arr.set(
-        subscripts.map((subscript) => Math.floor(toNumber(this.evaluate(subscript)))),
+        subscripts.map(subscript => Math.floor(toNumber(this.evaluate(subscript)))),
         value
       );
     } else if (object.type === 'Object') {
@@ -1080,8 +1097,7 @@ export class ExpressionEvaluator {
     if (op === '+') return { type: 'LongLong', value: l + r };
     if (op === '-') return { type: 'LongLong', value: l - r };
     if (op === '*') return { type: 'LongLong', value: l * r };
-    if (r === BigInt(0))
-      throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
+    if (r === BigInt(0)) throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     return { type: 'LongLong', value: l / r };
   }
 }
