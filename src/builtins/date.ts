@@ -1,6 +1,8 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
   createVbError,
+  rejectObjectArgument,
+  roundHalfToEven,
   serialToDate,
   standaloneMonthName,
   standaloneWeekdayName,
@@ -9,7 +11,34 @@ import {
   toVbDate,
   VbErrorCodes,
 } from '../runtime/index.ts';
+import { NLS_FIRST_DAY_OF_WEEK } from '../runtime/nls-first-day.generated.ts';
 import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
+
+/**
+ * The month or weekday index a name function was handed, which is a whole number from 1 to the last one.
+ *
+ * Measured on a fresh cscript over all 132 locales: the index is rounded to a whole number with a tie going
+ * to the even neighbour (MonthName(3.6) is April and MonthName(2.5) is February), and anything outside the
+ * range is error 5 rather than an empty name, MonthName(0), MonthName(13), MonthName(-1), MonthName(Empty)
+ * and MonthName(True) alike. A Nothing is error 91 and a Null is 94.
+ */
+function readNameIndex(value: VbValue, last: number, functionName: string): number {
+  rejectObjectArgument(value, functionName);
+  const index = roundHalfToEven(toNumber(value));
+  if (index < 1 || index > last) {
+    throw createVbError(
+      VbErrorCodes.InvalidProcedureCall,
+      `Invalid procedure call or argument: ${functionName}`
+    );
+  }
+  return index;
+}
+
+/** Whether the name was asked for in its short form, which any number other than zero asks for. */
+function readAbbreviate(value: VbValue | undefined): boolean {
+  if (!value) return false;
+  return toNumber(value) !== 0;
+}
 
 /**
  * The date argument of DateValue and TimeValue, which take a date or a string only: a number, a Boolean
@@ -256,23 +285,46 @@ export const dateFunctions = {
   },
 
   MonthName: (month: VbValue, abbreviate?: VbValue): VbValue => {
-    const m = Math.floor(toNumber(month));
-    if (m < 1 || m > 12) return { type: 'String', value: '' };
-    const short = abbreviate ? toNumber(abbreviate) !== 0 : false;
+    const m = readNameIndex(month, 12, 'MonthName');
     return {
       type: 'String',
-      value: standaloneMonthName(currentLcid(), getCurrentBCP47Locale(), m, short),
+      value: standaloneMonthName(
+        currentLcid(),
+        getCurrentBCP47Locale(),
+        m,
+        readAbbreviate(abbreviate)
+      ),
     };
   },
 
-  WeekdayName: (weekday: VbValue, abbreviate?: VbValue, _firstDayOfWeek?: VbValue): VbValue => {
-    void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
-    const w = Math.floor(toNumber(weekday));
-    if (w < 1 || w > 7) return { type: 'String', value: '' };
-    const short = abbreviate ? toNumber(abbreviate) !== 0 : false;
+  // WeekdayName(weekday[, abbreviate[, firstdayofweek]]), measured: the third argument counts the week from
+  // a day of its own, so WeekdayName(1, False, 2) is the name of Monday and WeekdayName(1, False, 7) that of
+  // Saturday, and 0 counts from the locale's own first day, which is Monday for most of Europe and Saturday
+  // for the Arabic locales. Anything outside 0 to 7 is error 5, and leaving the argument out counts from
+  // Sunday, whatever the locale's own day is.
+  WeekdayName: (weekday: VbValue, abbreviate?: VbValue, firstDayOfWeek?: VbValue): VbValue => {
+    const w = readNameIndex(weekday, 7, 'WeekdayName');
+    let first = 1;
+    if (firstDayOfWeek !== undefined) {
+      rejectObjectArgument(firstDayOfWeek, 'WeekdayName');
+      const given = roundHalfToEven(toNumber(firstDayOfWeek));
+      if (given < 0 || given > 7) {
+        throw createVbError(
+          VbErrorCodes.InvalidProcedureCall,
+          'Invalid procedure call or argument: WeekdayName'
+        );
+      }
+      first = given === 0 ? (NLS_FIRST_DAY_OF_WEEK.get(currentLcid()) ?? 1) : given;
+    }
+    const day = ((first - 1 + (w - 1)) % 7) + 1;
     return {
       type: 'String',
-      value: standaloneWeekdayName(currentLcid(), getCurrentBCP47Locale(), w, short),
+      value: standaloneWeekdayName(
+        currentLcid(),
+        getCurrentBCP47Locale(),
+        day,
+        readAbbreviate(abbreviate)
+      ),
     };
   },
 

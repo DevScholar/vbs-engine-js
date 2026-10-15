@@ -192,8 +192,8 @@ This document tracks the compatibility between this VBScript engine implementati
 | TimeSerial | ✔️ | |
 | DateValue | ✔️ | |
 | TimeValue | ✔️ | |
-| MonthName | ✔️ | |
-| WeekdayName | ✔️ | |
+| MonthName | ✔️ | The index is rounded to a whole number, a tie to the even neighbour, and anything outside 1 to 12 is error 5 rather than an empty name: `MonthName(0)`, `MonthName(13)`, `MonthName(-1)` and `MonthName(Empty)` are all error 5, `MonthName(3.6)` is April and `MonthName(2.5)` is February. A Nothing is 91 and a Null is 94 |
+| WeekdayName | ✔️ | Its index is read the way MonthName reads one. The third argument counts the week from a day of its own, so `WeekdayName(1, False, 2)` is Monday and `WeekdayName(1, False, 7)` is Saturday, while 0 counts from the locale's own first day, which the engine ships per locale; leaving the argument out always counts from Sunday. Anything outside 0 to 7 is error 5 |
 | Timer | ✔️ | |
 
 ### Conversion Functions
@@ -203,7 +203,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | CBool | ✔️ | |
 | CByte | ✔️ | |
 | CCur | ✔️ | |
-| CDate | ✔️ | Reads a written date with the locale's own order and separators, from the Windows short date picture, the spaced dotted form the picture itself writes included: `CDate("2026. 05. 01.")` is 1 May 2026 under 1038 and `CDate("1. 5. 2026")` is a date under 1031, 1038, 1051, 1054 and 1060. Measured across the 132 locales that answer |
+| CDate | ✔️ | Reads a written date with the locale's own order and separators, from the Windows short date picture, the spaced dotted form the picture itself writes included: `CDate("2026. 05. 01.")` is 1 May 2026 under 1038 and `CDate("1. 5. 2026")` is a date under 1031, 1038, 1051, 1054 and 1060. Measured across the 132 locales that answer. A month name is read when it is the locale's own, and a word that *is* one of those names matches whatever its length, while a shorter word matches as a prefix only from three letters: Catalan "ag.", Arabic "آب" and Persian "مه" are months, Czech "červen" is June and not July, and a name a locale writes with a dot or a space (Thai "ม.ค.", Vietnamese "thg 1") is read whole. A name that is only digits is no name, so "29.9.26" is error 13 under 1051. Chinese, Japanese and Korean read only English names, as Windows does |
 | CDbl | ✔️ | |
 | CInt | ✔️ | |
 | CLng | ✔️ | |

@@ -314,8 +314,16 @@ describe('the names Windows writes and the years Thai counts', () => {
 //   * Three letters or more of the locale's own month names are a month, matched as a prefix, so "Jan",
 //     "Janu", "Januar" and "January" are all January in English while "Ja" is none of them and "Januaryy" is
 //     too long.
+//   * A word that *is* one of the locale's names matches whatever its length, which the whole locale list
+//     shows: Catalan "ag." and Arabic "آب" are August and Persian "مه" is May, all of them too short for the
+//     prefix rule. It also settles the names that start with another name, so "červen" is June and not the
+//     July of "červenec", and "thg 1" is January and not the October of "thg 10".
+//   * A name a locale writes with a dot or a space in it is looked for as a whole before the text is split
+//     into words, because the split would break it: Thai reads "15 ม.ค. 2026" and Vietnamese "15 thg 1 2026".
+//   * A name that is only digits is no name: Intl answers "9" for September's short form under 1051, and a
+//     fresh cscript reads "29.9.26" as error 13 there rather than as 29 September.
 //   * Only the locale's own names count: German names read under 1031 and not under 1033, and English names
-//     are read under 1033 and under the three CJK locales, but not the other way round.
+//     are read under 1033 and under the three CJK locales, whose own names are read nowhere.
 //   * The marks around a month name are a space, a comma, a slash, a hyphen or the locale's own date mark. A
 //     dot counts only where the locale writes its dates with dots, so under 1033 "5. Januar 2026" is a type
 //     mismatch while "Januar. 5, 2026" reads (the dot there belongs to the name), and under 1031 both read.
@@ -345,6 +353,28 @@ const MONTH_WORD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [2052, 'CStr(CDate("Decem 5, 2026"))', '2026/12/5'],
   [2052, 'CDate("5 janvier 2026")', 'ERR 13'],
   [1042, 'CStr(CDate("Januar 5, 2026"))', '2026-01-05'],
+
+  // A word that *is* a name matches whatever its length, measured over the whole locale list. The short
+  // names below are two letters or three and the prefix rule alone would refuse them, and Czech and
+  // Vietnamese have a longer name that merely starts with the shorter one, which must not win.
+  [1027, 'CStr(Month(CDate("15 ag. 2026")))', '8'],
+  [1027, 'CStr(Month(CDate("15 agost 2026")))', '8'],
+  [2049, 'CStr(Month(CDate("15 آب 2026")))', '8'],
+  [1065, 'CStr(Month(CDate("15 مه 2026")))', '5'],
+  [5121, 'CStr(Month(CDate("15 مي 2026")))', '5'],
+  [1029, 'CStr(Month(CDate("15 červen 2026")))', '6'],
+  [1029, 'CStr(Month(CDate("15 červenec 2026")))', '7'],
+  [1066, 'CStr(Month(CDate("15 thg 1 2026")))', '1'],
+  [1066, 'CStr(Month(CDate("15 thg 10 2026")))', '10'],
+  // A name a locale writes with a dot in it, which the split into words would break in two.
+  [1054, 'CStr(Month(CDate("15 ม.ค. 2026")))', '1'],
+  [1054, 'CStr(Month(CDate("15 ธ.ค. 2026")))', '12'],
+  // A locale whose names are only English ones reads no name of its own, and a month name that is a bare
+  // number is no name at all: under 1051 the short names are "1".."12" and "29.9.26" is error 13 there.
+  [1028, 'CDate("15 一月 2026")', 'ERR 13'],
+  [3076, 'CDate("15 一月 2026")', 'ERR 13'],
+  [1041, 'CDate("15 1月 2026")', 'ERR 13'],
+  [1051, 'CDate("29.9.26")', 'ERR 13'],
 ];
 
 describe('a month name is read the way Windows reads one', () => {

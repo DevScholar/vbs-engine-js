@@ -1267,9 +1267,18 @@ function monthTable(locale: string): { month: number; name: string }[] {
         ? [...bareMonthNames(locale), ...bareMonthNames('en-US')]
         : bareMonthNames(locale);
   // Windows writes its own spelling where CLDR has changed one, and its parser reads that spelling back:
-  // under 1031 "5. Mrz 2026" is March, while CLDR's short name for March is "Mär".
-  monthTableCache.set(cacheKey, [...names, ...standaloneNamesFromWindows(lcid)]);
-  return monthTableCache.get(cacheKey) ?? names;
+  // under 1031 "5. Mrz 2026" is March, while CLDR's short name for March is "Mär". A locale that reads only
+  // English names keeps none of its own, which is the measured rule for Chinese, Japanese and Korean: their
+  // "一月", "1月" and "1월" are refused by a fresh cscript, and the standalone names Windows ships are their
+  // own, so adding them here would read a text Windows does not.
+  //
+  // A name that is only digits is left out: Intl answers a bare number for the short form of a few locales
+  // (Slovak's is "9" for September), and a fresh cscript reads no such text as a name, so "29.9.26" is error
+  // 13 under 1051 rather than 29 September. The names that carry a marker do stay, since "1月" is a name.
+  const own = policy === 'english' ? [] : standaloneNamesFromWindows(lcid);
+  const usable = [...names, ...own].filter(entry => /\p{L}/u.test(entry.name));
+  monthTableCache.set(cacheKey, usable);
+  return usable;
 }
 
 /** The names Windows writes for a month on its own, which its parser reads as well as CLDR's. */
@@ -1287,21 +1296,64 @@ function standaloneNamesFromWindows(lcid: number): { month: number; name: string
 }
 
 /**
- * The month a word names, or null. vbscript.dll matches three letters or more as a case-insensitive
- * prefix of one of the locale's month names ("Ja" is no month, "Janu" and "Januar" are January in
- * English), so the longest name that starts with the word decides.
+ * The month a word names, or null. vbscript.dll matches three letters or more as a case-insensitive prefix
+ * of one of the locale's month names ("Ja" is no month, "Janu" and "Januar" are January in English), so the
+ * longest name that starts with the word decides. A word that *is* a name matches whatever its length, which
+ * a fresh cscript shows for the short names shorter than three letters: Catalan "15 ag. 2026" is August,
+ * Arabic "15 آب 2026" is August, Persian "15 مه 2026" is May, and Czech "15 červen 2026" is June and not the
+ * July the longer "červenec" would give by the prefix rule alone.
  */
 function monthOfWord(word: string, locale: string): number | null {
   const bare = word.toLowerCase().replace(/\.+$/, '');
-  if (bare.length < 3) return null;
+  if (bare === '') return null;
   let best: { month: number; length: number } | null = null;
   for (const entry of monthTable(locale)) {
     const name = entry.name.toLowerCase().replace(/\.+$/, '');
-    if (!name.startsWith(bare)) continue;
+    if (name === bare) return entry.month;
+    if (bare.length < 3 || !name.startsWith(bare)) continue;
     if (best === null || name.length > best.length)
       best = { month: entry.month, length: name.length };
   }
   return best === null ? null : best.month;
+}
+
+/**
+ * The first complete month name a text holds, with where it sits, or null.
+ *
+ * A name a locale writes with a dot or a space in it cannot survive the split into words below: Thai writes
+ * "ม.ค." and Vietnamese "thg 1", and the text "15 ม.ค. 2026" becomes four words and is refused, where a
+ * fresh cscript reads both. Only such a name is looked for here, so a name of one word is left to the rules
+ * above and a text Windows refuses is not read on the strength of this. A name counts only as a whole word,
+ * which is what keeps "1 Janu 2026" to the prefix rule rather than reading the "Jan" inside "Janu". The
+ * longest name the text holds wins, any dots right after it belong to it, and the match ends at a separator
+ * or at the end of the text.
+ */
+function findCompleteMonthName(
+  text: string,
+  locale: string
+): { month: number; start: number; end: number } | null {
+  const lower = text.toLowerCase();
+  const isSeparator = (char: string | undefined): boolean =>
+    char === undefined || /[\s,./-]/.test(char);
+  let best: { month: number; start: number; end: number; length: number } | null = null;
+
+  for (const entry of monthTable(locale)) {
+    if (!/[\s.]/.test(entry.name)) continue;
+    for (const candidate of [entry.name, entry.name.replace(/\.+$/, '')]) {
+      if (candidate === '') continue;
+      const needle = candidate.toLowerCase();
+      for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
+        if (!isSeparator(text[at - 1])) continue;
+        let end = at + needle.length;
+        while (text[end] === '.') end++;
+        if (!isSeparator(text[end])) continue;
+        if (best === null || end - at > best.length) {
+          best = { month: entry.month, start: at, end, length: end - at };
+        }
+      }
+    }
+  }
+  return best === null ? null : { month: best.month, start: best.start, end: best.end };
 }
 
 // ---------------------------------------------------------------------------
@@ -1458,16 +1510,28 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   const ownMark = dateOrderOf().separator;
   const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
   const separators = ownMark === '.' || buddhistDates ? /[\s,./-]+/ : /[\s,/-]+/;
-  const words = text.split(separators).filter(word => word !== '');
-  if (words.length < 2 || words.length > 3) return null;
+  // A name with a dot or a space in it is taken out of the text first, so the split cannot break it in two.
+  const complete = findCompleteMonthName(text, locale);
+  const rest =
+    complete === null ? text : text.slice(0, complete.start) + ' ' + text.slice(complete.end);
+  const words = rest.split(separators).filter(word => word !== '');
 
-  const months = words.map(word => monthOfWord(word, locale));
-  const named = months.filter(month => month !== null).length;
-  if (named !== 1) return null;
-  const month = months[months.findIndex(entry => entry !== null)] as number;
-
-  const numbers = words.filter((_, index) => months[index] === null);
-  if (!/^\d+$/.test(numbers.join(''))) return null;
+  let month: number;
+  let numbers: string[];
+  if (complete !== null) {
+    if (words.length < 1 || words.length > 2) return null;
+    if (!words.every(word => /^\d+$/.test(word))) return null;
+    month = complete.month;
+    numbers = words;
+  } else {
+    if (words.length < 2 || words.length > 3) return null;
+    const months = words.map(word => monthOfWord(word, locale));
+    const named = months.filter(entry => entry !== null).length;
+    if (named !== 1) return null;
+    month = months[months.findIndex(entry => entry !== null)] as number;
+    numbers = words.filter((_, index) => months[index] === null);
+    if (!/^\d+$/.test(numbers.join(''))) return null;
+  }
 
   // "Jan 2026" is January 1st of that year; "1 Jan" is the 1st of January this year.
   if (numbers.length === 1) {
