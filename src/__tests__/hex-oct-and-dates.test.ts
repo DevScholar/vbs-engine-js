@@ -164,6 +164,26 @@ const DATE_STRING_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [1033, 'CStr(CDbl(CDate("29.9")))', '29.9'],
   [1036, 'CStr(CDbl(CDate("29.9")))', 'ERR 13'],
   [1065, 'CStr(CDbl(CDate("29.9")))', 'ERR 13'],
+  // A dot is a date field mark only where the locale's own picture writes it against the field. 1038
+  // (hu-HU), 1051 (sk-SK) and 1060 (sl-SI) write ". " instead, so a dotted text is the time those three
+  // read, or the day count 1060 reads because its own group mark is a dot, and never a date.
+  [1031, 'CStr(CDate("1.5"))', '01.05.2026'],
+  [1038, 'CStr(CDate("1.5"))', '1:05:00'],
+  [1038, 'CStr(CDate("1.5.26"))', '1:05:26'],
+  [1038, 'CDate("29.9")', 'ERR 13'],
+  [1038, 'CDate("2026.05.01")', 'ERR 13'],
+  [1051, 'CDate("29.9.26")', 'ERR 13'],
+  [1060, 'CStr(CDbl(CDate("29.9")))', '299'],
+  [1060, 'CStr(CDbl(CDate("5.1.2026")))', '512026'],
+  [1060, 'CStr(CDbl(CDate("1.5.")))', '15'],
+  // A month name keeps the dot where the locale's own picture has one, whether or not it writes it against
+  // the field: 1042's dates are written with hyphens and it refuses the dotted name.
+  [1060, 'CStr(CDate("5. Januar 2026"))', '5. 01. 2026'],
+  [1042, 'CDate("5. Januar 2026")', 'ERR 13'],
+  // 1054 is the one locale whose calendar is the Buddhist one, and Windows reads no dotted time there: "1.5"
+  // is the day count 1.5, so "1.5.26" is a type mismatch rather than a time.
+  [1054, 'CStr(CDbl(CDate("1.5")))', '1.5'],
+  [1054, 'CDate("1.5.26")', 'ERR 13'],
 ];
 
 // A day count below zero, which counts its time of day away from zero instead of toward it. Measured the same

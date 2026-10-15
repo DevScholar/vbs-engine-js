@@ -1127,7 +1127,8 @@ function written(date: Date | null, yearWritten: boolean): WrittenDate | null {
 }
 
 /**
- * The field order and the separator a locale's own short date uses, read from the Windows picture string.
+ * The field order, the separator and the dotted-date habit a locale's own short date uses, all read from the
+ * Windows picture string.
  *
  * The order decides which of two numbers in a written date is the month, and Windows reads a two field date
  * as day and month where its picture is day first and as month and day everywhere else. Intl answers the
@@ -1138,12 +1139,18 @@ function written(date: Date | null, yearWritten: boolean): WrittenDate | null {
  *
  * The picture is walked rather than searched, so a quoted literal is never mistaken for a field, and a
  * picture that separates its fields with a word (1028 writes "yyyy/M/d") keeps that word out of the reading.
+ *
+ * A dot only counts as a field mark where the picture writes it against the field. 1038 (hu-HU), 1051
+ * (sk-SK) and 1060 (sl-SI) write ". " instead, and Windows reads no dotted date under them: "1.5" is the
+ * time 1:05 there, "1.5.26" is 1:05:26, "29.9" is the day count 299 under 1060 and a type mismatch under the
+ * other two. Only their own spaced form is a date ("2026. 05. 01." under 1038, "1. 5. 2026" under 1051).
  */
-function dateOrderOf(): { order: DateOrder; separator: string } {
+function dateOrderOf(): { order: DateOrder; separator: string; dottedDates: boolean } {
   const picture = nlsDateFormat(currentLcid())?.shortDate ?? '';
   const fields: string[] = [];
   let separator = '/';
   let separatorSeen = false;
+  let dottedDates = false;
   for (let index = 0; index < picture.length;) {
     const character = picture[index]!;
     if (character === "'") {
@@ -1160,11 +1167,12 @@ function dateOrderOf(): { order: DateOrder; separator: string } {
     else if (!separatorSeen && fields.length > 0 && !/[A-Za-z]/.test(token)) {
       separator = token;
       separatorSeen = true;
+      dottedDates = token === '.' && picture[index + run] !== ' ';
     }
     index += run;
   }
   const order = fields.join('');
-  return { order: order === 'MDY' || order === 'YMD' ? order : 'DMY', separator };
+  return { order: order === 'MDY' || order === 'YMD' ? order : 'DMY', separator, dottedDates };
 }
 
 /**
@@ -1213,9 +1221,10 @@ function validDate(year: number, month: number, day: number): Date | null {
 /** A date written with a month name: "1 Jan 2026", "Jan 1, 2026", "März 1 2026", "Jan 2026", "1 Jan". */
 function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // A month name is set off from the rest by a space, a comma, a slash, a hyphen or the locale's own date
-  // mark. A dot counts only where the locale writes its dates with dots, which a fresh cscript shows: under
+  // mark. A dot counts only where the locale writes its dates with a dot, which a fresh cscript shows: under
   // 1033 "5. Januar 2026" is a type mismatch while "Januar. 5, 2026" reads, because the dot there belongs to
-  // the name, and under 1031 both read.
+  // the name, and under 1031 both read. 1060 reads the dotted form too, and 1042 refuses it because its own
+  // dates are written with hyphens.
   const ownMark = dateOrderOf().separator;
   const separators = ownMark === '.' ? /[\s,./-]+/ : /[\s,/-]+/;
   const words = text.split(separators).filter(word => word !== '');
@@ -1318,11 +1327,13 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   // year of the near past or present: CDate("0001-01-01") is 1 January 2001, as a fresh cscript answers.
   if (iso) return written(validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3])), true);
 
-  const { order, separator } = dateOrderOf();
-  // "/" and "-" are read everywhere, a comma is read too, and the locale's own separator is read as well.
-  // The locale's own separator holds the text to the locale's own order instead of letting the other order
-  // rescue it ("29.9.26" is no date in Hungarian).
-  const own = separator === '/' || separator === '-' ? null : separator;
+  const { order, separator, dottedDates } = dateOrderOf();
+  // "/" and "-" are read everywhere, a comma is read too, and the locale's own field mark is read as well.
+  // The locale's own mark holds the text to the locale's own order instead of letting the other order
+  // rescue it ("29.9.26" is no date in Hungarian). A dot is that mark only where the locale's picture puts
+  // it against the field, which is what keeps a dotted text out of the date reader under 1038, 1051 and 1060.
+  const ownMark = separator === '/' || separator === '-' ? null : separator;
+  const own = ownMark === '.' && !dottedDates ? null : ownMark;
   const separatorAllowed = (mark: string): boolean =>
     mark === '/' || mark === '-' || mark === ',' || mark === own;
 
@@ -1439,19 +1450,16 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  *     "Ιανουάριος" reads. Its own month list and its date writer disagree there, and the engine reads the
  *     name that is spelled correctly. A name in another language is refused, as Windows refuses it, except
  *     that English is read under the three CJK locales.
- *   * A German month name with a dot under 1042, whose dates are written with dots: Windows answers a type
- *     mismatch for "5. Januar 2026" where the engine reads it, since no other locale separates a month name
- *     from the day with a dot of its own.
+ *   * A German month name with a dot under 1042, whose dates are written with hyphens: Windows answers a type
+ *     mismatch for "5. Januar 2026" and so does the engine, since a dot is a field mark only where the
+ *     locale's own picture writes it against the field.
  *
- * One reading is wider than Windows and is not yet narrowed. A text whose fields are separated by a full stop
- * is read as a date under every locale whose picture carries a dot, and Windows reads a dotted date there
- * only in the locale's own spaced form. Measured across the 132 locales, 33 cells differ under four of them:
- *
- *   * 1038 (hu-HU), 1051 (sk-SK) and 1060 (sl-SI) write their dates with dots, and Windows reads "1.5" as
- *     1:05 there and "29.9" as the day count 299, while the engine reads a date. The engine also refuses
- *     "2026. 05. 01.", which is the form Windows does read there.
- *   * 1054 (th-TH) writes its dates with slashes and its fraction mark is a full stop, so Windows reads
- *     "1.5" and "29.9" as the day counts 1.5 and 29.9, while the engine reads a time.
+ * One reading is still narrower than Windows, and it is the one shape neither reader below covers: a dotted
+ * date written with the spaces its locale's own picture uses. Windows reads CDate("2026. 05. 01.") as
+ * 1 May 2026 under 1038 and CDate("1. 5. 2026") as a date under 1031, 1038, 1051, 1060 and 1054 alike,
+ * while the engine answers a type mismatch for every one of them. The unspaced form is the other way round:
+ * Windows refuses it there, and so does the engine. Two smaller gaps sit beside it: under 1054 Windows reads
+ * a German month name with a dot, and under 1038 and 1054 it reads the spaced form with single digit fields.
  */
 export function parseVbDate(text: string, locale: string): Date | null {
   const read = parseVbDateInItsOwnCalendar(text, locale);
@@ -1499,10 +1507,12 @@ function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate 
   }
   const date = parseDatePart(trimmed, locale);
   if (date) return date;
-  // A time whose fields are marked with a dot, which Windows reads where a dot is not the date separator:
+  // A time whose fields are marked with a dot, which Windows reads where its dates are not written that way:
   // under 1033 CDate("2.5") is 2:05 in the morning and CDate("2.5 PM") is 2:05 in the afternoon, while under
-  // 1031 a dot is the date separator and the same text is 2 May.
-  if (dateOrderOf().separator !== '.') {
+  // 1031 a dot is the date separator and the same text is 2 May. 1054 is the one locale that takes neither
+  // reading: its calendar is the Buddhist one, and Windows reads "2.5" there as the day count 2.5.
+  const { dottedDates } = dateOrderOf();
+  if (!dottedDates && nlsDateFormat(currentLcid())?.calendarType !== THAI_BUDDHIST) {
     const dottedTime = parseDottedTimePart(trimmed);
     if (dottedTime) return written(new Date(1899, 11, 30, ...dottedTime), false);
   }
