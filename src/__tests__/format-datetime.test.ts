@@ -51,12 +51,11 @@ const MEASURED: Record<number, Record<number, string>> = {
   // prints, while GeneralDate, the long time and the short time are Gregorian. The Hijri short date also
   // shows that a Windows "yyyy" row writes two year digits here ("16/07/47", not "16/07/1447").
   //
-  // The long date is the whole Hijri date with the calendar's own month name. Windows separates its three
-  // fields with "/" where the table's picture string writes a space; the engine keeps the picture string's
-  // separator. That is the documented deviation for the RTL locales (see the note above MEASURED).
+  // The long date is the whole Hijri date with the calendar's own month name, and Windows separates its
+  // three fields with the SHORT date's "/" rather than the space and the comma the picture string asks for.
   1025: {
     0: '05/01/2026 09:05:00 \u0635',
-    1: '\u200f16 \u200f\u0631\u062c\u0628, \u200f1447',
+    1: '\u200f16/\u200f\u0631\u062c\u0628/\u200f1447',
     2: '\u200f16/\u200f07/\u200f47',
     3: '09:05:00 \u0635',
     4: '09:05',
@@ -120,53 +119,90 @@ describe('FormatDateTime', () => {
   }
 
   it('names the formats as the OLE Automation constants do', () => {
-    expect(VbDateTimeFormat).toEqual({ GeneralDate: 0, LongDate: 1, ShortDate: 2, LongTime: 3, ShortTime: 4 });
+    expect(VbDateTimeFormat).toEqual({
+      GeneralDate: 0,
+      LongDate: 1,
+      ShortDate: 2,
+      LongTime: 3,
+      ShortTime: 4,
+    });
   });
 
   // Measured on 1031 and 1033: midnight of an ordinary day gives the date alone for GeneralDate, while
   // the three date formats are unchanged and the two clocks still read as a clock.
   it('drops the time from GeneralDate at midnight, as vbscript.dll does', () => {
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.GeneralDate, 'de-de')).toBe('05.01.2026');
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.GeneralDate, 'en-us')).toBe('1/5/2026');
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.LongTime, 'en-us')).toBe('12:00:00 AM');
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.ShortTime, 'en-us')).toBe('00:00');
+    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.GeneralDate, 'de-de')).toBe(
+      '05.01.2026'
+    );
+    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.GeneralDate, 'en-us')).toBe(
+      '1/5/2026'
+    );
+    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.LongTime, 'en-us')).toBe(
+      '12:00:00 AM'
+    );
+    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.ShortTime, 'en-us')).toBe(
+      '00:00'
+    );
   });
 
   // Measured: style 4 is the locale's own LOCALE_SSHORTTIME with the designator gone and a padded hour,
   // not a hard-coded "HH:mm". Finnish and Indonesian keep their own separator, Korean drops its "\uc624\uc804".
   it('keeps the locale separator in the short time and pads the hour', () => {
-    expect(formatVbDateTime(instant(9, 5), 1035, VbDateTimeFormat.ShortTime, 'fi-fi')).toBe('09.05');
-    expect(formatVbDateTime(instant(9, 5), 1057, VbDateTimeFormat.ShortTime, 'id-id')).toBe('09.05');
-    expect(formatVbDateTime(instant(9, 5), 1042, VbDateTimeFormat.ShortTime, 'ko-kr')).toBe('09:05');
-    expect(formatVbDateTime(instant(9, 5), 1026, VbDateTimeFormat.ShortTime, 'bg-bg')).toBe('09:05');
+    expect(formatVbDateTime(instant(9, 5), 1035, VbDateTimeFormat.ShortTime, 'fi-fi')).toBe(
+      '09.05'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1057, VbDateTimeFormat.ShortTime, 'id-id')).toBe(
+      '09.05'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1042, VbDateTimeFormat.ShortTime, 'ko-kr')).toBe(
+      '09:05'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1026, VbDateTimeFormat.ShortTime, 'bg-bg')).toBe(
+      '09:05'
+    );
   });
 
-  // Measured: Thai is the one locale of the 131 the table covers where Windows has no date format at all,
-  // and it raises error 5 (invalid procedure call) for LongDate and ShortDate on every instant. Its two
-  // clocks and its GeneralDate are ordinary, and its GeneralDate keeps the date on day 0.
-  it('raises error 5 for the two Thai date formats, as Windows does', () => {
-    for (const style of [VbDateTimeFormat.LongDate, VbDateTimeFormat.ShortDate]) {
-      expect(() => formatVbDateTime(instant(9, 5), 1054, style, 'th-th')).toThrowError(
-        expect.objectContaining({ number: 5 })
-      );
-    }
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('5/1/2026 9:05:00');
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongTime, 'th-th')).toBe('9:05:00');
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortTime, 'th-th')).toBe('09:05');
+  // Measured in a fresh process: Thai writes its year in the Buddhist calendar in every style, CStr
+  // included, and its long date carries no weekday although LOCALE_SLONGDATE asks for one ("5 มกราคม
+  // 2569" out of "'วัน'dddd'ที่' d MMMM yyyy"). An earlier version of this test recorded error 5 for both
+  // date formats, which is what a capture made with SetLocale inside one process reported.
+  it('writes the Thai year in the Buddhist calendar, without a weekday in the long date', () => {
+    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongDate, 'th-th')).toBe(
+      '5 \u0e21\u0e01\u0e23\u0e32\u0e04\u0e21 2569'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortDate, 'th-th')).toBe(
+      '5/1/2569'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe(
+      '5/1/2569 9:05:00'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongTime, 'th-th')).toBe(
+      '9:05:00'
+    );
+    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortTime, 'th-th')).toBe(
+      '09:05'
+    );
   });
 
-  // Measured: on day 0 a locale prints the time alone for GeneralDate, as CStr does, except in the locales
-  // whose own calendar is in play - ar-SA keeps its date and Thai keeps its date too.
-  it('prints the time alone on day 0 for GeneralDate, except where a calendar is in play', () => {
+  // Measured: on day 0 a locale prints the time alone for GeneralDate, as CStr does, except in a Hijri
+  // locale, which keeps its date there. Thai was listed here as another exception and is not one:
+  // CStr(TimeSerial(9,5,0)) is "9:05:00" under 1054.
+  it('prints the time alone on day 0 for GeneralDate, except in a Hijri locale', () => {
     const dayZero = new Date(1899, 11, 30, 9, 5, 0);
     expect(formatVbDateTime(dayZero, 1026, VbDateTimeFormat.GeneralDate, 'bg-bg')).toBe('9:05:00');
-    expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe('30/12/1899 09:05:00 \u0635');
-    expect(formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('30/12/1899 9:05:00');
+    expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe(
+      '30/12/1899 09:05:00 \u0635'
+    );
+    expect(formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('9:05:00');
   });
 
   it('keeps the whole date at midnight for the date formats, unlike GeneralDate', () => {
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.LongDate, 'de-de')).toBe('Montag, 5. Januar 2026');
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.ShortDate, 'de-de')).toBe('05.01.2026');
+    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.LongDate, 'de-de')).toBe(
+      'Montag, 5. Januar 2026'
+    );
+    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.ShortDate, 'de-de')).toBe(
+      '05.01.2026'
+    );
   });
 
   // Measured: he-IL marks every field of a date and not one of a clock, and GeneralDate's short date is
@@ -182,7 +218,9 @@ describe('FormatDateTime', () => {
       '05/01/2026 09:05:00 \u0635'
     );
     // Urdu is written in the Arabic script and is not marked, which is why the rule follows the language.
-    expect(formatVbDateTime(instant(9, 5), 1056, VbDateTimeFormat.ShortDate, 'ur-pk')).toBe('05/01/2026');
+    expect(formatVbDateTime(instant(9, 5), 1056, VbDateTimeFormat.ShortDate, 'ur-pk')).toBe(
+      '05/01/2026'
+    );
   });
 
   // Measured: Windows keeps its own spelling for a few locales, which Intl has since moved away from. Each
@@ -202,9 +240,9 @@ describe('FormatDateTime', () => {
     expect(formatVbDateTime(instant(9, 5), 1073, VbDateTimeFormat.LongDate, 'ts')).toBe(
       '2026 Sunguti 5, Musumbhunuku'
     );
-    expect(formatVbDateTime(new Date(1899, 11, 30, 9, 5, 0), 1081, VbDateTimeFormat.LongDate, 'hi-in')).toBe(
-      '30 \u0926\u093f\u0938\u092e\u094d\u092c\u0930 1899'
-    );
+    expect(
+      formatVbDateTime(new Date(1899, 11, 30, 9, 5, 0), 1081, VbDateTimeFormat.LongDate, 'hi-in')
+    ).toBe('30 \u0926\u093f\u0938\u092e\u094d\u092c\u0930 1899');
     expect(formatVbDateTime(instant(9, 5), 5121, VbDateTimeFormat.LongDate, 'ar-dz')).toBe(
       '\u200f05 \u200fجانفييه, \u200f2026'
     );

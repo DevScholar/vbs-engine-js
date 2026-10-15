@@ -1,14 +1,28 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbError, serialToDate, toNumber, toString, toVbDate, VbErrorCodes } from '../runtime/index.ts';
+import {
+  createVbError,
+  serialToDate,
+  standaloneMonthName,
+  standaloneWeekdayName,
+  toNumber,
+  toString,
+  toVbDate,
+  VbErrorCodes,
+} from '../runtime/index.ts';
+import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
 
 /**
  * The date argument of DateValue and TimeValue, which take a date or a string only: a number, a Boolean
  * or Empty is a type mismatch there even though CDate reads them, and Null is error 94.
  */
 function toVbDateArgument(value: VbValue): Date {
-  if (value.type === 'Null') throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
+  if (value.type === 'Null')
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type !== 'String' && value.type !== 'Date') {
-    throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.type} cannot be converted to Date`);
+    throw createVbError(
+      VbErrorCodes.TypeMismatch,
+      `Type mismatch: ${value.type} cannot be converted to Date`
+    );
   }
   return toVbDate(value);
 }
@@ -235,37 +249,31 @@ export const dateFunctions = {
 
   TimeValue: (time: VbValue): VbValue => {
     const d = toVbDateArgument(time);
-    return { type: 'Date', value: new Date(1899, 11, 30, d.getHours(), d.getMinutes(), d.getSeconds()) };
+    return {
+      type: 'Date',
+      value: new Date(1899, 11, 30, d.getHours(), d.getMinutes(), d.getSeconds()),
+    };
   },
 
   MonthName: (month: VbValue, abbreviate?: VbValue): VbValue => {
     const m = Math.floor(toNumber(month));
-    const names = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    const abbrev = abbreviate ? toNumber(abbreviate) !== 0 : false;
-    const name = names[m - 1] || '';
-    return { type: 'String', value: abbrev ? name.substring(0, 3) : name };
+    if (m < 1 || m > 12) return { type: 'String', value: '' };
+    const short = abbreviate ? toNumber(abbreviate) !== 0 : false;
+    return {
+      type: 'String',
+      value: standaloneMonthName(currentLcid(), getCurrentBCP47Locale(), m, short),
+    };
   },
 
   WeekdayName: (weekday: VbValue, abbreviate?: VbValue, _firstDayOfWeek?: VbValue): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     const w = Math.floor(toNumber(weekday));
-    const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const abbrev = abbreviate ? toNumber(abbreviate) !== 0 : false;
-    const name = names[w - 1] || '';
-    return { type: 'String', value: abbrev ? name.substring(0, 3) : name };
+    if (w < 1 || w > 7) return { type: 'String', value: '' };
+    const short = abbreviate ? toNumber(abbreviate) !== 0 : false;
+    return {
+      type: 'String',
+      value: standaloneWeekdayName(currentLcid(), getCurrentBCP47Locale(), w, short),
+    };
   },
 
   Timer: (): VbValue => {

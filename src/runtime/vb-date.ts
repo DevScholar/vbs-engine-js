@@ -2,7 +2,7 @@
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
 import { nlsDateFormat } from './nls-date-table.generated.ts';
-import { NAME_OVERRIDES } from './name-overrides.generated.ts';
+import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
 
 const MS_PER_DAY = 86400000;
@@ -201,8 +201,90 @@ function weekdayName(value: string, locale: string, short: string): string {
 }
 
 /** One part of an Intl-formatted date, or '' when the locale gives none. */
-function partOf(formatter: Intl.DateTimeFormat, date: Date, type: Intl.DateTimeFormatPartTypes): string {
+function partOf(
+  formatter: Intl.DateTimeFormat,
+  date: Date,
+  type: Intl.DateTimeFormatPartTypes
+): string {
   return formatter.formatToParts(date).find(part => part.type === type)?.value ?? '';
+}
+
+/**
+ * The standalone month name, which is not always the one a date uses.
+ *
+ * CLDR keeps two forms per month name: the one written beside a day and the one written on its own. German
+ * spells March "März" in a date and "Mär" alone, and Catalan puts a preposition in the date's form ("de
+ * gener") that the standalone name does without ("gener"). MonthName answers with the standalone form,
+ * which is also what Windows' LOCALE_SMONTHNAME holds.
+ */
+const standaloneMonthCache: Map<string, Intl.DateTimeFormat> = new Map();
+
+function standaloneMonthFormatter(locale: string, short: boolean): Intl.DateTimeFormat {
+  const key = `${locale}\u0000${short ? 'short' : 'long'}`;
+  const cached = standaloneMonthCache.get(key);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat(locale, {
+    month: short ? 'short' : 'long',
+    timeZone: 'UTC',
+  });
+  standaloneMonthCache.set(key, formatter);
+  return formatter;
+}
+
+/** 2026-01-04 is a Sunday, so this is the date that carries weekday index 0. */
+const WEEKDAY_ORIGIN = Date.UTC(2026, 0, 4);
+
+/**
+ * A month name as MonthName answers with it: the name on its own, not the one a date spells.
+ *
+ * @param lcid - The LCID whose overrides apply.
+ * @param locale - The locale tag Intl is asked with.
+ * @param month - 1 for January through 12 for December.
+ * @param short - Whether the abbreviated form was asked for.
+ */
+export function standaloneMonthName(
+  lcid: number,
+  locale: string,
+  month: number,
+  short: boolean
+): string {
+  const names = NAME_STANDALONE[lcid];
+  const override = short ? names?.monthsShort?.[month - 1] : names?.monthsLong?.[month - 1];
+  if (override !== undefined) return override;
+  // MonthName has no numeric form to fall back on, so a locale Intl will not answer for gives '' rather
+  // than another language's word.
+  if (!answersInItsOwnLanguage(locale)) return '';
+  const formatter = standaloneMonthFormatter(locale, short);
+  return scriptName(partOf(formatter, new Date(Date.UTC(2026, month - 1, 15)), 'month'), locale);
+}
+
+/**
+ * A weekday name as WeekdayName answers with it, indexed the way VBScript indexes it: 1 is Sunday.
+ *
+ * @param lcid - The LCID whose overrides apply.
+ * @param locale - The locale tag Intl is asked with.
+ * @param weekday - 1 for Sunday through 7 for Saturday.
+ * @param short - Whether the abbreviated form was asked for.
+ */
+export function standaloneWeekdayName(
+  lcid: number,
+  locale: string,
+  weekday: number,
+  short: boolean
+): string {
+  const index = weekday - 1;
+  const names = NAME_STANDALONE[lcid];
+  const override = short ? names?.weekdaysShort?.[index] : names?.weekdaysLong?.[index];
+  if (override !== undefined) return override;
+  // WeekdayName has no numeric form to fall back on either.
+  if (!answersInItsOwnLanguage(locale)) return '';
+  const formatters = nameFormatters(locale);
+  const date = new Date(WEEKDAY_ORIGIN + index * 86400000);
+  const value = partOf(short ? formatters.weekdayShort : formatters.weekdayLong, date, 'weekday');
+  return scriptName(
+    weekdayName(value, locale, partOf(formatters.weekdayShort, date, 'weekday')),
+    locale
+  );
 }
 
 /**
@@ -262,7 +344,11 @@ function taggedNumericLocale(locale: string, source: DateSource): string {
  * The table's LOCALE_ICALENDARTYPE is the authority - it is 23 for the Hijri locales and 22 for fa-IR -
  * and it is deliberately not ICU's answer for the locale, which leaves ar-SA on the Gregorian calendar.
  */
-function dateFields(date: Date, source: DateSource, locale: string): { day: number; month: number; year: number } {
+function dateFields(
+  date: Date,
+  source: DateSource,
+  locale: string
+): { day: number; month: number; year: number } {
   if (source.kind !== 'calendar') {
     return { day: date.getUTCDate(), month: date.getUTCMonth() + 1, year: date.getUTCFullYear() };
   }
@@ -293,7 +379,8 @@ function dateNumericToken(
   token: string,
   date: Date,
   source: DateSource,
-  locale: string
+  locale: string,
+  unpaddedPersianDay = false
 ): string | null {
   const pad = (value: number, width: number): string => String(value).padStart(width, '0');
   const { day, month, year } = dateFields(date, source, locale);
@@ -302,9 +389,10 @@ function dateNumericToken(
     case 'd':
       return String(day);
     case 'dd':
-      // Every Persian year a script is likely to use is over 1000, and Windows leaves the day unpadded
-      // there: fa-IR's short date is "۱۵/۱۰/۱۴۰۴". A short year, which is where day 0 lands, is padded.
-      return persian && year >= 1000 ? String(day) : pad(day, 2);
+      // The Persian short date asks for a padded day and gets one ("04/09/1405"), while its long date asks
+      // for the same "dd" and Windows leaves the zero off ("7 اسفند 1405"). Both were measured across a
+      // Persian year, and the flag says which of the two expansions is running.
+      return persian && unpaddedPersianDay ? String(day) : pad(day, 2);
     case 'M':
       return String(month);
     case 'MM':
@@ -356,18 +444,23 @@ function localizedToken(
     localizedNameCache.set(key, value);
     return value;
   };
-  const overrides = NAME_OVERRIDES[lcid];
+  const overrides = NAME_IN_DATE[lcid];
+  // The name a calendar locale writes belongs to that calendar's month: the Islamic year is about eleven
+  // days shorter than the Gregorian one, so a Gregorian month number picks the wrong name for the instants
+  // near a month boundary, and the table is keyed the same way this looks it up.
+  const monthIndex =
+    year.kind === 'calendar' ? dateFields(date, year, locale).month - 1 : date.getUTCMonth();
 
   const hour = date.getUTCHours();
   const meridiem = hour < 12 ? am || 'AM' : pm || 'PM';
 
   switch (token) {
     case 'MMM':
-      return name(date.getUTCMonth(), overrides?.months?.[date.getUTCMonth()], () =>
+      return name(monthIndex, overrides?.months?.[monthIndex], () =>
         partOf(formatters.monthShort, date, 'month')
       );
     case 'MMMM':
-      return name(date.getUTCMonth(), overrides?.months?.[date.getUTCMonth()], () =>
+      return name(monthIndex, overrides?.months?.[monthIndex], () =>
         partOf(formatters.monthLong, date, 'month')
       );
     case 'ddd':
@@ -423,14 +516,15 @@ function expandNlsPattern(
   pm: string,
   markFields = false,
   clock = false,
-  lcid = 0
+  lcid = 0,
+  persianDayUnpadded = false
 ): string | null {
   const hour = date.getUTCHours();
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   const pad = (value: number, width: number): string => String(value).padStart(width, '0');
   const fields: Record<string, string> = {
     d: dateNumericToken('d', date, year, locale) as string,
-    dd: dateNumericToken('dd', date, year, locale) as string,
+    dd: dateNumericToken('dd', date, year, locale, persianDayUnpadded) as string,
     M: dateNumericToken('M', date, year, locale) as string,
     MM: dateNumericToken('MM', date, year, locale) as string,
     y: dateNumericToken('y', date, year, locale) as string,
@@ -456,11 +550,14 @@ function expandNlsPattern(
   const pieces: Piece[] = [];
   let dropped = false;
 
-  for (let index = 0; index < pattern.length; ) {
+  for (let index = 0; index < pattern.length;) {
     const char = pattern[index];
     if (char === "'") {
       const end = pattern.indexOf("'", index + 1);
-      pieces.push({ text: pattern.slice(index + 1, end < 0 ? pattern.length : end), isDateField: false });
+      pieces.push({
+        text: pattern.slice(index + 1, end < 0 ? pattern.length : end),
+        isDateField: false,
+      });
       index = end < 0 ? pattern.length : end + 1;
       continue;
     }
@@ -490,10 +587,20 @@ function expandNlsPattern(
       } else {
         // A Thai picture string writes "'วัน'dddd", where "วัน" is the day-word the long weekday name
         // already begins with, so Windows prints the short name there ("วันจันทร์", not "วันวันจันทร์").
-        if (token === 'dddd' && pieces.map(piece => piece.text).join('').endsWith(value.slice(0, 3)) && value.length > 3) {
+        if (
+          token === 'dddd' &&
+          pieces
+            .map(piece => piece.text)
+            .join('')
+            .endsWith(value.slice(0, 3)) &&
+          value.length > 3
+        ) {
           value = localizedToken('ddd', date, locale, year, am, pm, lcid) ?? value;
         }
-        pieces.push({ text: value, isDateField: !clock && dateNumericToken(token, date, year, locale) === null });
+        pieces.push({
+          text: value,
+          isDateField: !clock && dateNumericToken(token, date, year, locale) === null,
+        });
       }
     }
     index += run;
@@ -524,7 +631,7 @@ function shortTimePicture(shortTime: string): string {
   // happens to contain an "h" - Upper Sorbian's "HH:mm 'hodź.'" - out of the way.
   let out = '';
   let designator = false;
-  for (let index = 0; index < shortTime.length; ) {
+  for (let index = 0; index < shortTime.length;) {
     const char = shortTime[index];
     if (char === "'") {
       // The only table row that quotes anything here is Upper Sorbian's "H:mm 'hodź'.", whose quoted word
@@ -552,11 +659,106 @@ function shortTimePicture(shortTime: string): string {
   return trimmed.replace(/[\s.]+$/g, '');
 }
 
+/** A picture string's pieces: a quoted literal, a run of one letter, or anything else on its own. */
+interface PatternChunk {
+  text: string;
+  quoted: boolean;
+  letters: boolean;
+}
+
+function patternChunks(pattern: string): PatternChunk[] {
+  const chunks: PatternChunk[] = [];
+  for (let index = 0; index < pattern.length;) {
+    const char = pattern[index];
+    if (char === "'") {
+      const end = pattern.indexOf("'", index + 1);
+      const stop = end < 0 ? pattern.length : end + 1;
+      chunks.push({ text: pattern.slice(index, stop), quoted: true, letters: false });
+      index = stop;
+      continue;
+    }
+    let run = 1;
+    while (pattern[index + run] === char) run++;
+    chunks.push({ text: char.repeat(run), quoted: false, letters: /[A-Za-z]/.test(char) });
+    index += run;
+  }
+  return chunks;
+}
+
+/** A token that writes a number out of the date, as opposed to a name or a designator. */
+const DATE_FIELD_TOKEN = /^(d{1,4}|M{1,4}|y{1,4})$/;
+
+/**
+ * A picture string with its weekday group taken out.
+ *
+ * Thai is the one locale whose long date asks for a weekday: LOCALE_SLONGDATE is "'วัน'dddd'ที่' d MMMM yyyy",
+ * and Windows writes "5 มกราคม 2569" from it. Measured on all seven weekdays and all five instants, neither
+ * the day-word "วัน", nor the weekday name, nor "ที่" ever appears, and the same NLS row's weekday names do
+ * reach VBScript through WeekdayName. The picture is therefore expanded from the part Windows keeps, which
+ * is the date fields after that group, rather than from a picture of the engine's own.
+ */
+export function withoutWeekdayGroup(picture: string): string {
+  const chunks = patternChunks(picture);
+  const weekday = chunks.findIndex(chunk => chunk.letters && /^d{3,4}$/.test(chunk.text));
+  if (weekday < 0) return picture;
+  const dropped = new Set([weekday]);
+  // The literals touching the weekday belong to it, and so does the space that followed the group: Thai
+  // writes the three as one run at the head of the picture, and the date fields start after them.
+  for (let index = weekday - 1; index >= 0 && chunks[index].quoted; index--) dropped.add(index);
+  for (let index = weekday + 1; index < chunks.length; index++) {
+    const chunk = chunks[index];
+    if (!chunk.quoted && !/^\s+$/.test(chunk.text)) break;
+    dropped.add(index);
+  }
+  return chunks
+    .filter((_, index) => !dropped.has(index))
+    .map(chunk => chunk.text)
+    .join('')
+    .trimStart();
+}
+
+/**
+ * A picture string with the separators between its date fields replaced by the short date's mark.
+ *
+ * The Hijri long date is the one Windows writes this way: ar-SA's picture is "dd MMMM, yyyy" and
+ * FormatDateTime(x, 1) gives "16/رجب/1447", with the short date's "/" between the fields and the comma
+ * dropped. Measured across the Hijri months. The Persian long date keeps its picture's own separators
+ * ("7 اسفند 1405"), so this follows the Hijri calendar and not a calendar in general.
+ */
+export function hijriLongDatePicture(picture: string): string {
+  const chunks = patternChunks(picture);
+  let separated = '';
+  let afterField = false;
+  for (const [index, chunk] of chunks.entries()) {
+    if (chunk.letters && DATE_FIELD_TOKEN.test(chunk.text)) {
+      separated += chunk.text;
+      afterField = true;
+      continue;
+    }
+    const fieldAfter = chunks
+      .slice(index + 1)
+      .some(part => part.letters && DATE_FIELD_TOKEN.test(part.text));
+    if (afterField && fieldAfter) {
+      // The run of literals between two fields is one separator, written once: ar-SA's picture has both a
+      // comma and a space there, and Windows writes a single "/".
+      if (!separated.endsWith('/')) separated += '/';
+      continue;
+    }
+    separated += chunk.text;
+  }
+  return separated;
+}
+
 /** The Intl-based date, kept for a locale with no NLS row and for patterns this cannot expand. */
 function formatVbDateViaIntl(date: Date, locale: string): string {
   const padding = unpaddedDayMonth(locale) ? 'numeric' : '2-digit';
-  const datePart = new Intl.DateTimeFormat(locale, { year: 'numeric', month: padding, day: padding }).format(date);
-  const hour12 = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hour12 === true;
+  const datePart = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: padding,
+    day: padding,
+  }).format(date);
+  const hour12 =
+    new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hour12 === true;
   const timePart = new Intl.DateTimeFormat(locale, {
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
@@ -585,11 +787,35 @@ export function formatVbDate(date: Date, lcid: number, locale: string): string {
   if (format) {
     const { am, pm } = format;
     const wallClock = onUtcTimeline(date);
-    // CStr writes the Gregorian date for every locale, ar-SA included: its short date is "05/01/2026"
-    // where FormatDateTime's is the Hijri, and it marks no field of its own.
-    const year: DateSource = GREGORIAN_DATE;
-    const datePart = expandNlsPattern(format.shortDate, wallClock, locale, year, am, pm, false, false, lcid);
-    const timePart = expandNlsPattern(format.timeFormat, wallClock, locale, year, am, pm, false, true);
+    // CStr writes the Gregorian date for every locale but Thai, ar-SA included: ar-SA's short date is
+    // "05/01/2026" where FormatDateTime's is the Hijri, and no locale marks a field of its own here. Thai is
+    // the exception because its year is Buddhist in every style, CStr included: CStr(DateSerial(2026,1,5))
+    // is "5/1/2569", measured on a fresh process like everything else in this file.
+    const year: DateSource =
+      format.calendarType === THAI_BUDDHIST
+        ? { kind: 'calendar', type: THAI_BUDDHIST }
+        : GREGORIAN_DATE;
+    const datePart = expandNlsPattern(
+      format.shortDate,
+      wallClock,
+      locale,
+      year,
+      am,
+      pm,
+      false,
+      false,
+      lcid
+    );
+    const timePart = expandNlsPattern(
+      format.timeFormat,
+      wallClock,
+      locale,
+      year,
+      am,
+      pm,
+      false,
+      true
+    );
     if (datePart !== null && timePart !== null) {
       if (isDayZero(date)) return timePart;
       if (isMidnight(date)) return datePart;
@@ -621,9 +847,7 @@ export const VbDateTimeFormat = {
  * 2026-01-05 15:07:09 and both day-0 instants, for all 131 locales the table covers):
  *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
  *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
- *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones. Thai's picture
- *     string writes the day-word "วัน" in front of a weekday name that already begins with it, and Windows
- *     prints the short name there.
+ *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones.
  *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock,
  *     NOT a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
  *   * The two date formats use the locale's own calendar - ar-SA's long date is the Hijri "16 رجب 1447" and
@@ -633,8 +857,9 @@ export const VbDateTimeFormat = {
  *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
  *
  * Three deliberate deviations, all of them measured rather than assumed:
- *   * Thai is the one locale Windows refuses to write a date for (error 5 on every instant); the engine
- *     renders both of its date formats from Intl's Buddhist calendar instead of failing.
+ *   * Thai writes its Buddhist year in every style, CStr included ("5/1/2569" where the Gregorian reading is
+ *     "5/1/2026"), and its long date carries no weekday: LOCALE_SLONGDATE asks for one and Windows leaves
+ *     the whole group out, measured on all seven weekdays.
  *   * A Hijri picture string separates its fields with spaces and Windows writes "/" there, so the engine's
  *     ar-SA long date reads "‏16 ‏رجب, ‏1447" where Windows writes "‏16/‏رجب/‏1447".
  *   * A few names are CLDR's where Windows ships an older or a longer spelling: Arabic's two-word month
@@ -648,9 +873,7 @@ export const VbDateTimeFormat = {
  * 2026-01-05 15:07:09 and both day-0 instants, for all 131 locales the table covers):
  *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
  *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
- *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones. Thai's picture string
- *     writes the day-word "วัน" in front of a weekday name that already begins with it, so the short name
- *     is the one Windows prints there.
+ *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones.
  *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock, NOT
  *     a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
  *   * The two date formats use the locale's own calendar where the table names one - ar-SA's long date is
@@ -659,10 +882,12 @@ export const VbDateTimeFormat = {
  *   * The short date that GeneralDate prints carries no right-to-left mark, while the one ShortDate prints
  *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
  *
- * One deliberate deviation is left, and it is the only one: Thai. Windows raises error 5 (invalid procedure
- * call) for both of its date formats on every instant, which the engine does not reproduce - it writes the
- * dates from Intl's Buddhist calendar instead, because a date the script can use beats a failure. Everything
- * else, including the Hijri and Persian dates and the marks, follows Windows.
+ * Two deviations are left, and both are measured: a Hijri picture string separates its fields with spaces
+ * where Windows writes "/", so the engine's ar-SA long date reads "16 رجب, 1447" against Windows's
+ * "16/رجب/1447"; and a few names are CLDR's where Windows ships an older or a longer spelling (Arabic's
+ * two-word month names, Latvian's capitalized "Pirmdiena", Vietnamese's "tháng 1", the Sotho and Tswana
+ * month names). Thai is not one of them any more, and never was: a capture made in a loop reported error 5
+ * for its date formats, and a fresh process, which is what a script gets, answers them.
  */
 export function formatVbDateTime(date: Date, lcid: number, style: number, locale: string): string {
   const format = nlsDateFormat(lcid);
@@ -679,13 +904,27 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     ? { kind: 'calendar', type: calendarType }
     : GREGORIAN_DATE;
   const hijri = calendarType === HIJRI;
-  // 1054 th-TH is the one locale Windows has no date for: it raises error 5 (invalid procedure call) for
-  // both date formats on every instant, measured across all 131 table locales. The engine writes them from
-  // Intl's Buddhist calendar instead, which is the one place it knowingly answers where Windows fails.
+  // Thai is the one locale whose calendar reaches the styles that are Gregorian everywhere else: its year is
+  // Buddhist even in CStr and GeneralDate. It is also the one locale whose long date writes no weekday, so
+  // that picture string is expanded without the group holding it.
   const thai = calendarType === THAI_BUDDHIST;
-  const longTime = expandNlsPattern(format.timeFormat, wallClock, locale, gregorian, am, pm, false, true);
+  const longDatePicture = thai
+    ? withoutWeekdayGroup(format.longDate)
+    : hijri
+      ? hijriLongDatePicture(format.longDate)
+      : format.longDate;
+  const longTime = expandNlsPattern(
+    format.timeFormat,
+    wallClock,
+    locale,
+    gregorian,
+    am,
+    pm,
+    false,
+    true
+  );
   const longDate = expandNlsPattern(
-    format.longDate,
+    longDatePicture,
     wallClock,
     locale,
     ownCalendar,
@@ -693,9 +932,17 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     pm,
     marks,
     false,
-    lcid
+    lcid,
+    true
   );
-  const generalDate = expandNlsPattern(format.shortDate, wallClock, locale, gregorian, am, pm);
+  const generalDate = expandNlsPattern(
+    format.shortDate,
+    wallClock,
+    locale,
+    thai ? ownCalendar : gregorian,
+    am,
+    pm
+  );
   const shortDate = expandNlsPattern(
     format.shortDate,
     wallClock,
@@ -710,14 +957,12 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
 
   switch (style) {
     case VbDateTimeFormat.LongDate:
-      if (thai) return unreachableLongDate(lcid);
       // A long date is the one format whose whole point is the locale's own names, so a pattern the engine
       // cannot expand is reported rather than silently answered with an Intl layout that is a different
       // shape ("2026/1/5" for what should read "2026年1月5日"). No table row reaches this today.
       if (longDate === null) return unreachableLongDate(lcid);
       return longDate;
     case VbDateTimeFormat.ShortDate: {
-      if (thai) return unreachableLongDate(lcid);
       const written = shortDate ?? formatVbDateViaIntl(date, locale);
       // A Hijri date is written with two year digits where the same row's Gregorian short date asks for
       // four: ar-SA prints "16/07/47" and not "16/07/1447". The Persian year is four digits either way.
@@ -742,9 +987,10 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     default: {
       const timePart = longTime ?? formatVbDateViaIntl(date, locale);
       const datePart = generalDate ?? formatVbDateViaIntl(date, locale);
-      // A Hijri locale keeps the date on day 0 (ar-SA prints "30/12/1899 09:05:00 ص") and Thai does too
-      // ("30/12/1899 9:05:00"); every other one prints the time alone, which is what CStr does everywhere.
-      if (isDayZero(date) && !hijri && !thai) return timePart;
+      // A Hijri locale keeps the date on day 0 (ar-SA prints "30/12/1899 09:05:00 ص"); every other locale
+      // prints the time alone there, which is what CStr does everywhere. Thai was recorded here as an
+      // exception and is not one: a fresh capture gives CStr(TimeSerial(9,5,0)) = "9:05:00".
+      if (isDayZero(date) && !hijri) return timePart;
       if (isMidnight(date)) return datePart;
       return `${datePart} ${timePart}`;
     }
@@ -784,8 +1030,18 @@ function bareMonthNames(locale: string): { month: number; name: string }[] {
   const short = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' });
   // A month name has a stand-alone and a format form, and they differ where the language inflects the
   // month ("январь" and "января" in Russian); vbscript.dll reads both, so both are collected here.
-  const longInDateFormat = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  const shortInDateFormat = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const longInDateFormat = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+  const shortInDateFormat = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
   const named = (formatter: Intl.DateTimeFormat, day: Date): string =>
     formatter.formatToParts(day).find(part => part.type === 'month')?.value ?? '';
 
@@ -828,7 +1084,8 @@ function monthOfWord(word: string, locale: string): number | null {
   for (const entry of monthTable(locale)) {
     const name = entry.name.toLowerCase().replace(/\.+$/, '');
     if (!name.startsWith(bare)) continue;
-    if (best === null || name.length > best.length) best = { month: entry.month, length: name.length };
+    if (best === null || name.length > best.length)
+      best = { month: entry.month, length: name.length };
   }
   return best === null ? null : best.month;
 }
@@ -840,9 +1097,11 @@ function monthOfWord(word: string, locale: string): number | null {
 type DateOrder = 'DMY' | 'MDY' | 'YMD';
 
 function dateOrderOf(locale: string): { order: DateOrder; separator: string } {
-  const parts = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(
-    new Date(2026, 8, 29)
-  );
+  const parts = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(2026, 8, 29));
   const order = parts
     .filter(part => part.type === 'day' || part.type === 'month' || part.type === 'year')
     .map(part => part.type[0].toUpperCase())
@@ -978,7 +1237,8 @@ function parseDatePart(text: string, locale: string): Date | null {
   if (two && separatorAllowed(two[2])) {
     // "1/2" is the 1st of February in German and 2 January in English, in the current year.
     const year = new Date().getFullYear();
-    const [day, month] = order === 'DMY' ? [Number(two[1]), Number(two[3])] : [Number(two[3]), Number(two[1])];
+    const [day, month] =
+      order === 'DMY' ? [Number(two[1]), Number(two[3])] : [Number(two[3]), Number(two[1])];
     return validDate(year, month, day) ?? validDate(year, day, month);
   }
 
@@ -994,7 +1254,10 @@ function parseDatePart(text: string, locale: string): Date | null {
   } else if (order === 'YMD') {
     candidates.push([Number(first), Number(second), Number(third)]);
     if (!strict) {
-      candidates.push([yearOf(third), Number(first), Number(second)], [yearOf(third), Number(second), Number(first)]);
+      candidates.push(
+        [yearOf(third), Number(first), Number(second)],
+        [yearOf(third), Number(second), Number(first)]
+      );
     }
   } else if (order === 'DMY') {
     candidates.push([yearOf(third), Number(second), Number(first)]);
