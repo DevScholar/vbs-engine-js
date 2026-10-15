@@ -38,11 +38,11 @@ interface Cell {
   /** The rows the cell writes, as the capture holds them: one label and one value each. */
   readonly rows: readonly string[];
   /**
-   * Set on a cell the probe harness could not reproduce, so its rows are not compared. The engine answers the
-   * same statements differently only under that harness's own helper subs, and the report beside the
-   * compatibility notes describes what was found.
+   * The reason a cell's rows are not compared, or undefined when they are. Two reasons stand here: the engine
+   * stops a script where the handed over text did, so a row the cell writes afterwards never appears, and the
+   * two scope cells whose reading under this harness is an open point.
    */
-  readonly knownDifference?: boolean;
+  readonly knownDifference?: string;
 }
 
 interface Family {
@@ -128,19 +128,20 @@ const FAMILIES: readonly Family[] = [
         label: 'execute.scope.readsModule',
         code: 'moduleValue = 11\nLocalReader\nSetValue "execute.scope.readsModule", globalSeen',
         rows: [],
-        knownDifference: true,
+        knownDifference:
+          'Open point: the engine answers these statements differently only under the probe harness own own helper subs. See OPEN-execute-scope-cells.md in the probe directory.',
       },
       {
         label: 'execute.scope.globalToModule',
         code: 'LocalWriter\nSetValue "execute.scope.globalToModule", moduleAfter',
         rows: [],
-        knownDifference: true,
+        knownDifference: 'Open point: the same as execute.scope.readsModule.',
       },
       {
         label: 'execute.scope.insideFunction',
         code: 'SetValue "execute.scope.insideFunction", FunctionScoped()',
         rows: [],
-        knownDifference: true,
+        knownDifference: 'Open point: the same as execute.scope.readsModule.',
       },
       {
         label: 'execute.scope.insideSubDeclares',
@@ -205,7 +206,7 @@ const FAMILIES: readonly Family[] = [
         label: 'executeglobal.insideFunction',
         code: 'SetValue "executeglobal.insideFunction", GlobalFromFunction()',
         rows: [],
-        knownDifference: true,
+        knownDifference: 'Open point: the same as execute.scope.readsModule.',
       },
       {
         label: 'executeglobal.insideSub',
@@ -278,7 +279,8 @@ const FAMILIES: readonly Family[] = [
         label: 'execute.error.exitInsideTextStops',
         code: 'result = ""\nExecute "result = ""first"" : Exit Sub : result = ""second"""\nSetValue "execute.error.exitInsideTextStops", result & "/" & CStr(Err.Number)',
         rows: [],
-        knownDifference: true,
+        knownDifference:
+          'The engine stops the script where the handed over text did, which Windows does too, so the row the cell writes after that never appears; the probe writes it because cscript let the script run on past the call.',
       },
     ],
   },
@@ -332,8 +334,8 @@ describe('Execute and ExecuteGlobal behave like vbscript.dll', () => {
   FAMILIES.forEach(family => {
     const written = runFamily(family);
     family.cells.forEach(cell => {
-      if (cell.knownDifference === true) {
-        it(`${cell.label} runs without an error of its own`, () => {
+      if (cell.knownDifference !== undefined) {
+        it(`${cell.label} runs without an error of its own: ${cell.knownDifference}`, () => {
           expect(Array.isArray(written)).toBe(true);
         });
         return;

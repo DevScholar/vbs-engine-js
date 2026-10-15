@@ -666,13 +666,16 @@ matches `vbscript.dll`:
   the host keeps its globals in, which neither `cscript` nor this engine writes down, so only the set of
   releases is compared.
 * **Two `Execute` scope cells.** The scope family of the `Execute` probe holds five cells, and three of them
-  are compared. The other two write a module variable from inside a Sub through `Execute` while the probe's
-  own helper subs are in the file, and the engine answers the same statements differently there and only
-  there: the same statements written out answer 12 and 77 on both sides, which
-  `src/__tests__/execute-and-executeglobal.test.ts` records, and the probe's capture answers 12 and 77 as well
-  with the file's own file-writing helper in place. What makes the two reads differ was not found, so the two
-  cells are honest open points rather than answered ones.
-* **`ExecuteGlobal` and `Execute`.** No test and no probe, so their scoping rules are unmeasured.
+  are compared. The other two write a module variable from inside a Sub through `Execute` while the probe's own
+  helper subs are in the file, and the engine answers the same statements differently there and only there: the
+  same statements written out answer 12 and 77 on both sides, which
+  `src/__tests__/execute-and-executeglobal.test.ts` records, and the probe's own text run under `cscript`
+  answers 11 and empty just as the engine does. What makes the two reads differ was not found, so the two cells
+  are honest open points rather than answered ones; the probe directory's `OPEN-execute-scope-cells.md` holds
+  everything that was tried and the helpers for the next attempt.
+* **One `Execute` cell row.** The row the `execute.error.exitInsideTextStops` cell writes comes after the
+  statement that stops the script, so the engine never reaches it while the probe's capture holds it. The rule
+  itself is measured and followed: a script that calls `Execute "Exit Sub"` at its own level stops there.
 * **Parts of the `Err` object.** `Err.Source` has no test, `Err.Description` and `Err.HelpContext` have one
   each, and the arguments of `Err.Raise` are not compared.
 * **The text of an error.** The probes compare the error number only, since the description is localized.
