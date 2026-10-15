@@ -10,6 +10,7 @@ import {
   toString,
   toBoolean,
   toVbDateForCdate,
+  rejectObjectArgument,
   VbErrorCodes,
   isEmpty,
   isNull,
@@ -50,11 +51,13 @@ function toBaseDigits(number: VbValue, radix: 8 | 16, functionName: string): VbV
  * The number a Format function was handed.
  *
  * A Null is a type mismatch here rather than the invalid use of Null most functions raise, which a fresh
- * cscript shows: FormatNumber(Null) is error 13 and not 94.
+ * cscript shows: FormatNumber(Null) is error 13 and not 94. A Nothing is the object variable that is not
+ * set, error 91, and any other object is 438.
  */
-function toFormattedNumber(expression: VbValue): number {
+function toFormattedNumber(expression: VbValue, functionName: string): number {
+  rejectObjectArgument(expression, functionName);
   if (expression.type === 'Null') {
-    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Null');
+    throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${functionName} Null`);
   }
   return toNumber(expression);
 }
@@ -63,15 +66,62 @@ function toFormattedNumber(expression: VbValue): number {
  * The fraction count a Format function was handed, or -1 for the locale's own.
  *
  * The three settings are the tristate ones, so -1 and anything above it are a count to use, and a number
- * below -1 is not a setting at all: a fresh cscript answers FormatNumber(1.25, -2) with error 5.
+ * below -1 is not a setting at all: a fresh cscript answers FormatNumber(1.25, -2) with error 5. The value
+ * is rounded to a whole number first, a tie going to the even neighbour, which the measurements show:
+ * FormatNumber(1234.5, 1.5) keeps two digits and FormatNumber(1234.5, -0.5) keeps none.
  */
-function readFractionCount(value?: VbValue): number {
+function readFractionCount(value: VbValue | undefined, functionName: string): number {
   if (!value) return -1;
-  const digits = Math.floor(toNumber(value));
+  rejectObjectArgument(value, functionName);
+  const digits = roundHalfToEven(toNumber(value));
   if (digits < -1) {
-    throw createVbError(VbErrorCodes.InvalidProcedureCall, 'Invalid procedure call or argument');
+    throw createVbError(
+      VbErrorCodes.InvalidProcedureCall,
+      `Invalid procedure call: ${functionName}`
+    );
   }
   return digits;
+}
+
+/**
+ * One of the three tristate flags, which a fresh cscript accepts as -1 (True), 0 (False) or -2 (the
+ * locale's own) and refuses anything else with error 5.
+ *
+ * The value is rounded to a whole number first, a tie going to the even neighbour: FormatNumber(0.5, 2, 1)
+ * and FormatNumber(0.5, 2, -3) are error 5, while -2.5 is the locale's own because it rounds to -2 and
+ * -0.5 is False because it rounds to 0. A flag the script leaves out is the locale's own as well.
+ */
+function readTriState(value: VbValue | undefined, functionName: string): number {
+  if (value === undefined) return -2;
+  rejectObjectArgument(value, functionName);
+  const mode = roundHalfToEven(toNumber(value));
+  if (mode !== -2 && mode !== -1 && mode !== 0) {
+    throw createVbError(
+      VbErrorCodes.InvalidProcedureCall,
+      `Invalid procedure call: ${functionName}`
+    );
+  }
+  return mode;
+}
+
+/**
+ * The named format FormatDateTime was handed, which is 0 to 4 and nothing else.
+ *
+ * A fresh cscript rounds it to a whole number, a tie going to the even neighbour, so 2.7 is the long time
+ * and 4.5 is the short time, and refuses anything outside 0 to 4 with error 5: FormatDateTime(x, 5) and
+ * FormatDateTime(x, -1) are both error 5. A Null is the invalid use of Null here, error 94.
+ */
+function readNamedFormat(value: VbValue | undefined, functionName: string): number {
+  if (value === undefined) return 0;
+  rejectObjectArgument(value, functionName);
+  const style = roundHalfToEven(toNumber(value));
+  if (style < 0 || style > 4) {
+    throw createVbError(
+      VbErrorCodes.InvalidProcedureCall,
+      `Invalid procedure call: ${functionName}`
+    );
+  }
+  return style;
 }
 
 export const conversionFunctions = {
@@ -173,11 +223,11 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toFormattedNumber(expression);
-    const digits = readFractionCount(numDigitsAfterDecimal);
-    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
-    const group = groupDigits ? toNumber(groupDigits) : -2;
+    const num = toFormattedNumber(expression, 'FormatNumber');
+    const digits = readFractionCount(numDigitsAfterDecimal, 'FormatNumber');
+    const leadingDigit = readTriState(includeLeadingDigit, 'FormatNumber');
+    const parens = readTriState(useParensForNegativeNumbers, 'FormatNumber');
+    const group = readTriState(groupDigits, 'FormatNumber');
 
     return {
       type: 'String',
@@ -192,11 +242,11 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toFormattedNumber(expression);
-    const digits = readFractionCount(numDigitsAfterDecimal);
-    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
-    const group = groupDigits ? toNumber(groupDigits) : -2;
+    const num = toFormattedNumber(expression, 'FormatCurrency');
+    const digits = readFractionCount(numDigitsAfterDecimal, 'FormatCurrency');
+    const leadingDigit = readTriState(includeLeadingDigit, 'FormatCurrency');
+    const parens = readTriState(useParensForNegativeNumbers, 'FormatCurrency');
+    const group = readTriState(groupDigits, 'FormatCurrency');
 
     return {
       type: 'String',
@@ -216,11 +266,11 @@ export const conversionFunctions = {
     useParensForNegativeNumbers?: VbValue,
     groupDigits?: VbValue
   ): VbValue => {
-    const num = toFormattedNumber(expression);
-    const digits = readFractionCount(numDigitsAfterDecimal);
-    const leadingDigit = includeLeadingDigit ? toNumber(includeLeadingDigit) : -2;
-    const parens = useParensForNegativeNumbers ? toNumber(useParensForNegativeNumbers) : -2;
-    const group = groupDigits ? toNumber(groupDigits) : -2;
+    const num = toFormattedNumber(expression, 'FormatPercent');
+    const digits = readFractionCount(numDigitsAfterDecimal, 'FormatPercent');
+    const leadingDigit = readTriState(includeLeadingDigit, 'FormatPercent');
+    const parens = readTriState(useParensForNegativeNumbers, 'FormatPercent');
+    const group = readTriState(groupDigits, 'FormatPercent');
 
     return {
       type: 'String',
@@ -234,11 +284,19 @@ export const conversionFunctions = {
   },
 
   FormatDateTime: (date: VbValue, namedFormat?: VbValue): VbValue => {
-    const d = date.type === 'Date' ? (date.value as Date) : new Date(toString(date));
-    const format = namedFormat ? Math.floor(toNumber(namedFormat)) : 0;
+    // The date is read the way CDate reads one, and not by the JavaScript Date parser, which a fresh cscript
+    // shows from every side: FormatDateTime(45000) is 15 March 2023 and not the year 45000, FormatDateTime(-1)
+    // is 29 December 1899, and a text is read with the locale's own date order and calendar, so under ar-SA
+    // "1/5/2026" is 1 May and under th-TH "2026-01-05" is the Buddhist year 2026, which is Gregorian 1483.
+    rejectObjectArgument(date, 'FormatDateTime');
+    if (date.type === 'Null') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: FormatDateTime Null');
+    }
+    const parsed = date.type === 'Date' ? (date.value as Date) : toVbDateForCdate(date);
+    const format = readNamedFormat(namedFormat, 'FormatDateTime');
     return {
       type: 'String',
-      value: formatVbDateTime(d, currentLcid(), format, getCurrentBCP47Locale()),
+      value: formatVbDateTime(parsed, currentLcid(), format, getCurrentBCP47Locale()),
     };
   },
 

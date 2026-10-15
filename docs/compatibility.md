@@ -211,10 +211,10 @@ This document tracks the compatibility between this VBScript engine implementati
 | CStr | ✔️ | |
 | CVar | ✔️ | |
 | CVErr | ✔️ | |
-| FormatNumber | ✔️ | Reads the Windows NLS number table, so the fraction mark, the group marks and the fraction count are the locale's own |
-| FormatCurrency | ✔️ | The symbol, its position, the fraction count and the shape of a negative amount come from the locale's row in the same table |
-| FormatPercent | ✔️ | Reads the Windows NLS number table, and writes the percent sign the way Windows does |
-| FormatDateTime | ✔️ | Reads the Windows NLS date table, so it follows Windows and not the host |
+| FormatNumber | ✔️ | Reads the Windows NLS number table, so the fraction mark, the group marks and the fraction count are the locale's own. The fraction count and the three tristate flags are rounded to a whole number first, a tie to the even neighbour, and a flag that is not -1, 0 or -2 is error 5: `FormatNumber(0.5, 2, 1)` is error 5 while `-0.5` is False and `-1.5` is the locale's own. A Null is error 13 for the value and 94 for the count, and a Nothing is 91 |
+| FormatCurrency | ✔️ | The symbol, its position, the fraction count and the shape of a negative amount come from the locale's row in the same table, and its arguments are read the way FormatNumber's are |
+| FormatPercent | ✔️ | Reads the Windows NLS number table, and writes the percent sign the way Windows does, with the same reading of its arguments |
+| FormatDateTime | ✔️ | Reads the Windows NLS date table, so it follows Windows and not the host. Its date argument is read the way CDate reads one, so `FormatDateTime(45000)` is 15 March 2023 where the JavaScript date parser gives the year 45000, and a text is read with the locale's own order and calendar. A Null date is error 13 and a Nothing is 91. The named format is rounded the same way and must land between 0 and 4: 2.7 is the long time and 4.5 the short time, while 5, -1 and True are error 5. The long and the short date are error 5 for a day Windows' own date writers cannot write, which is anything before 1601-01-01 in every locale and anything outside the Hijri range 1318-01-01 to 1500-12-30 for ar-SA; the Hebrew locale is the one that answers 32812 there instead. The Hijri date comes from the Umm al-Qura table, which is the one .NET ships, because ICU's islamic-umalqura calendar is a day behind Windows for about a fifth of the days. A picture that asks for a two digit year writes four digits outside 1950 to 2049 for GeneralDate and CStr, while the short date keeps two |
 
 ### Inspection Functions
 

@@ -2,6 +2,11 @@
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
 import { nlsDateFormat } from './nls-date-table.generated.ts';
+import {
+  HIJRI_FIRST_YEAR,
+  HIJRI_YEAR_MONTH_MASKS,
+  HIJRI_YEAR_START_SERIALS,
+} from './hijri-table.generated.ts';
 import { parseVbNumericString } from './nls-number.ts';
 import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
@@ -10,7 +15,6 @@ import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
 
-/** LOCALE_ICALENDARTYPE for the Gregorian calendar, which every row of the table carries as 1. */
 /** LOCALE_ICALENDARTYPE for the Gregorian calendar, which every row of the table carries as 1. */
 const GREGORIAN = 1;
 
@@ -375,6 +379,29 @@ function dateFields(
       year: date.getUTCFullYear() + BUDDHIST_YEAR_OFFSET,
     };
   }
+  if (source.type === HIJRI) {
+    // The Umm al-Qura table, not ICU: measured over the years 1900 to 2100, ICU's islamic-umalqura calendar
+    // is a day behind Windows' for about a fifth of the days (15 June 1929 is 8 Muharram 1348 to Windows and
+    // 7 Muharram 1348 to ICU), while .NET's UmAlQuraCalendar agrees with Windows day for day. A day the table
+    // does not cover is clamped to the nearest one it has; the date styles refuse such a day before this.
+    return hijriFieldsOf(clampedHijriDay(wallClockDayNumber(date))) as {
+      day: number;
+      month: number;
+      year: number;
+    };
+  }
+  if (source.type === PERSIAN) {
+    return icuCalendarFields(persianFieldDate(date, source, locale), source, locale);
+  }
+  return icuCalendarFields(date, source, locale);
+}
+
+/** The fields ICU answers for a date under a calendar, which the Hijri calendar does not use. */
+function icuCalendarFields(
+  date: Date,
+  source: DateSource,
+  locale: string
+): { day: number; month: number; year: number } {
   const parts = new Intl.DateTimeFormat(taggedNumericLocale(locale, source), {
     year: 'numeric',
     month: 'numeric',
@@ -386,9 +413,111 @@ function dateFields(
   return { day: read('day'), month: read('month'), year: read('year') };
 }
 
+/**
+ * The day whose ICU fields are a Persian date's own.
+ *
+ * ICU's Persian calendar runs one day ahead of Windows' for the years before 980. Measured on 1065:
+ * 1601-01-01 is 11 Dey 979 to Windows and 12 Dey 979 to ICU, and every day of that tail is one ahead, while
+ * the two agree again from 1601-03-21, which is 1 Farvardin 980. Windows writes no date before 1601-01-01,
+ * so the last months of 979 are the only place the two can be seen apart.
+ */
+function persianFieldDate(date: Date, source: DateSource, locale: string): Date {
+  if (icuCalendarFields(date, source, locale).year <= 979) {
+    return new Date(date.getTime() - MS_PER_DAY);
+  }
+  return date;
+}
+
+/** A Gregorian day number brought inside the days the Umm al-Qura table covers. */
+function clampedHijriDay(dayNumber: number): number {
+  return Math.min(Math.max(dayNumber, HIJRI_YEAR_START_SERIALS[0]!), hijriLastDayNumber());
+}
+
+/** The first day of a Hijri month, as a date on the UTC timeline, or null for a year the table has not. */
+function hijriMonthStartDate(year: number, month: number): Date | null {
+  const index = year - HIJRI_FIRST_YEAR;
+  if (index < 0 || index >= HIJRI_YEAR_START_SERIALS.length) return null;
+  let day = HIJRI_YEAR_START_SERIALS[index]!;
+  const mask = HIJRI_YEAR_MONTH_MASKS[index]!;
+  for (let earlier = 0; earlier < month - 1; earlier++) {
+    day += ((mask >> earlier) & 1) === 1 ? 30 : 29;
+  }
+  return new Date(OLE_EPOCH_UTC + day * MS_PER_DAY);
+}
+
+/**
+ * The day a month name should be read from, which is not always the day itself.
+ *
+ * The engine's own fields for a Hijri date come from the Umm al-Qura table and for a Persian date before 980
+ * from the day before, so asking ICU about the date itself can name a month the picture is not writing:
+ * 30 December 1899 is before the Hijri table, and ICU falls back there to a calendar that calls it Sha'ban
+ * while the fields say Muharram. The name of a Hijri month is read from that month's first day instead.
+ */
+function calendarNameDate(date: Date, source: DateSource, locale: string): Date {
+  if (source.kind !== 'calendar') return date;
+  if (source.type === HIJRI) {
+    const fields = hijriFieldsOf(clampedHijriDay(wallClockDayNumber(date)));
+    if (!fields) return date;
+    return hijriMonthStartDate(fields.year, fields.month) ?? date;
+  }
+  if (source.type === PERSIAN) return persianFieldDate(date, source, locale);
+  return date;
+}
+
 /** The number a year token writes. */
 function yearValue(source: DateSource, date: Date, locale: string): number {
   return dateFields(date, source, locale).year;
+}
+
+/**
+ * The whole days from the OLE epoch to the calendar day a wall-clock date names.
+ *
+ * A date here is a wall-clock reading carried onto the UTC timeline, so its UTC fields are the day the script
+ * means, which is what the date writers count from.
+ */
+function wallClockDayNumber(date: Date): number {
+  return Math.round(
+    (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - OLE_EPOCH_UTC) /
+      MS_PER_DAY
+  );
+}
+
+/** The last day the Umm al-Qura table covers, as a Gregorian day number. */
+function hijriLastDayNumber(): number {
+  const lastIndex = HIJRI_YEAR_START_SERIALS.length - 1;
+  const mask = HIJRI_YEAR_MONTH_MASKS[lastIndex]!;
+  let last = HIJRI_YEAR_START_SERIALS[lastIndex]! - 1;
+  for (let month = 0; month < 12; month++) last += ((mask >> month) & 1) === 1 ? 30 : 29;
+  return last;
+}
+
+/**
+ * The Umm al-Qura fields of a Gregorian day number, or null for a day the table does not cover.
+ *
+ * The table is a start day and twelve month lengths a year, so the fields of any day inside it come from
+ * walking the months of the one year whose start is the last at or before that day.
+ */
+function hijriFieldsOf(dayNumber: number): { day: number; month: number; year: number } | null {
+  if (dayNumber < HIJRI_YEAR_START_SERIALS[0]! || dayNumber > hijriLastDayNumber()) return null;
+
+  let low = 0;
+  let high = HIJRI_YEAR_START_SERIALS.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (HIJRI_YEAR_START_SERIALS[middle]! <= dayNumber) low = middle;
+    else high = middle - 1;
+  }
+
+  let remaining = dayNumber - HIJRI_YEAR_START_SERIALS[low]!;
+  const mask = HIJRI_YEAR_MONTH_MASKS[low]!;
+  for (let month = 0; month < 12; month++) {
+    const length = ((mask >> month) & 1) === 1 ? 30 : 29;
+    if (remaining < length) {
+      return { day: remaining + 1, month: month + 1, year: HIJRI_FIRST_YEAR + low };
+    }
+    remaining -= length;
+  }
+  return null;
 }
 
 /**
@@ -475,6 +604,9 @@ function localizedToken(
   // near a month boundary, and the table is keyed the same way this looks it up.
   const monthIndex =
     year.kind === 'calendar' ? dateFields(date, year, locale).month - 1 : date.getUTCMonth();
+  // The month's name is read from the day the fields themselves name, which for a Hijri date is a day of
+  // that month in the Umm al-Qura table and for a Persian date before 980 is the day before.
+  const nameDate = calendarNameDate(date, year, locale);
 
   const hour = date.getUTCHours();
   const meridiem = hour < 12 ? am || 'AM' : pm || 'PM';
@@ -482,11 +614,11 @@ function localizedToken(
   switch (token) {
     case 'MMM':
       return name(monthIndex, overrides?.months?.[monthIndex], () =>
-        partOf(formatters.monthShort, date, 'month')
+        partOf(formatters.monthShort, nameDate, 'month')
       );
     case 'MMMM':
       return name(monthIndex, overrides?.months?.[monthIndex], () =>
-        partOf(formatters.monthLong, date, 'month')
+        partOf(formatters.monthLong, nameDate, 'month')
       );
     case 'ddd':
       return name(date.getUTCDay(), overrides?.weekdays?.[date.getUTCDay()], () =>
@@ -544,7 +676,8 @@ function expandNlsPattern(
   markFields = false,
   clock = false,
   lcid = 0,
-  persianDayUnpadded = false
+  persianDayUnpadded = false,
+  widenTwoDigitYear = false
 ): string | null {
   // Windows writes a date to the second, rounding the fraction of a second rather than dropping it: the
   // serial 46028.2345 is 5:37:41 and not the 5:37:40 a truncation gives, measured on a fresh cscript.
@@ -555,13 +688,23 @@ function expandNlsPattern(
   const hour = date.getUTCHours();
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   const pad = (value: number, width: number): string => String(value).padStart(width, '0');
+  // A two digit year is written with four digits outside 1950 to 2049, which GeneralDate and CStr do while
+  // the short date does not: measured on 1059 and 2060, whose short dates are the only ones in the table
+  // that ask for two digits, GeneralDate gives "15.06.1949" and "15.06.2050" but "15.06.50" for 1950, and
+  // the short date gives "15.06.49" for 1949. The window is the machine's own: its Gregorian calendar has
+  // a two digit year maximum of 2049, and Windows writes two digits for that year and the 99 before it.
+  const calendarYear = yearValue(year, date, locale);
+  const wideYear = calendarYear < 1950 || calendarYear > 2049;
+  const yearShort = String(calendarYear % 100);
+  const yearTwoDigits =
+    widenTwoDigitYear && wideYear ? String(calendarYear) : pad(calendarYear % 100, 2);
   const fields: Record<string, string> = {
     d: dateNumericToken('d', date, year, locale) as string,
     dd: dateNumericToken('dd', date, year, locale, persianDayUnpadded) as string,
     M: dateNumericToken('M', date, year, locale) as string,
     MM: dateNumericToken('MM', date, year, locale) as string,
-    y: dateNumericToken('y', date, year, locale) as string,
-    yy: dateNumericToken('yy', date, year, locale) as string,
+    y: widenTwoDigitYear && wideYear ? String(calendarYear) : yearShort,
+    yy: yearTwoDigits,
     yyyy: dateNumericToken('yyyy', date, year, locale) as string,
     h: String(hour12),
     hh: pad(hour12, 2),
@@ -837,7 +980,9 @@ export function formatVbDate(date: Date, lcid: number, locale: string): string {
       pm,
       false,
       false,
-      lcid
+      lcid,
+      false,
+      true
     );
     const timePart = expandNlsPattern(
       format.timeFormat,
@@ -877,9 +1022,10 @@ export const VbDateTimeFormat = {
  * FormatDateTime, as vbscript.dll answers it.
  *
  * What the measurements pin down (a fresh cscript process per locale, on 2026-01-05 09:05:00, midnight,
- * 2026-01-05 15:07:09 and both day-0 instants, for all 132 locales the table covers):
- *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
- *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
+ * 2026-01-05 15:07:09, a time that is only a time, dates from 1000 to 4000 and both day-0 instants, for all
+ * 132 locales the table covers):
+ *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. A value that is only a time prints
+ *     the time alone in every locale, ar-SA included, and one whose clock is midnight prints the date alone.
  *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones.
  *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock,
  *     NOT a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
@@ -889,12 +1035,14 @@ export const VbDateTimeFormat = {
  *   * The short date that GeneralDate prints carries no right-to-left mark, while the one ShortDate prints
  *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
  *   * Thai is not a special case: it writes its Buddhist year in every style, CStr included ("5/1/2569"),
- *     and its long date carries no weekday, which is what Windows answers. An early capture made in a loop
- *     reported error 5 for its date formats, and a fresh process, which is what a script gets, answers them.
+ *     and its long date carries no weekday, which is what Windows answers.
+ *   * The two date formats are error 5 for a day Windows' own date writers cannot write: anything before
+ *     1601-01-01 in every locale, and for ar-SA anything outside the Hijri range 1318-01-01 to 1500-12-30,
+ *     which the calendar itself covers and GeneralDate does not care about.
  *
- * No deviation is left here: every one of the 109 measured cells agrees with vbscript.dll for each of the
- * 132 locales, as do the 19 long-date samples a locale. The two readings that still differ are in the
- * parser, not the writer, and are written down beside parseVbDate.
+ * Every one of the 141 measured cells agrees with vbscript.dll for each of the 132 locales, as do the 19
+ * long-date samples a locale. The two readings that still differ are in the parser, not the writer, and are
+ * written down beside parseVbDate.
  */
 export function formatVbDateTime(date: Date, lcid: number, style: number, locale: string): string {
   const format = nlsDateFormat(lcid);
@@ -911,6 +1059,13 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     ? { kind: 'calendar', type: calendarType }
     : GREGORIAN_DATE;
   const hijri = calendarType === HIJRI;
+  // A date Windows' own date writers cannot write is error 5, measured on a fresh cscript over every locale:
+  // a day before 1601 (1033 gives error 5 for the long and short dates of 1483 but a plain date for its
+  // GeneralDate), and for ar-SA a day outside the Hijri range the calendar covers, 1318-01-01 to 1500-12-30,
+  // which is 30 April 1900 to 16 November 2077.
+  if (style === VbDateTimeFormat.LongDate || style === VbDateTimeFormat.ShortDate) {
+    assertDateStyleWritable(wallClock, locale, hijri);
+  }
   // Thai is the one locale whose calendar reaches the styles that are Gregorian everywhere else: its year is
   // Buddhist even in CStr and GeneralDate. It is also the one locale whose long date writes no weekday, so
   // that picture string is expanded without the group holding it.
@@ -948,7 +1103,12 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     locale,
     thai ? ownCalendar : gregorian,
     am,
-    pm
+    pm,
+    false,
+    false,
+    0,
+    false,
+    true
   );
   const shortDate = expandNlsPattern(
     format.shortDate,
@@ -994,14 +1154,43 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     default: {
       const timePart = longTime ?? formatVbDateViaIntl(date, locale);
       const datePart = generalDate ?? formatVbDateViaIntl(date, locale);
-      // A Hijri locale keeps the date on day 0 (ar-SA prints "30/12/1899 09:05:00 ص"); every other locale
-      // prints the time alone there, which is what CStr does everywhere. Thai was recorded here as an
-      // exception and is not one: a fresh capture gives CStr(TimeSerial(9,5,0)) = "9:05:00".
-      if (isDayZero(date) && !hijri) return timePart;
+      // A value that is only a time prints the time alone, in every locale, ar-SA included: a fresh cscript
+      // answers FormatDateTime(CDate(0)) with "12:00:00 ص" for ar-SA and with "12:00:00 AM" for 1033, and
+      // FormatDateTime(TimeSerial(13, 5, 9)) with the clock alone in both. A whole day at midnight prints the
+      // date alone instead.
+      if (isDayZero(date)) return timePart;
       if (isMidnight(date)) return datePart;
       return `${datePart} ${timePart}`;
     }
   }
+}
+
+/** The first day Windows' own date writers accept, which is 1601-01-01 for every locale. */
+const FIRST_WRITABLE_DAY = Date.UTC(1601, 0, 1);
+
+/**
+ * Refuses a date the long or the short date cannot write, with the error Windows raises.
+ *
+ * Measured on a fresh cscript over all 132 locales: the long and the short date of 15 June 1483 are error 5
+ * under 1033 while its GeneralDate is "6/15/1483", and the same split holds for the Persian and Thai years,
+ * whose own calendars start at the same 1601-01-01. The Hijri range is its own calendar's and was measured
+ * day by day: 30 April 1900 is "01/01/1318" and 29 April 1900 is error 5, 16 November 2077 is "30/12/1500"
+ * and 17 November 2077 is error 5.
+ *
+ * The Hebrew locale is the one that answers a different number. It is 32812, "the date is not in the
+ * calendar of the current locale", where every other locale answers 5, measured for 1400, 1500 and 1600
+ * alike; its GeneralDate and CStr answer normally for all of them.
+ */
+function assertDateStyleWritable(date: Date, locale: string, hijri: boolean): void {
+  const refused = (): never => {
+    const number = locale.toLowerCase().startsWith('he')
+      ? 32812
+      : VbErrorCodes.InvalidProcedureCall;
+    throw createVbError(number, 'This date has no long or short form in this locale');
+  };
+  if (date.getTime() < FIRST_WRITABLE_DAY) refused();
+  if (!hijri) return;
+  if (hijriFieldsOf(wallClockDayNumber(date)) === null) refused();
 }
 
 /**

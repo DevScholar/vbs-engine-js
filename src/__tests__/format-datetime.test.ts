@@ -184,16 +184,98 @@ describe('FormatDateTime', () => {
     );
   });
 
-  // Measured: on day 0 a locale prints the time alone for GeneralDate, as CStr does, except in a Hijri
-  // locale, which keeps its date there. Thai was listed here as another exception and is not one:
-  // CStr(TimeSerial(9,5,0)) is "9:05:00" under 1054.
-  it('prints the time alone on day 0 for GeneralDate, except in a Hijri locale', () => {
+  // Measured in a fresh process, over a whole day at a time: on day 0 a locale prints the time alone for
+  // GeneralDate, ar-SA included. The engine used to keep the Hijri date there, which a later capture of the
+  // same cells in a fresh process did not repeat: FormatDateTime(CDate(0)) is "12:00:00 \u0635" under 1025 and
+  // "12:00:00 AM" under 1033, and TimeSerial(13, 5, 9) prints the clock alone in both.
+  it('prints the time alone on day 0 for GeneralDate, in every locale', () => {
     const dayZero = new Date(1899, 11, 30, 9, 5, 0);
     expect(formatVbDateTime(dayZero, 1026, VbDateTimeFormat.GeneralDate, 'bg-bg')).toBe('9:05:00');
     expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe(
-      '30/12/1899 09:05:00 \u0635'
+      '09:05:00 \u0635'
     );
     expect(formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('9:05:00');
+  });
+
+  // Measured over the whole calendar, one day at a time: the long and the short date are error 5 for a day
+  // Windows' own date writers cannot write. Every locale starts at 1601-01-01, and ar-SA stops at the end of
+  // the Hijri range its calendar covers, 30 December 1500, which is 16 November 2077.
+  it('refuses a day the date styles cannot write', () => {
+    const day = (year: number, month: number, date: number) =>
+      new Date(year, month - 1, date, 9, 5, 0);
+    expect(() =>
+      formatVbDateTime(day(1600, 12, 31), 1033, VbDateTimeFormat.ShortDate, 'en-us')
+    ).toThrow();
+    expect(formatVbDateTime(day(1601, 1, 1), 1033, VbDateTimeFormat.ShortDate, 'en-us')).toBe(
+      '1/1/1601'
+    );
+    // The GeneralDate of the same days is written, which is why the refusal belongs to the date styles.
+    expect(formatVbDateTime(day(1600, 12, 31), 1033, VbDateTimeFormat.GeneralDate, 'en-us')).toBe(
+      '12/31/1600 9:05:00 AM'
+    );
+    expect(() =>
+      formatVbDateTime(day(1900, 4, 29), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')
+    ).toThrow();
+    expect(formatVbDateTime(day(1900, 4, 30), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
+      '\u200f01/\u200f01/\u200f18'
+    );
+    expect(formatVbDateTime(day(2077, 11, 16), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
+      '\u200f30/\u200f12/\u200f00'
+    );
+    expect(() =>
+      formatVbDateTime(day(2077, 11, 17), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')
+    ).toThrow();
+    // The Hebrew locale is the one that answers a different number for the same refusal.
+    const hebrew = (() => {
+      try {
+        formatVbDateTime(day(1600, 12, 31), 1037, VbDateTimeFormat.ShortDate, 'he-il');
+        return 0;
+      } catch (error) {
+        return (error as { number?: number }).number;
+      }
+    })();
+    expect(hebrew).toBe(32812);
+  });
+
+  // Measured over the years: the Hijri dates come from the Umm al-Qura table .NET ships, because ICU's
+  // islamic-umalqura calendar is a day behind Windows for about a fifth of the days it covers.
+  it('writes the Hijri date from the Umm al-Qura table', () => {
+    const day = (year: number, month: number, date: number) =>
+      new Date(year, month - 1, date, 9, 5, 0);
+    expect(formatVbDateTime(day(1900, 6, 15), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
+      '\u200f18/\u200f02/\u200f18'
+    );
+    expect(formatVbDateTime(day(1929, 6, 15), 1025, VbDateTimeFormat.LongDate, 'ar-sa')).toBe(
+      '\u200f08/\u200f\u0645\u062d\u0631\u0645/\u200f1348'
+    );
+    expect(formatVbDateTime(day(2031, 6, 15), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
+      '\u200f25/\u200f02/\u200f53'
+    );
+    // A Hijri month name is read from that month's own first day, so it is the name the picture is writing
+    // even where ICU would put the day in another month, as it does before the table starts.
+    expect(formatVbDateTime(day(1900, 4, 30), 1025, VbDateTimeFormat.LongDate, 'ar-sa')).toBe(
+      '\u200f01/\u200f\u0645\u062d\u0631\u0645/\u200f1318'
+    );
+  });
+
+  // Measured: a picture that asks for a two digit year writes four digits outside 1950 to 2049, which
+  // GeneralDate and CStr do while the short date keeps the two digits its picture asks for.
+  it('widens a two digit year outside 1950 to 2049 for GeneralDate and CStr', () => {
+    const day = (year: number) => new Date(year, 5, 15);
+    expect(formatVbDateTime(day(1949), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
+      '15.06.1949'
+    );
+    expect(formatVbDateTime(day(1950), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
+      '15.06.50'
+    );
+    expect(formatVbDateTime(day(2049), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
+      '15.06.49'
+    );
+    expect(formatVbDateTime(day(2050), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
+      '15.06.2050'
+    );
+    expect(formatVbDateTime(day(1949), 1059, VbDateTimeFormat.ShortDate, 'be-by')).toBe('15.06.49');
+    expect(formatVbDateTime(day(2050), 1059, VbDateTimeFormat.ShortDate, 'be-by')).toBe('15.06.50');
   });
 
   it('keeps the whole date at midnight for the date formats, unlike GeneralDate', () => {
