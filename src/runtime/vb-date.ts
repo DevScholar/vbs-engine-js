@@ -805,7 +805,7 @@ function formatVbDateViaIntl(date: Date, locale: string): string {
  * has no NLS to ask and CLDR disagrees with it: the two agree for 46 of the 133 locales the engine knows
  * when Intl is left to choose the layout itself.
  *
- * CStr does not mark its fields, measured on all 131 locales: ar-SA prints "05/01/2026 09:05:00 ص" with no
+ * CStr does not mark its fields, measured on all 132 locales: ar-SA prints "05/01/2026 09:05:00 ص" with no
  * directional mark, where the short date of FormatDateTime does carry them.
  */
 export function formatVbDate(date: Date, lcid: number, locale: string): string {
@@ -870,50 +870,24 @@ export const VbDateTimeFormat = {
  * FormatDateTime, as vbscript.dll answers it.
  *
  * What the measurements pin down (a fresh cscript process per locale, on 2026-01-05 09:05:00, midnight,
- * 2026-01-05 15:07:09 and both day-0 instants, for all 131 locales the table covers):
+ * 2026-01-05 15:07:09 and both day-0 instants, for all 132 locales the table covers):
  *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
  *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
  *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones.
  *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock,
  *     NOT a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
- *   * The two date formats use the locale's own calendar - ar-SA's long date is the Hijri "16 رجب 1447" and
+ *   * The two date formats use the locale's own calendar - ar-SA's long date is the Hijri "16/رجب/1447" and
  *     its short date the Hijri "16/07/47", fa-IR's the Persian "15 دی 1404" - while GeneralDate and both
  *     clocks stay Gregorian for every locale.
  *   * The short date that GeneralDate prints carries no right-to-left mark, while the one ShortDate prints
  *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
+ *   * Thai is not a special case: it writes its Buddhist year in every style, CStr included ("5/1/2569"),
+ *     and its long date carries no weekday, which is what Windows answers. An early capture made in a loop
+ *     reported error 5 for its date formats, and a fresh process, which is what a script gets, answers them.
  *
- * Three deliberate deviations, all of them measured rather than assumed:
- *   * Thai writes its Buddhist year in every style, CStr included ("5/1/2569" where the Gregorian reading is
- *     "5/1/2026"), and its long date carries no weekday: LOCALE_SLONGDATE asks for one and Windows leaves
- *     the whole group out, measured on all seven weekdays.
- *   * A Hijri picture string separates its fields with spaces and Windows writes "/" there, so the engine's
- *     ar-SA long date reads "‏16 ‏رجب, ‏1447" where Windows writes "‏16/‏رجب/‏1447".
- *   * A few names are CLDR's where Windows ships an older or a longer spelling: Arabic's two-word month
- *     names (Windows separates the two words with a narrow no-break space the engine does not print),
- *     Latvian's capitalized "Pirmdiena", Vietnamese's "tháng 1", and the Sotho and Tswana month names.
- */
-/**
- * FormatDateTime, as vbscript.dll answers it.
- *
- * What the measurements pin down (a fresh cscript process per locale, on 2026-01-05 09:05:00, midnight,
- * 2026-01-05 15:07:09 and both day-0 instants, for all 131 locales the table covers):
- *   * GeneralDate is the short date with the LOCALE_STIMEFORMAT clock. It prints the time alone at midnight
- *     and on day 0, as CStr does, except in a Hijri locale, which keeps its date on day 0.
- *   * LongDate is LOCALE_SLONGDATE, so its weekday and month names are the long ones.
- *   * ShortTime is the table's LOCALE_SSHORTTIME with the AM/PM designator dropped and a 24-hour clock, NOT
- *     a hard-coded "HH:mm": Finnish prints "09.05" and Indonesian "09.05", keeping their separator.
- *   * The two date formats use the locale's own calendar where the table names one - ar-SA's long date is
- *     the Hijri "16 رجب 1447" and its short date the Hijri "16/07/47", fa-IR's the Persian "15 دی 1404" -
- *     while GeneralDate and both clocks stay Gregorian for every locale.
- *   * The short date that GeneralDate prints carries no right-to-left mark, while the one ShortDate prints
- *     does: he-IL gives "05/01/2026 09:05:00" for style 0 and "‏05/‏01/‏2026" for style 2.
- *
- * Two deviations are left, and both are measured: a Hijri picture string separates its fields with spaces
- * where Windows writes "/", so the engine's ar-SA long date reads "16 رجب, 1447" against Windows's
- * "16/رجب/1447"; and a few names are CLDR's where Windows ships an older or a longer spelling (Arabic's
- * two-word month names, Latvian's capitalized "Pirmdiena", Vietnamese's "tháng 1", the Sotho and Tswana
- * month names). Thai is not one of them any more, and never was: a capture made in a loop reported error 5
- * for its date formats, and a fresh process, which is what a script gets, answers them.
+ * No deviation is left here: every one of the 109 measured cells agrees with vbscript.dll for each of the
+ * 132 locales, as do the 19 long-date samples a locale. The two readings that still differ are in the
+ * parser, not the writer, and are written down beside parseVbDate.
  */
 export function formatVbDateTime(date: Date, lcid: number, style: number, locale: string): string {
   const format = nlsDateFormat(lcid);
@@ -1418,6 +1392,16 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  *
  * Only a space separates a date from a time ("2026-09-29 10:30"); "2026-09-29T10:30:00" is a type
  * mismatch in vbscript.dll, and so is a weekday name ("Tue Sep 29 2026").
+ *
+ * Two readings are wider than Windows, and both are measured and deliberate:
+ *   * A month name inside a date in Greek: Windows writes "Δευτέρα, 5 Ιανουαρίου 2026" and answers a type
+ *     mismatch for CDate("5 Ιανουαρίου 2026") for January, February and March alike, while the standalone
+ *     "Ιανουάριος" reads. Its own month list and its date writer disagree there, and the engine reads the
+ *     name that is spelled correctly. A name in another language is refused, as Windows refuses it, except
+ *     that English is read under the three CJK locales.
+ *   * A German month name with a dot under 1042, whose dates are written with dots: Windows answers a type
+ *     mismatch for "5. Januar 2026" where the engine reads it, since no other locale separates a month name
+ *     from the day with a dot of its own.
  */
 export function parseVbDate(text: string, locale: string): Date | null {
   const date = parseVbDateInItsOwnCalendar(text, locale);
