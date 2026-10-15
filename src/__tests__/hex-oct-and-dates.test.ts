@@ -266,3 +266,49 @@ describe('the names Windows writes and the years Thai counts', () => {
     });
   }
 });
+
+// A month name read under a locale: how much of the name counts, and which marks may stand around it.
+//
+//   * Three letters or more of the locale's own month names are a month, matched as a prefix, so "Jan",
+//     "Janu", "Januar" and "January" are all January in English while "Ja" is none of them and "Januaryy" is
+//     too long.
+//   * Only the locale's own names count: German names read under 1031 and not under 1033, and English names
+//     are read under 1033 and under the three CJK locales, but not the other way round.
+//   * The marks around a month name are a space, a comma, a slash, a hyphen or the locale's own date mark. A
+//     dot counts only where the locale writes its dates with dots, so under 1033 "5. Januar 2026" is a type
+//     mismatch while "Januar. 5, 2026" reads (the dot there belongs to the name), and under 1031 both read.
+const MONTH_WORD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1033, 'CStr(CDate("Januar 5, 2026"))', '1/5/2026'],
+  [1033, 'CStr(CDate("Janu 5, 2026"))', '1/5/2026'],
+  [1033, 'CStr(CDate("Januar. 5, 2026"))', '1/5/2026'],
+  [1033, 'CStr(CDate("January 5, 2026"))', '1/5/2026'],
+  [1033, 'CStr(CDate("Decem 5, 2026"))', '12/5/2026'],
+  [1033, 'CDate("Ja 5, 2026")', 'ERR 13'],
+  [1033, 'CDate("Januaryy 5, 2026")', 'ERR 13'],
+  [1033, 'CDate("5. Januar 2026")', 'ERR 13'],
+  [1033, 'CDate("5 janvier 2026")', 'ERR 13'],
+  [1031, 'CStr(CDate("5. Januar 2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("5 Januar 2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("5/Januar/2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("5-Januar-2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("5, Januar, 2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("Januar 5, 2026"))', '05.01.2026'],
+  [1031, 'CStr(CDate("Janu 5, 2026"))', '05.01.2026'],
+  [1031, 'CDate("Ja 5, 2026")', 'ERR 13'],
+  [1031, 'CDate("January 5, 2026")', 'ERR 13'],
+  [1031, 'CDate("Mar 5, 2026")', 'ERR 13'],
+  [1031, 'CDate("5 janvier 2026")', 'ERR 13'],
+  [1041, 'CStr(CDate("Januar 5, 2026"))', '2026/01/05'],
+  [1041, 'CDate("5. Januar 2026")', 'ERR 13'],
+  [2052, 'CStr(CDate("Decem 5, 2026"))', '2026/12/5'],
+  [2052, 'CDate("5 janvier 2026")', 'ERR 13'],
+  [1042, 'CStr(CDate("Januar 5, 2026"))', '2026-01-05'],
+];
+
+describe('a month name is read the way Windows reads one', () => {
+  for (const [lcid, expression, expected] of MONTH_WORD_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});

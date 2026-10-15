@@ -1199,7 +1199,13 @@ function validDate(year: number, month: number, day: number): Date | null {
 
 /** A date written with a month name: "1 Jan 2026", "Jan 1, 2026", "März 1 2026", "Jan 2026", "1 Jan". */
 function parseMonthNameDate(text: string, locale: string): Date | null {
-  const words = text.split(/[\s,./-]+/).filter(word => word !== '');
+  // A month name is set off from the rest by a space, a comma, a slash, a hyphen or the locale's own date
+  // mark. A dot counts only where the locale writes its dates with dots, which a fresh cscript shows: under
+  // 1033 "5. Januar 2026" is a type mismatch while "Januar. 5, 2026" reads, because the dot there belongs to
+  // the name, and under 1031 both read.
+  const ownMark = dateOrderOf(locale).separator;
+  const separators = ownMark === '.' ? /[\s,./-]+/ : /[\s,/-]+/;
+  const words = text.split(separators).filter(word => word !== '');
   if (words.length < 2 || words.length > 3) return null;
 
   const months = words.map(word => monthOfWord(word, locale));
