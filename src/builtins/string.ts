@@ -2,6 +2,8 @@ import type { VbValue } from '../runtime/index.ts';
 import {
   toNumber,
   toString,
+  rejectObjectArgument,
+  VbArray,
   createVbArrayFromValues,
   createVbError,
   VbErrorCodes,
@@ -28,11 +30,24 @@ function anyNullArgument(...values: (VbValue | undefined)[]): boolean {
 }
 
 /** A compare mode, which VBScript allows to be 0 (binary) or 1 (text) and nothing else. */
-function readCompareMode(value: VbValue | undefined, functionName: string): number {
+export function readCompareMode(value: VbValue | undefined, functionName: string): number {
   if (value === undefined) return 0;
   const mode = Math.floor(toNumber(value));
   if (mode !== 0 && mode !== 1) invalidArgument(functionName, 'compare');
   return mode;
+}
+
+/**
+ * One element of the list Join writes out.
+ *
+ * A Null and an array are both a type mismatch there, which a fresh cscript shows for Join(Array(Null, "a"))
+ * and for Join(Array(Array(1, 2))), where an Empty element is no text at all.
+ */
+function readJoinElement(item: VbValue): string {
+  if (item.type === 'Null' || item.type === 'Array') {
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Join');
+  }
+  return toString(item);
 }
 
 /**
@@ -544,7 +559,13 @@ export const stringFunctions = {
     //     below -1 is error 5, a limit of 0 makes no parts at all, and 1 leaves the text whole.
     //   * A text that is empty makes no parts either, whatever the delimiter, and a delimiter of one
     //     character that is the whole text makes two empty parts.
+    //   * The text is read as text, so Split(1, ",") makes one part, while an array or an object is a type
+    //     mismatch and a Nothing is the object variable that is not set.
     if (anyNullArgument(str, delimiter, count, compare)) nullArgument('Split');
+    rejectObjectArgument(str, 'Split');
+    if (str.type === 'Array') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Split');
+    }
     const compareMode = readCompareMode(compare, 'Split');
     const text = toString(str);
     const mark = delimiter === undefined ? ' ' : toString(delimiter);
@@ -559,24 +580,27 @@ export const stringFunctions = {
   },
 
   Join: (list: VbValue, delimiter?: VbValue): VbValue => {
+    // Join(list[, delimiter]), measured: a Null anywhere is the invalid use of Null, a Nothing is error 91 and
+    // any other object is 438, a list that is no array is a type mismatch, an array of more than one dimension
+    // is a type mismatch too, and so is an element that is a Null or an array, where an Empty element is no
+    // text at all.
     if (anyNullArgument(list, delimiter)) nullArgument('Join');
-    const delim = delimiter ? toString(delimiter) : ' ';
-    if (list.type === 'Array') {
-      const arr = list.value;
-      if (typeof arr === 'object' && arr !== null && 'toArray' in arr) {
-        const vbArray = arr as { toArray: () => VbValue[] };
-        return {
-          type: 'String',
-          value: vbArray
-            .toArray()
-            .map(v => toString(v))
-            .join(delim),
-        };
-      }
-      const plainArr = arr as VbValue[];
-      return { type: 'String', value: plainArr.map(v => toString(v)).join(delim) };
+    rejectObjectArgument(list, 'Join');
+    if (list.type !== 'Array') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Join');
     }
-    return { type: 'String', value: '' };
+    const delim = delimiter === undefined ? ' ' : toString(delimiter);
+    const arr = list.value;
+    // A plain JavaScript array is what a host hands over, which has one dimension by construction.
+    if (Array.isArray(arr)) {
+      return { type: 'String', value: (arr as VbValue[]).map(readJoinElement).join(delim) };
+    }
+    // An array of more than one dimension is a type mismatch, while one that was never given a size is an
+    // empty list, which a fresh cscript shows for Join(Dim a()) with an empty string.
+    if (!(arr instanceof VbArray) || arr.dimensions.length > 1) {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Join');
+    }
+    return { type: 'String', value: arr.toArray().map(readJoinElement).join(delim) };
   },
 
   Format: (expression: VbValue, format?: VbValue): VbValue => {

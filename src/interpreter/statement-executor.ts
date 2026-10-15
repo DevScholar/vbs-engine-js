@@ -31,6 +31,8 @@ import {
   createVbValue,
   toBoolean,
   toNumber,
+  toSubscript,
+  toWholeNumber,
   VbError,
   VbErrorCodes,
   createVbError,
@@ -41,6 +43,7 @@ import {
   VbClass,
   type VbProperty,
   type VbParameterInfo,
+  type VbArgumentRef,
   declaredArity,
   checkArgumentRange,
 } from '../runtime/index.ts';
@@ -57,6 +60,17 @@ import { ExpressionEvaluator } from './expression-evaluator.ts';
 function toConditionBoolean(value: VbValue): boolean {
   if (value.type === 'Null') return false;
   return toBoolean(value);
+}
+
+/**
+ * An array handed to a ByVal parameter is a copy, so what the procedure does to it stays inside.
+ *
+ * Measured on a fresh cscript: a Sub with `ByVal values` that writes values(0) leaves the caller's array as it
+ * was, where the same Sub written with the default ByRef changes it.
+ */
+function copyArrayArgument(value: VbValue): VbValue {
+  if (value.type !== 'Array') return value;
+  return { type: 'Array', value: (value.value as VbArray).clone() };
 }
 
 /** The parameter list of a class member as the argument counts are read from it. */
@@ -274,10 +288,11 @@ export class StatementExecutor {
 
       if (decl.isArray) {
         // Dim a() makes a dynamic array with no size yet: IsArray answers True, UBound raises error 9, and a
-        // later ReDim gives it its bounds. Measured on a fresh cscript, as is VarType 8204 for it.
+        // later ReDim gives it its bounds. Measured on a fresh cscript, as is VarType 8204 for it. A bound is
+        // a whole number, so a script that writes a fraction gets the nearest one.
         const bounds = (decl.arrayBounds ?? []).map(b => {
           const boundValue = this.exprEvaluator.evaluate(b);
-          return toNumber(boundValue);
+          return toWholeNumber(toNumber(boundValue));
         });
         const arr = createVbArray(bounds);
         value = { type: 'Array', value: arr };
@@ -287,7 +302,10 @@ export class StatementExecutor {
         value = getTypedDefault(tsTypeAnnotationName(decl.typeAnnotation), this.context);
       }
 
-      this.context.declareVariable(decl.id.name, value);
+      // A variable Dim wrote with parentheses is an array for the rest of the run, and giving it a whole value
+      // afterwards is an error: a fresh cscript answers `Dim a(1)` with `a = 5` and with `a = Array(1, 2)`
+      // alike with error 13, and `Dim a()` with `a = Array(1, 2)` with error 9.
+      this.context.declareVariable(decl.id.name, value, { isArray: decl.isArray });
     }
 
     return VbEmpty;
@@ -333,15 +351,21 @@ export class StatementExecutor {
 
       const bounds = (decl.arrayBounds ?? []).map(b => {
         const boundValue = this.exprEvaluator.evaluate(b);
-        return toNumber(boundValue);
+        return toWholeNumber(toNumber(boundValue));
       });
       const existingVar = this.context.currentScope.get(decl.id.name);
 
       if (existingVar && existingVar.value.type === 'Array') {
         const arr = existingVar.value.value as VbArray;
+        // A fixed array cannot be sized again, which a fresh cscript answers with error 10: Dim a(2), Dim a(2)
+        // then Erase a, and Dim a(2) then ReDim Preserve a(3) are all error 10.
+        if (!arr.isDynamic()) {
+          throw createVbError(10, 'This array is fixed or temporarily locked');
+        }
         arr.redim(bounds, node.preserve);
       } else {
-        // A ReDim always makes a dynamic array, so that Erase frees it later.
+        // A ReDim always makes a dynamic array, so that Erase frees it later, and the name stays an ordinary
+        // Variant: a fresh cscript lets `Dim x` take an array afterwards, whatever size ReDim gave it first.
         const arr = createVbArray([]);
         arr.redim(bounds, false);
         this.context.setVariable(decl.id.name, { type: 'Array', value: arr });
@@ -352,25 +376,63 @@ export class StatementExecutor {
   }
 
   private executeEraseStatement(node: VbEraseStatement): VbValue {
-    const arrayName = node.arrayName.name;
-    const variable = this.context.currentScope.get(arrayName);
-
-    if (!variable) {
-      throw new Error(`Variable '${arrayName}' not defined`);
-    }
-
-    // Erasing something that is not an array is a type mismatch, which a fresh cscript shows for Erase x.
-    if (variable.value.type !== 'Array') {
+    // Erase takes one name, which a fresh cscript shows for `Erase a, b` with error 450 and for `Erase(a)`,
+    // where the parentheses turn the name into a value, with error 13.
+    if (node.targets.length !== 1) {
       throw createVbError(
-        VbErrorCodes.TypeMismatch,
-        `Type mismatch: '${arrayName}' is not an array`
+        VbErrorCodes.InvalidQualifier,
+        'Wrong number of arguments or invalid property assignment: Erase'
       );
     }
+    if (node.parenthesized) {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
+    }
 
-    const arr = variable.value.value as VbArray;
+    const target = node.targets[0]!;
+    const value = this.readEraseTarget(target);
+
+    // Erasing something that is not an array is a type mismatch, which a fresh cscript shows for Erase x.
+    if (value.type !== 'Array') {
+      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
+    }
+
+    const arr = value.value as VbArray;
     arr.erase(arr.isDynamic());
 
     return VbEmpty;
+  }
+
+  /**
+   * The value an Erase names, which is a variable or an element of an array and nothing else.
+   *
+   * `Erase a(0)` frees the array the element holds and leaves a(0) as an array with no size, which a fresh
+   * cscript shows with UBound(a(0)) error 9 and IsEmpty(a(0)) False. A call that is no variable, such as
+   * `Erase Array(1, 2)`, is error 13.
+   */
+  private readEraseTarget(target: Expression): VbValue {
+    if (target.type === 'Identifier') {
+      const variable = this.context.currentScope.get(target.name);
+      // A name nothing holds is read the way every other name is: error 500 with Option Explicit, and the
+      // Empty it stands for without, which is then the type mismatch Erase answers with.
+      return variable ? variable.value : this.context.getVariable(target.name);
+    }
+
+    if (
+      target.type === 'CallExpression' &&
+      target.callee.type === 'Identifier' &&
+      target.arguments.length > 0
+    ) {
+      const container = this.context.currentScope.get(target.callee.name);
+      if (container && container.value.type === 'Array') {
+        const arr = container.value.value as VbArray;
+        const indices = target.arguments.map(argument =>
+          toSubscript(this.exprEvaluator.evaluate(argument as Expression))
+        );
+        return arr.get(indices);
+      }
+    }
+
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
   }
 
   private executeConstStatement(node: VbConstStatement): VbValue {
@@ -697,12 +759,12 @@ export class StatementExecutor {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
-    const subFunc = function (args: VbValue[]): VbValue {
+    const subFunc = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(subName);
 
       try {
-        self.bindParameters(node.params, args);
+        self.bindParameters(node.params, args, refs);
 
         self.executeBlockStatement(node.body);
 
@@ -754,7 +816,7 @@ export class StatementExecutor {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
-    const func = function (args: VbValue[]): VbValue {
+    const func = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(funcName);
 
@@ -763,7 +825,7 @@ export class StatementExecutor {
       let result: VbValue;
 
       try {
-        self.bindParameters(node.params, args);
+        self.bindParameters(node.params, args, refs);
 
         self.executeBlockStatement(node.body);
 
@@ -804,7 +866,11 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private bindParameters(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
+  private bindParameters(
+    params: import('../ast/index.ts').VbParameter[],
+    args: VbValue[],
+    refs?: VbArgumentRef[]
+  ): void {
     let argIndex = 0;
 
     for (const param of params) {
@@ -818,6 +884,9 @@ export class StatementExecutor {
         this.context.declareVariable(param.name.name, { type: 'Array', value: arr });
       } else {
         let argValue: VbValue;
+        // A parameter takes on the array-ness of the variable it was handed, so writing a whole array into it
+        // is the error 13 the variable itself would answer with.
+        const isArrayParameter = refs?.[argIndex]?.isArrayVariable === true;
 
         if (argIndex < args.length) {
           argValue = args[argIndex++]!;
@@ -829,7 +898,11 @@ export class StatementExecutor {
           argValue = VbEmpty;
         }
 
-        this.context.declareVariable(param.name.name, argValue);
+        this.context.declareVariable(
+          param.name.name,
+          param.byRef ? argValue : copyArrayArgument(argValue),
+          { isArray: isArrayParameter }
+        );
       }
     }
   }

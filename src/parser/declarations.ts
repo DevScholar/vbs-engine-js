@@ -76,15 +76,53 @@ export class DeclarationParser {
     };
   }
 
+  /**
+   * `Erase target`, where the target may be written with parentheses or as a comma list.
+   *
+   * A fresh cscript compiles all of those shapes and refuses them at run time: `Erase a` and `Erase a(0)`
+   * erase, `Erase(a)` and `Erase Array(1, 2)` are error 13, and `Erase` alone and `Erase a, b` are 450.
+   */
   parseEraseStatement(): VbEraseStatement {
     const eraseToken = this.state.advance();
-    const arrayName = this.exprParser.parseIdentifier();
+    let targets: Expression[];
+    let parenthesized = false;
+
+    if (this.state.check(TokenType.LParen)) {
+      this.state.advance();
+      parenthesized = true;
+      targets = this.parseEraseTargets(true);
+      this.state.expect(TokenType.RParen);
+    } else {
+      targets = this.parseEraseTargets(false);
+    }
 
     return {
       type: 'VbEraseStatement',
-      arrayName,
+      targets,
+      parenthesized,
       loc: createLocation(eraseToken, this.state.previous),
     };
+  }
+
+  /** The names an Erase names, up to the end of the statement or to a closing parenthesis. */
+  private parseEraseTargets(stopAtRightParen: boolean): Expression[] {
+    const targets: Expression[] = [];
+
+    while (true) {
+      if (stopAtRightParen) {
+        this.state.skipOptionalNewlines();
+        if (this.state.check(TokenType.RParen)) break;
+      } else if (this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
+        break;
+      }
+
+      targets.push(this.exprParser.parseExpression());
+
+      if (stopAtRightParen) this.state.skipOptionalNewlines();
+      if (!this.state.match(TokenType.Comma)) break;
+    }
+
+    return targets;
   }
 
   parseEnumStatement(visibility?: string): TSEnumDeclaration {

@@ -376,6 +376,58 @@ export function roundHalfToEven(value: number): number {
   return below % 2 === 0 ? below : below + 1;
 }
 
+/** The largest and the smallest whole number a Long holds. */
+export const LONG_MAX = 2147483647;
+export const LONG_MIN = -2147483648;
+
+/**
+ * Refuses an object handed where a plain value is needed, with the error Windows answers with.
+ *
+ * Nothing is error 91, the object variable that is not set, and any other object is error 438, since it has no
+ * default member to read. Measured on a fresh cscript: UBound(o), LBound(o) and Join(o, ",") are all 91 after
+ * `Set o = Nothing` and all 438 after `Set o = New Holder` for a class that has no default member.
+ */
+export function rejectObjectArgument(value: VbValue, functionName: string): void {
+  if (value.type !== 'Object') return;
+  if (value.value === null) {
+    throw createVbError(
+      VbErrorCodes.ObjectVariableNotSet,
+      'Object variable or With block variable not set'
+    );
+  }
+  throw createVbError(
+    VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
+    `Object doesn't support this property or method: '${functionName}'`
+  );
+}
+
+/**
+ * A number as a whole number where a script asks for one, which is how CLng reads it: rounded to the nearest
+ * whole number with a tie going to the even neighbour, and Overflow outside the range of a Long.
+ *
+ * Measured on a fresh cscript for a subscript and for a ReDim bound alike: a(1.5) is a(2), a(2.5) is a(2),
+ * a(3.5) is a(4), ReDim a(2.6) gives UBound 3, and a(3000000000) and a(1E+300) are both Overflow.
+ */
+export function toWholeNumber(value: number): number {
+  const rounded = roundHalfToEven(value);
+  if (!Number.isFinite(value) || rounded > LONG_MAX || rounded < LONG_MIN) {
+    throw createVbError(VbErrorCodes.Overflow, 'Overflow');
+  }
+  return rounded;
+}
+
+/**
+ * A subscript as a whole number, with the two readings a fresh cscript gives that the plain conversion does
+ * not: a Null subscript is a type mismatch, so `a(Null)` is error 13 where `UBound(a, Null)` is error 94, and
+ * a value outside the range of a Long is Overflow, which a(3000000000) is.
+ */
+export function toSubscript(value: VbValue): number {
+  if (value.type === 'Null') {
+    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Null subscript');
+  }
+  return toWholeNumber(toNumber(value));
+}
+
 /** A Currency's size, in its scaled units. */
 export function absoluteScaled(scaled: bigint): bigint {
   return scaled < 0n ? -scaled : scaled;

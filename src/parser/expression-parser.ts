@@ -291,6 +291,8 @@ export class ExpressionParser {
           callee: left,
           arguments: args,
           optional: false,
+          // A statement call written without parentheses hands its arguments over by reference.
+          byValueArguments: false,
           loc: createLocationFromNodeAndToken(left, this.state.previous),
         } as CallExpression;
         return this.continueStringConcat(callExpr);

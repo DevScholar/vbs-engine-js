@@ -209,6 +209,12 @@ export class StatementsParser {
     // mark is carried on the call the statement already had.
     if (expr.type === 'CallExpression') {
       expr.statementCall = true;
+      // Parentheses around the arguments of a statement call hand them over by value, which a fresh cscript
+      // shows: `FillWithNine a` changes the caller's array and `FillWithNine(a)` does not. A call written
+      // without them is marked where it is built, and the `Call` keyword goes through parseCallStatement.
+      if (expr.byValueArguments === undefined) {
+        expr.byValueArguments = true;
+      }
     }
 
     return {

@@ -7,6 +7,12 @@ function subscriptOutOfRange(): never {
   throw createVbError(VbErrorCodes.SubscriptOutOfRange, 'Subscript out of range');
 }
 
+/** The number of elements a set of dimensions holds, where no dimensions at all mean no elements. */
+function elementCount(dimensions: number[]): number {
+  if (dimensions.length === 0) return 0;
+  return dimensions.reduce((total, dimension) => total * dimension, 1);
+}
+
 export class VbArray {
   data: VbValue[];
   dimensions: number[];
@@ -18,8 +24,7 @@ export class VbArray {
     this.lowerBounds = lowerBounds ?? dimensions.map(() => 0);
     this.dynamic = dynamic;
 
-    const totalSize = dimensions.reduce((a, b) => a * b, 1);
-    this.data = new Array(totalSize).fill(VbEmpty);
+    this.data = new Array(elementCount(dimensions)).fill(VbEmpty);
   }
 
   /** A copy of the array, which is what assigning it to another variable makes. */
@@ -36,6 +41,18 @@ export class VbArray {
     return this.dynamic;
   }
 
+  /** Whether the array still has a size, which decides the error of assigning an array to it. */
+  isSized(): boolean {
+    return this.dimensions.length > 0;
+  }
+
+  /**
+   * The place an element sits at, with the first subscript moving fastest.
+   *
+   * A two dimensional array holds a(0, 0), a(1, 0), a(0, 1), a(1, 1) in that order, which the order For Each
+   * walks it in shows, and which is why ReDim Preserve keeps every value when only the last dimension grows:
+   * the old places are the start of the new ones.
+   */
   private getIndex(indices: number[]): number {
     if (indices.length !== this.dimensions.length) {
       subscriptOutOfRange();
@@ -44,7 +61,7 @@ export class VbArray {
     let index = 0;
     let multiplier = 1;
 
-    for (let i = this.dimensions.length - 1; i >= 0; i--) {
+    for (let i = 0; i < this.dimensions.length; i++) {
       const lowerBound = this.lowerBounds[i]!;
       const dimension = this.dimensions[i]!;
       const idx = indices[i]! - lowerBound;
@@ -87,22 +104,33 @@ export class VbArray {
    * Sizes the array again, from the bounds a script wrote.
    *
    * A bound is the last index, not a count, so ReDim a(4) makes five elements and UBound answers 4, which a
-   * fresh cscript shows. Preserve keeps what fits, and it may only change the last dimension: ReDim Preserve
-   * on any other one is error 9.
+   * fresh cscript shows. Preserve keeps what fits. It may only change the last dimension of an array that
+   * already has one: ReDim Preserve on any other one is error 9, and so is Preserve that changes how many
+   * dimensions there are. An array with no size yet, Dim a() or one an Erase freed, takes any shape Preserve
+   * asks for, which a fresh cscript shows for ReDim Preserve a(2) after Dim a().
    */
   redim(bounds: number[], preserve: boolean): void {
     const dimensions = bounds.map(bound => bound + 1);
-    if (preserve && dimensions.length === this.dimensions.length) {
-      const changed = dimensions.findIndex((size, index) => size !== this.dimensions[index]);
+
+    if (preserve && this.dimensions.length > 0) {
+      if (dimensions.length !== this.dimensions.length) {
+        subscriptOutOfRange();
+      }
       const lastDimension = dimensions.length - 1;
-      if (changed >= 0 && changed !== lastDimension) subscriptOutOfRange();
+      const changedElsewhere = dimensions.some(
+        (size, index) => size !== this.dimensions[index] && index !== lastDimension
+      );
+      if (changedElsewhere) {
+        subscriptOutOfRange();
+      }
     }
-    const newData = new Array(dimensions.reduce((a, b) => a * b, 1)).fill(VbEmpty);
+
+    const newData = new Array(elementCount(dimensions)).fill(VbEmpty);
 
     if (preserve) {
-      const minSize = Math.min(this.data.length, newData.length);
-      for (let i = 0; i < minSize; i++) {
-        newData[i] = this.data[i];
+      const keptCount = Math.min(this.data.length, newData.length);
+      for (let index = 0; index < keptCount; index++) {
+        newData[index] = this.data[index];
       }
     }
 
@@ -138,7 +166,9 @@ export function createVbArray(bounds: number[]): VbArray {
 }
 
 export function createVbArrayFromValues(values: VbValue[]): VbArray {
-  const arr = new VbArray([values.length]);
+  // An array that Array, Split or Filter makes is dynamic, which a fresh cscript shows from every side: Erase
+  // frees it, so UBound and a read of any element are both error 9 afterwards, while ReDim may size it again.
+  const arr = new VbArray([values.length], undefined, true);
   values.forEach((v, i) => arr.set([i], v));
   return arr;
 }

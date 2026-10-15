@@ -164,6 +164,13 @@ export interface CallExpression extends BaseExpression {
    * expression it is: Eval("number") is 5 while `number` written as a statement is error 13.
    */
   bareName?: boolean;
+  /**
+   * Set where a statement call writes its arguments inside parentheses, which hands them over by value.
+   *
+   * Measured on a fresh cscript: `FillWithNine a` lets the procedure change the caller's array while
+   * `FillWithNine(a)` leaves it alone, and `Call FillWithNine(a)` hands it over by reference again.
+   */
+  byValueArguments?: boolean;
 }
 
 export interface NewExpression extends BaseExpression {
@@ -472,7 +479,16 @@ export interface VbReDimStatement extends BaseStatement {
 
 export interface VbEraseStatement extends BaseStatement {
   type: 'VbEraseStatement';
-  arrayName: Identifier;
+  /**
+   * What the statement names, which may be a variable, an element of an array, or something that is no
+   * variable at all.
+   *
+   * A fresh cscript reads them apart: `Erase a` frees the array a holds, `Erase a(0)` frees the array the
+   * element holds, while `Erase Array(1, 2)` and `Erase(a)` are both error 13 and `Erase a, b` is error 450.
+   */
+  targets: Expression[];
+  /** Whether the targets were written in parentheses, which makes them values rather than variables. */
+  parenthesized: boolean;
 }
 
 export interface VbConstStatement extends BaseStatement {

@@ -143,8 +143,12 @@ export class VbContext {
     this.err.helpContext = 0;
   }
 
-  declareVariable(name: string, value: VbValue = VbEmpty): void {
-    this.currentScope.declare(name, value);
+  declareVariable(
+    name: string,
+    value: VbValue = VbEmpty,
+    options: { isArray?: boolean } = {}
+  ): void {
+    this.currentScope.declare(name, value, { isArray: options.isArray ?? false });
   }
 
   getVariable(name: string): VbValue {

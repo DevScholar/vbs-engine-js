@@ -5,7 +5,7 @@ import { BUILTIN_ARITY } from './builtin-arity.ts';
 
 export type VbFunction = (...args: VbValue[]) => VbValue;
 export type VbSub = (...args: VbValue[]) => void;
-export type VbUserFunction = (args: VbValue[]) => VbValue;
+export type VbUserFunction = (args: VbValue[], refs?: VbArgumentRef[]) => VbValue;
 
 export interface VbParameterInfo {
   name: string;
@@ -42,6 +42,12 @@ export interface VbArgumentRef {
   value: VbValue;
   variableName?: string;
   setValue?: (value: VbValue) => void;
+  /**
+   * Whether the argument was a variable a Dim declared as an array, which the parameter takes on: a fresh
+   * cscript answers `Dim x() : ReDim x(2)` then a Sub that writes `values = Array(5, 6)` with error 13, while
+   * the same Sub handed a plain variable that holds an array takes it.
+   */
+  isArrayVariable?: boolean;
 }
 
 /**
@@ -136,7 +142,7 @@ export class VbFunctionRegistry {
 
     let result: VbValue;
     if (info.isUserDefined) {
-      result = (info.func as VbUserFunction)(values);
+      result = (info.func as VbUserFunction)(values, args);
     } else {
       result = (info.func as VbFunction)(...values);
     }

@@ -31,6 +31,7 @@ import {
   currencyToNumber,
   parseVbNumericString,
   roundHalfToEven,
+  toSubscript,
   toCurrencyScaled,
   toSinglePrecision,
   isPlainNumber,
@@ -288,7 +289,8 @@ export class ExpressionEvaluator {
         return this.evaluateCallInternal(
           node.callee as Expression,
           node.arguments,
-          node.statementCall
+          node.statementCall,
+          node.byValueArguments ?? false
         );
       case 'BinaryExpression':
         return this.evaluateBinary(node);
@@ -446,16 +448,18 @@ export class ExpressionEvaluator {
       object = this.evaluateWithObject(node.object as VbWithObjectExpression);
     }
 
+    // An element of an array is read before the member name is, for the same reason the write side does it:
+    // the name of a computed member is an expression, and `a(Null)` is the subscript's error 13.
+    if (object.type === 'Array') {
+      return this.getArrayElement(object, node.property as Expression);
+    }
+
     let propertyName: string;
     if (node.computed) {
       const propValue = this.evaluate(node.property as Expression);
       propertyName = toString(propValue);
     } else {
       propertyName = (node.property as Identifier).name;
-    }
-
-    if (object.type === 'Array') {
-      return this.getArrayElement(object, node.property as Expression);
     }
 
     if (object.type === 'Object') {
@@ -467,8 +471,8 @@ export class ExpressionEvaluator {
 
   private getArrayElement(array: VbArrayValue, indexExpr: Expression): VbValue {
     const arr = array.value as unknown as { get: (indices: number[]) => VbValue };
-    const index = toNumber(this.evaluate(indexExpr));
-    return arr.get([Math.floor(index)]);
+    const index = toSubscript(this.evaluate(indexExpr));
+    return arr.get([index]);
   }
 
   private getObjectProperty(objValue: VbObjectValue, propertyName: string): VbValue {
@@ -574,7 +578,8 @@ export class ExpressionEvaluator {
   private evaluateCallInternal(
     calleeExpr: Expression,
     callArgs: Expression[],
-    statementCall = false
+    statementCall = false,
+    byValueArguments = false
   ): VbValue {
     if (calleeExpr.type === 'Identifier') {
       const name = calleeExpr.name;
@@ -585,12 +590,16 @@ export class ExpressionEvaluator {
 
         if (hasByRefParams) {
           const argRefs = callArgs.map(arg => {
-            if (arg.type === 'Identifier') {
+            // An argument a statement call wrote in parentheses goes over by value, so the procedure may change
+            // its own copy only. Measured: `FillWithNine(a)` leaves the caller's array alone where
+            // `FillWithNine a` and `Call FillWithNine(a)` both change it.
+            if (arg.type === 'Identifier' && !byValueArguments) {
               const varName = arg.name;
               const variable = this.context.currentScope.get(varName);
               return {
                 value: variable ? variable.value : this.context.getVariable(varName),
                 variableName: varName,
+                isArrayVariable: variable?.isArray === true,
                 setValue: (val: VbValue) => {
                   if (this.context.currentScope.has(varName)) {
                     this.context.currentScope.set(varName, val);
@@ -600,7 +609,7 @@ export class ExpressionEvaluator {
                 },
               };
             }
-            return { value: this.evaluate(arg) };
+            return { value: cloneIfArray(this.evaluate(arg)) };
           });
           return this.context.functionRegistry.callWithRefs(name, argRefs);
         }
@@ -627,7 +636,7 @@ export class ExpressionEvaluator {
           );
         }
         if (variable.value.type === 'Array') {
-          const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
+          const indices = callArgs.map(arg => toSubscript(this.evaluate(arg)));
           const arr = variable.value.value as unknown as { get: (indices: number[]) => VbValue };
           return arr.get(indices);
         }
@@ -682,7 +691,7 @@ export class ExpressionEvaluator {
             `Type mismatch: '${memberExpressionName(calleeExpr)}'`
           );
         }
-        const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
+        const indices = callArgs.map(arg => toSubscript(this.evaluate(arg)));
         const arr = memberResult.value as unknown as { get: (indices: number[]) => VbValue };
         return arr.get(indices);
       }
@@ -720,7 +729,7 @@ export class ExpressionEvaluator {
     // Same chained-array-read gap as above, for callees more deeply nested than
     // one level (e.g. a CallExpression callee from `arr(0)(4)(1)`).
     if (callee.type === 'Array') {
-      const indices = callArgs.map(arg => Math.floor(toNumber(this.evaluate(arg))));
+      const indices = callArgs.map(arg => toSubscript(this.evaluate(arg)));
       const arr = callee.value as unknown as { get: (indices: number[]) => VbValue };
       return arr.get(indices);
     }
@@ -1430,6 +1439,20 @@ export class ExpressionEvaluator {
           "Object doesn't support this property or method"
         );
       }
+      // A variable Dim wrote with parentheses is an array for the rest of the run, so a whole value cannot go
+      // into it: a fresh cscript answers `Dim a(1)` with `a = 5` and with `a = Array(1, 2)` alike with error 13,
+      // `Dim a()` with `a = 5` with error 13, and `Dim a()` with `a = Array(1, 2)` with error 9, which is the
+      // subscript the array it has no size for cannot take. Only a Dim marks a name this way, so a plain
+      // `Dim x` takes an array whatever ReDim did to it first.
+      const declared = this.context.currentScope.get(node.left.name);
+      if (declared?.isArray && !isSet) {
+        const held = declared.value;
+        const heldArray = held.type === 'Array' ? (held.value as VbArray) : null;
+        if (value.type === 'Array' && heldArray !== null && !heldArray.isSized()) {
+          throw createVbError(VbErrorCodes.SubscriptOutOfRange, 'Subscript out of range');
+        }
+        throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch');
+      }
       // An array is copied where it is assigned, which a fresh cscript shows: after b = a, changing b(0) or
       // erasing b leaves a as it was.
       this.context.setVariable(node.left.name, cloneIfArray(value));
@@ -1463,6 +1486,19 @@ export class ExpressionEvaluator {
       object = this.evaluateWithObject(node.object as VbWithObjectExpression);
     }
 
+    // An array element is read before the member name is, since the name of a computed one is written as a
+    // plain expression there: `a(Null)` is error 13 from the subscript and not the 94 that reading the Null as
+    // a name would raise.
+    if (object.type === 'Array') {
+      const arr = object.value as unknown as { set: (indices: number[], v: VbValue) => void };
+      const subscripts = node.vbIndices ?? [node.property as Expression];
+      arr.set(
+        subscripts.map(subscript => toSubscript(this.evaluate(subscript))),
+        value
+      );
+      return;
+    }
+
     let propertyName: string;
     if (node.computed) {
       const propValue = this.evaluate(node.property as Expression);
@@ -1471,14 +1507,7 @@ export class ExpressionEvaluator {
       propertyName = (node.property as Identifier).name;
     }
 
-    if (object.type === 'Array') {
-      const arr = object.value as unknown as { set: (indices: number[], v: VbValue) => void };
-      const subscripts = node.vbIndices ?? [node.property as Expression];
-      arr.set(
-        subscripts.map(subscript => Math.floor(toNumber(this.evaluate(subscript)))),
-        value
-      );
-    } else if (object.type === 'Object') {
+    if (object.type === 'Object') {
       const obj = object.value as VbObjectValueData | null;
       if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
         throw createVbError(VbErrorCodes.ObjectRequired, 'Object required');

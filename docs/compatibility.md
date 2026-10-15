@@ -143,9 +143,9 @@ This document tracks the compatibility between this VBScript engine implementati
 | Chr | ✔️ | |
 | ChrW | ✔️ | |
 | StrComp | ✔️ | |
-| Split | ✔️ | |
-| Join | ✔️ | |
-| Filter | ✔️ | |
+| Split | ✔️ | Reads its text as text, so `Split(1, ",")` makes one part, and reads the delimiter, the limit and the compare the way Windows does: a limit below -1 is error 5, 0 makes no parts, and an empty text makes none either. An array or an object as the text is error 13 and 91 or 438 |
+| Join | ✔️ | Reads one dimensional arrays only, so a two dimensional one is error 13, and refuses a Null or an array element with error 13 where an Empty element is no text at all. `Join(Null)` is error 94, `Join(Nothing)` is 91, a list that is no array is 13 |
+| Filter | ✔️ | Reads its compare argument (0 binary, 1 text, anything else error 5), returns the elements it found with their own types, and reads a Null element as no text at all. A two dimensional array or a list that is no array is error 13 |
 | Format | ✔️ | Custom format strings |
 | LSet | ✔️ | |
 | RSet | ✔️ | |
@@ -233,11 +233,11 @@ This document tracks the compatibility between this VBScript engine implementati
 
 | Function | Status | Notes |
 |----------|--------|-------|
-| Array | ✔️ | |
-| LBound | ✔️ | |
-| UBound | ✔️ | |
-| Erase | ✔️ | Full implementation for fixed-size arrays |
-| Filter | ✔️ | |
+| Array | ✔️ | The array it makes is dynamic, so `Erase` frees it and `ReDim` may size it again |
+| LBound | ✔️ | The dimension is a whole number rounded to the nearest one, a tie to the even neighbour, so `LBound(a, "2")` is the second dimension and `LBound(a, 1.5)` is the second as well. A dimension outside the array is error 9, a Null is error 94, no array at all is 13, and an object is 91 for a Nothing and 438 for any other |
+| UBound | ✔️ | Reads its dimension the way LBound does, and a name Dim declared as an array still answers here after `Erase`, which is error 9 for a dynamic one |
+| Erase | ✔️ | Takes one name: `Erase a` frees what a holds, `Erase a(0)` frees what the element holds, and `Erase(a)`, `Erase Array(1, 2)` and `Erase h.Items` are error 13 while `Erase a, b` and `Erase` alone are 450. A fixed array keeps its bounds and every element becomes Empty, and a dynamic one, `Array`, `Split` and `Filter` results included, is freed |
+| Filter | ✔️ | See String Functions |
 
 ### Other Functions
 
@@ -333,9 +333,9 @@ directly without wrapping.
 | Call | ✔️ | |
 | Class | ✔️ | |
 | Const | ✔️ | |
-| Dim | ✔️ | |
+| Dim | ✔️ | The engine reads the bound of an array at run time, so `Dim a(1.5)` and `Dim a(n)` run here. Windows refuses to compile a bound that is not a whole number written out in the source: `Dim a(1.5)`, `Dim a(-1)`, `Dim a(1 + 2)` and `Dim a(namedConstant)` are all compile errors there, and only a literal such as `Dim a(3)` is accepted |
 | Do...Loop | ✔️ | |
-| Erase | ✔️ | |
+| Erase | ✔️ | Takes one name, as Windows does: `Erase a` frees what a holds, `Erase a(0)` frees what the element holds, and `Erase(a)`, `Erase Array(1, 2)` and `Erase h.Items` are error 13 while `Erase a, b` and `Erase` alone are 450 |
 | Execute | ✔️ | |
 | ExecuteGlobal | ✔️ | |
 | Exit | ✔️ | |
@@ -351,7 +351,7 @@ directly without wrapping.
 | Property Get/Let/Set | ✔️ | |
 | Public | ✔️ | |
 | Randomize | ✔️ | |
-| ReDim | ✔️ | |
+| ReDim | ✔️ | A bound is rounded to the nearest whole number, a tie to the even neighbour, and `ReDim a(-1)` makes an array of no elements whose UBound is -1. `ReDim` on a fixed array is error 10, `ReDim Preserve` may change only the last dimension of an array that already has one, and changing any other dimension or how many there are is error 9. An array with no size yet, from `Dim a()` or from `Erase`, takes any shape Preserve asks for |
 | Rem | ✔️ | |
 | Select Case | ✔️ | |
 | Set | ✔️ | |
