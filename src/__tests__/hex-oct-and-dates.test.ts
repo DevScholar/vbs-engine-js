@@ -201,6 +201,20 @@ const WRAPPED_FIELD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [1033, 'CStr(CDate("70000.5"))', '8/25/2091 12:00:00 PM'],
   [1033, 'CStr(CDate("1.2.70000"))', 'ERR 13'],
   [1033, 'CStr(CDate("1.70000.5"))', 'ERR 13'],
+  // A three field date whose year is too large for a year is read as the whole text with the marks taken
+  // out, which is a day count: 1.2.65535 is the day 1265535. A year that fits keeps its own reading
+  // (1.2.9999 is 1 February 9999), and a day count past what a date holds is a type mismatch.
+  [1031, 'CStr(CDate("1.2.65535"))', '29.11.5364'],
+  [1031, 'CStr(CDbl(CDate("1.2.65535")))', '1265535'],
+  [1031, 'CStr(CDate("1.2.65536"))', '30.11.5364'],
+  [1031, 'CStr(CDate("1.2.70000"))', '19.02.5377'],
+  [1031, 'CStr(CDbl(CDate("1.2.70000")))', '1270000'],
+  [1031, 'CStr(CDate("1.70000.2"))', '11.06.6554'],
+  [1031, 'CStr(CDate("1.2.10000"))', '11.11.5212'],
+  [1031, 'CStr(CDate("1.2.9999"))', '01.02.9999'],
+  [1031, 'CStr(CDate("5.6.65535"))', 'ERR 13'],
+  [1031, 'CStr(CDate("1.2.100000"))', 'ERR 13'],
+  [1033, 'CStr(CDate("1.2.70000"))', 'ERR 13'],
 ];
 
 describe('a date field is held in sixteen signed bits', () => {
