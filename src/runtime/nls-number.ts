@@ -251,7 +251,7 @@ export function formatNlsNumber(
 const SIGNIFICANT_DIGITS: Record<'single' | 'double', number> = { single: 7, double: 15 };
 
 /** How many decimal places a Currency keeps. */
-const CURRENCY_DECIMALS = 4;
+const CURRENCY_DIGITS = 4;
 
 /** Writes a value with a fixed count of significant digits, in an exponent only outside the plain window. */
 function significantText(value: number, significantDigits: number): string {
@@ -282,27 +282,38 @@ function significantText(value: number, significantDigits: number): string {
   return sign + mantissa + 'E' + exponent;
 }
 
-/** Rounds to the decimals a Currency keeps, away from zero, then writes what is left as it stands. */
-function currencyText(value: number): string {
-  const scale = 10 ** CURRENCY_DECIMALS;
-  const rounded = Math.round(Math.abs(value) * scale) / scale;
-  return String(value < 0 ? -rounded : rounded);
-}
-
 /**
  * Writes a number the way CStr writes one.
  *
  * @param value - The number to write.
  * @param lcid - The LCID whose fraction mark applies.
- * @param kind - Which VBScript type is being written, since the three carry different precision.
+ * @param kind - Which floating point type is being written, since the two carry different precision.
  */
 export function formatVbNumberText(
   value: number,
   lcid: number,
-  kind: 'single' | 'double' | 'currency' = 'double'
+  kind: 'single' | 'double' = 'double'
 ): string {
   const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
-  const written =
-    kind === 'currency' ? currencyText(value) : significantText(value, SIGNIFICANT_DIGITS[kind]);
+  const written = significantText(value, SIGNIFICANT_DIGITS[kind]);
   return facts.decimal === '.' ? written : written.replace('.', facts.decimal);
+}
+
+/**
+ * Writes a Currency from the scaled integer it is held as, which is the only way to keep every digit.
+ *
+ * The amount is a count of ten-thousandths, so the text comes out of the integer itself: a Currency reaches
+ * eighteen digits and a JavaScript number counts with sixteen, which is why the value is not a number.
+ *
+ * @param scaled - The amount as a count of ten-thousandths.
+ * @param lcid - The LCID whose fraction mark applies.
+ */
+export function formatVbCurrencyText(scaled: bigint, lcid: number): string {
+  const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
+  const digits = (scaled < 0n ? -scaled : scaled).toString().padStart(5, '0');
+  const wholePart = digits.slice(0, -CURRENCY_DIGITS);
+  const fractionPart = digits.slice(-CURRENCY_DIGITS).replace(/0+$/, '');
+  const written = fractionPart === '' ? wholePart : wholePart + '.' + fractionPart;
+  const signed = scaled < 0n ? '-' + written : written;
+  return facts.decimal === '.' ? signed : signed.replace('.', facts.decimal);
 }

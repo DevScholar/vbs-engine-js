@@ -1,10 +1,35 @@
 import type { VbValue } from '../runtime/index.ts';
-import { createVbValue, toNumber, VbEmpty } from '../runtime/index.ts';
+import {
+  absoluteScaled,
+  createVbValue,
+  floorScaled,
+  roundScaledToEven,
+  toCurrencyScaled,
+  toNumber,
+  toSinglePrecision,
+  truncateScaled,
+  VbEmpty,
+} from '../runtime/index.ts';
+
+/**
+ * The result of a function that keeps the type of the operand it was given.
+ *
+ * Measured against a fresh cscript: Abs, Int, Fix and Round answer with a Single for a Single and a
+ * Currency for a Currency, while Sgn answers with an Integer whatever it is handed.
+ */
+function sameNumericType(operand: VbValue, value: number): VbValue {
+  if (operand.type === 'Single') return { type: 'Single', value: toSinglePrecision(value) };
+  if (operand.type === 'Currency') return { type: 'Currency', value: toCurrencyScaled(value) };
+  if (operand.type === 'Double') return { type: 'Double', value };
+  return createVbValue(value);
+}
 
 export const mathFunctions = {
   Abs: (number: VbValue): VbValue => {
+    if (number.type === 'Currency')
+      return { type: 'Currency', value: absoluteScaled(number.value) };
     const num = toNumber(number);
-    return createVbValue(Math.abs(num));
+    return sameNumericType(number, Math.abs(num));
   },
 
   Sgn: (number: VbValue): VbValue => {
@@ -21,18 +46,30 @@ export const mathFunctions = {
   },
 
   Int: (number: VbValue): VbValue => {
+    if (number.type === 'Currency') return { type: 'Currency', value: floorScaled(number.value) };
     const num = toNumber(number);
+    if (number.type === 'Single')
+      return { type: 'Single', value: toSinglePrecision(Math.floor(num)) };
     return { type: 'Long', value: Math.floor(num) };
   },
 
   Fix: (number: VbValue): VbValue => {
+    if (number.type === 'Currency')
+      return { type: 'Currency', value: truncateScaled(number.value) };
     const num = toNumber(number);
-    return { type: 'Long', value: num >= 0 ? Math.floor(num) : Math.ceil(num) };
+    const fixed = num >= 0 ? Math.floor(num) : Math.ceil(num);
+    if (number.type === 'Single') return { type: 'Single', value: toSinglePrecision(fixed) };
+    return { type: 'Long', value: fixed };
   },
 
   Round: (number: VbValue, numDecimalPlaces?: VbValue): VbValue => {
-    const num = toNumber(number);
     const decimals = numDecimalPlaces ? Math.floor(toNumber(numDecimalPlaces)) : 0;
+    // A Currency rounds on its own scale, so the tie goes to the even neighbour without a double in
+    // between: Round(CCur(1.5)) is the Currency 2.
+    if (number.type === 'Currency' && decimals <= 0) {
+      return { type: 'Currency', value: roundScaledToEven(number.value) };
+    }
+    const num = toNumber(number);
     const factor = Math.pow(10, decimals);
     const scaled = num * factor;
 
@@ -54,7 +91,7 @@ export const mathFunctions = {
       rounded = below % 2 === 0 ? below : below + 1;
     }
 
-    return { type: 'Double', value: rounded / factor };
+    return sameNumericType(number, rounded / factor);
   },
 
   Atn: (number: VbValue): VbValue => {

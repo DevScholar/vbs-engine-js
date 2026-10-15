@@ -110,7 +110,7 @@ function getTypedDefault(typeName: string, context?: VbContext): VbValue {
     case 'double':
       return { type: 'Double', value: 0 };
     case 'currency':
-      return { type: 'Currency', value: 0 };
+      return { type: 'Currency', value: BigInt(0) };
     case 'byte':
       return { type: 'Byte', value: 0 };
     case 'boolean':

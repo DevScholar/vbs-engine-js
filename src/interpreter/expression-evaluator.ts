@@ -32,6 +32,10 @@ import {
   createVbError,
   VbErrorCodes,
   serialToDate,
+  toCurrencyScaled,
+  toSinglePrecision,
+  checkCurrencyRange,
+  CURRENCY_SCALE,
 } from '../runtime/index.ts';
 
 interface VbMethodObject {
@@ -650,6 +654,8 @@ export class ExpressionEvaluator {
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '+');
     }
+    const currency = this.currencyArithmetic(left, right, '+');
+    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     // A date survives addition in VBScript, from either side and with a plain number as the other
@@ -657,7 +663,88 @@ export class ExpressionEvaluator {
     if (left.type === 'Date' || right.type === 'Date') {
       return { type: 'Date', value: serialToDate(leftNum + rightNum) };
     }
-    return createVbValue(leftNum + rightNum);
+    return this.numberResult('+', left, right, leftNum + rightNum);
+  }
+
+  /**
+   * The Currency result of +, - or *, or null when the operator does not keep one.
+   *
+   * Measured against a fresh cscript: a Currency keeps its type through + and - beside any number, and
+   * through * beside a Currency, an Integer, a Long or a Byte. Multiplication by a Single or a Double gives
+   * a Double, and so does every division. The arithmetic is done on the scaled integer, so a sum of amounts
+   * is exact where a double would round.
+   */
+  private currencyArithmetic(
+    left: VbValue,
+    right: VbValue,
+    operator: '+' | '-' | '*'
+  ): VbValue | null {
+    const leftIsCurrency = left.type === 'Currency';
+    const rightIsCurrency = right.type === 'Currency';
+    if (!leftIsCurrency && !rightIsCurrency) return null;
+    const floatingOther =
+      left.type === 'Single' ||
+      left.type === 'Double' ||
+      right.type === 'Single' ||
+      right.type === 'Double';
+    if (operator === '*' && floatingOther) return null;
+    const leftScaled = left.type === 'Currency' ? left.value : toCurrencyScaled(toNumber(left));
+    const rightScaled = right.type === 'Currency' ? right.value : toCurrencyScaled(toNumber(right));
+    if (operator === '+')
+      return { type: 'Currency', value: checkCurrencyRange(leftScaled + rightScaled) };
+    if (operator === '-')
+      return { type: 'Currency', value: checkCurrencyRange(leftScaled - rightScaled) };
+    // A product of two scaled amounts is scaled twice, so it comes back down with the half added first,
+    // which rounds away from zero the way CCur does.
+    const product = leftScaled * rightScaled;
+    const half = CURRENCY_SCALE / 2n;
+    const rounded =
+      product >= 0n ? (product + half) / CURRENCY_SCALE : (product - half) / CURRENCY_SCALE;
+    return { type: 'Currency', value: checkCurrencyRange(rounded) };
+  }
+
+  /**
+   * The type a +, -, * or / result takes, from the two operand types.
+   *
+   * Measured against a fresh cscript. A Single keeps its type beside a Single, an Integer or a Byte and
+   * gives a Double beside a Long, because a Long carries more bits than a Single's mantissa holds. Division
+   * gives a Single only in that same company and a Double otherwise. Two Bytes stay a Byte while the result
+   * fits one, and everything else is sized by the value itself.
+   */
+  private numberResult(
+    operator: '+' | '-' | '*' | '/',
+    left: VbValue,
+    right: VbValue,
+    value: number
+  ): VbValue {
+    const types = [left.type, right.type];
+    const hasDouble = types.includes('Double');
+    const hasSingle = types.includes('Single');
+    const hasLong = types.includes('Long');
+    const smallIntegers = types.every(
+      type => type === 'Single' || type === 'Integer' || type === 'Byte'
+    );
+    if (operator === '/') {
+      if (hasSingle && !hasDouble && !hasLong && smallIntegers) {
+        return { type: 'Single', value: toSinglePrecision(value) };
+      }
+      return { type: 'Double', value };
+    }
+    if (hasDouble) return { type: 'Double', value };
+    if (hasSingle) {
+      if (hasLong) return { type: 'Double', value };
+      return { type: 'Single', value: toSinglePrecision(value) };
+    }
+    if (
+      types[0] === 'Byte' &&
+      types[1] === 'Byte' &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 255
+    ) {
+      return { type: 'Byte', value };
+    }
+    return createVbValue(value);
   }
 
   private subtract(left: VbValue, right: VbValue): VbValue {
@@ -667,6 +754,8 @@ export class ExpressionEvaluator {
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '-');
     }
+    const currency = this.currencyArithmetic(left, right, '-');
+    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
     // One date and one number subtracts to a date, but two dates subtract to a plain number, which is
@@ -678,7 +767,7 @@ export class ExpressionEvaluator {
     if (dates === 2) {
       return { type: 'Double', value: leftNum - rightNum };
     }
-    return createVbValue(leftNum - rightNum);
+    return this.numberResult('-', left, right, leftNum - rightNum);
   }
 
   private multiply(left: VbValue, right: VbValue): VbValue {
@@ -688,9 +777,11 @@ export class ExpressionEvaluator {
     if (left.type === 'LongLong' || right.type === 'LongLong') {
       return this.longLongArithmetic(left, right, '*');
     }
+    const currency = this.currencyArithmetic(left, right, '*');
+    if (currency) return currency;
     const leftNum = toNumber(left);
     const rightNum = toNumber(right);
-    return createVbValue(leftNum * rightNum);
+    return this.numberResult('*', left, right, leftNum * rightNum);
   }
 
   private divide(left: VbValue, right: VbValue): VbValue {
@@ -702,7 +793,7 @@ export class ExpressionEvaluator {
     if (rightNum === 0) {
       throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
-    return { type: 'Double', value: leftNum / rightNum };
+    return this.numberResult('/', left, right, leftNum / rightNum);
   }
 
   private integerDivide(left: VbValue, right: VbValue): VbLongValue {
@@ -726,6 +817,12 @@ export class ExpressionEvaluator {
     if (rightNum === 0) {
       throw createVbError(VbErrorCodes.DivisionByZero, 'Division by zero');
     }
+    // Mod answers with an integer: an Integer while both operands are small integers, and a Long as soon as
+    // a Single, a Double or a Currency is involved, which a fresh cscript confirms.
+    const floating = [left.type, right.type].some(
+      type => type === 'Single' || type === 'Double' || type === 'Currency'
+    );
+    if (floating) return { type: 'Long', value: Math.trunc(leftNum % rightNum) };
     return createVbValue(leftNum % rightNum);
   }
 
@@ -876,6 +973,10 @@ export class ExpressionEvaluator {
         // handling elsewhere in this file. Found via Wine's own vbscript.dll
         // conformance suite, dlls/vbscript/tests/lang.vbs: `getVT(-null)`.
         if (argument.type === 'Null') return VbNull;
+        // A Single and a Currency keep their type through a negation, which a fresh cscript confirms:
+        // TypeName(-CSng(1)) is Single and TypeName(-CCur(1)) is Currency.
+        if (argument.type === 'Single') return { type: 'Single', value: -argument.value };
+        if (argument.type === 'Currency') return { type: 'Currency', value: -argument.value };
         return createVbValue(-toNumber(argument));
       case '+':
         if (argument.type === 'Null') return VbNull;

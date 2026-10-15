@@ -1,6 +1,6 @@
 import { createVbError, VbErrorCodes } from './errors.ts';
 import { dateToSerial, formatVbDate, parseVbDate, serialToDate } from './vb-date.ts';
-import { formatVbNumberText } from './nls-number.ts';
+import { formatVbCurrencyText, formatVbNumberText } from './nls-number.ts';
 import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 /**
@@ -73,10 +73,10 @@ export interface VbDoubleValue {
   value: number;
 }
 
-/** Represents a currency value (64-bit scaled integer) */
+/** Represents a currency value: the amount held as a 64-bit integer count of ten-thousandths. */
 export interface VbCurrencyValue {
   type: 'Currency';
-  value: number;
+  value: bigint;
 }
 
 /** Represents a date/time value */
@@ -283,10 +283,12 @@ export function toNumber(value: VbValue): number {
     value.type === 'Long' ||
     value.type === 'Double' ||
     value.type === 'Single' ||
-    value.type === 'Byte' ||
-    value.type === 'Currency'
+    value.type === 'Byte'
   ) {
     return value.value;
+  }
+  if (value.type === 'Currency') {
+    return currencyToNumber(value.value);
   }
   if (value.type === 'LongLong') {
     return Number(value.value);
@@ -311,6 +313,97 @@ export function toNumber(value: VbValue): number {
   );
 }
 
+/** The scale a Currency holds its amount at: four decimal places, as an integer count of them. */
+export const CURRENCY_SCALE = 10000n;
+
+/** The largest amount a Currency holds, as a scaled integer: 922,337,203,685,477.5807. */
+const CURRENCY_MAX = 9223372036854775807n;
+
+/**
+ * Guards a scaled amount against the range a Currency holds, which is what Windows raises Overflow for.
+ *
+ * Both ends of the range are reachable by arithmetic but not by a literal: a Double cannot hold the last
+ * digit of either, so CCur(922337203685477.5807) already overflows.
+ */
+export function checkCurrencyRange(scaled: bigint): bigint {
+  if (scaled > CURRENCY_MAX || scaled < -CURRENCY_MAX) {
+    throw createVbError(VbErrorCodes.Overflow, 'Overflow: Currency');
+  }
+  return scaled;
+}
+
+/** A Currency's size, in its scaled units. */
+export function absoluteScaled(scaled: bigint): bigint {
+  return scaled < 0n ? -scaled : scaled;
+}
+
+/** A Currency rounded down to a whole unit, which for a negative amount is the neighbour below it. */
+export function floorScaled(scaled: bigint): bigint {
+  const wholeUnits = scaled / CURRENCY_SCALE;
+  const hasFraction = scaled % CURRENCY_SCALE !== 0n;
+  return (hasFraction && scaled < 0n ? wholeUnits - 1n : wholeUnits) * CURRENCY_SCALE;
+}
+
+/** A Currency with its fraction dropped, toward zero. */
+export function truncateScaled(scaled: bigint): bigint {
+  return (scaled / CURRENCY_SCALE) * CURRENCY_SCALE;
+}
+
+/** A Currency rounded to a whole unit, a tie going to the even neighbour as Round does. */
+export function roundScaledToEven(scaled: bigint): bigint {
+  const wholeUnits = scaled / CURRENCY_SCALE;
+  const remainder = scaled % CURRENCY_SCALE;
+  const magnitude = absoluteScaled(remainder);
+  const half = CURRENCY_SCALE / 2n;
+  if (magnitude > half) return (scaled < 0n ? wholeUnits - 1n : wholeUnits + 1n) * CURRENCY_SCALE;
+  if (magnitude < half) return wholeUnits * CURRENCY_SCALE;
+  const evenUnits =
+    wholeUnits % 2n === 0n ? wholeUnits : scaled < 0n ? wholeUnits - 1n : wholeUnits + 1n;
+  return evenUnits * CURRENCY_SCALE;
+}
+
+/** The largest magnitude a Single holds. */
+const SINGLE_MAX = 3.4028234663852886e38;
+
+/**
+ * A Currency as a JavaScript number.
+ *
+ * Exact while the scaled amount stays inside the 53 bits a double counts with, which covers amounts up to
+ * about nine hundred billion. Past that the number is the nearest double, and the text of the value is
+ * written from the scaled integer instead so that no digit is lost.
+ */
+export function currencyToNumber(scaled: bigint): number {
+  return Number(scaled) / Number(CURRENCY_SCALE);
+}
+
+/**
+ * A number as a Currency: rounded to four decimal places, away from zero, or Overflow past its range.
+ *
+ * The whole and fractional parts are scaled apart, because scaling a large number in one step would lose
+ * the fraction before it was rounded.
+ */
+export function toCurrencyScaled(value: number): bigint {
+  if (!Number.isFinite(value)) throw createVbError(VbErrorCodes.Overflow, 'Overflow: CCur');
+  const wholePart = Math.trunc(value);
+  const fractionPart = Math.abs(value - wholePart);
+  const scaledWhole = BigInt(wholePart) * CURRENCY_SCALE;
+  const scaledFraction = BigInt(Math.round(fractionPart * Number(CURRENCY_SCALE)));
+  const scaled = value < 0 ? scaledWhole - scaledFraction : scaledWhole + scaledFraction;
+  return checkCurrencyRange(scaled);
+}
+
+/**
+ * A number as a Single: rounded to the 24 bit mantissa a Single keeps, or Overflow past its range.
+ *
+ * A VBScript Single is an IEEE 754 single, so CSng(1/3) holds 0.3333333432674408 and CSng(1/3) * 3 is 1.
+ */
+export function toSinglePrecision(value: number): number {
+  if (!Number.isFinite(value) || Math.abs(value) > SINGLE_MAX) {
+    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CSng');
+  }
+  return Math.fround(value);
+}
+
 /**
  * Converts a VbValue to a JavaScript string.
  * Follows VBScript type coercion rules.
@@ -329,10 +422,15 @@ export function toString(value: VbValue): string {
   if (value.type === 'LongLong') {
     return String(value.value);
   }
-  if (value.type === 'Double' || value.type === 'Single' || value.type === 'Currency') {
-    const kind =
-      value.type === 'Single' ? 'single' : value.type === 'Currency' ? 'currency' : 'double';
-    return formatVbNumberText(value.value, currentLcid(), kind);
+  if (value.type === 'Double' || value.type === 'Single') {
+    return formatVbNumberText(
+      value.value,
+      currentLcid(),
+      value.type === 'Single' ? 'single' : 'double'
+    );
+  }
+  if (value.type === 'Currency') {
+    return formatVbCurrencyText(value.value, currentLcid());
   }
   if (value.type === 'Date') {
     return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());
@@ -440,8 +538,9 @@ export function getNumericValue(value: VbValue): number {
     case 'Double':
     case 'Single':
     case 'Byte':
-    case 'Currency':
       return value.value;
+    case 'Currency':
+      return currencyToNumber(value.value);
     case 'LongLong':
       return Number(value.value);
     default:

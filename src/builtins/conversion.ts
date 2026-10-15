@@ -1,6 +1,8 @@
 import type { VbValue } from '../runtime/index.ts';
 import {
+  toCurrencyScaled,
   toNumber,
+  toSinglePrecision,
   toString,
   toBoolean,
   toVbDate,
@@ -27,7 +29,7 @@ export const conversionFunctions = {
   },
 
   CCur: (expression: VbValue): VbValue => {
-    return { type: 'Currency', value: toNumber(expression) };
+    return { type: 'Currency', value: toCurrencyScaled(toNumber(expression)) };
   },
 
   CDate: (expression: VbValue): VbValue => {
@@ -68,7 +70,7 @@ export const conversionFunctions = {
   },
 
   CSng: (expression: VbValue): VbValue => {
-    return { type: 'Single', value: toNumber(expression) };
+    return { type: 'Single', value: toSinglePrecision(toNumber(expression)) };
   },
 
   CStr: (expression: VbValue): VbValue => {
