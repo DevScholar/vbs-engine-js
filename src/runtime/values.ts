@@ -457,12 +457,16 @@ export function toSinglePrecision(value: number): number {
  * Converts a VbValue to a JavaScript string.
  * Follows VBScript type coercion rules.
  *
+ * A Null has no text at all: CStr(Null) is error 94, measured against a fresh cscript. The one operator that
+ * reads a Null as nothing is "&", which handles it before it gets here.
+ *
  * @param value - The VbValue to convert
  * @returns The string representation
  */
 export function toString(value: VbValue): string {
   if (value.type === 'Empty') return '';
-  if (value.type === 'Null') return 'Null';
+  if (value.type === 'Null')
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
   if (value.type === 'Boolean') return value.value ? 'True' : 'False';
   if (value.type === 'String') return value.value;
   if (value.type === 'Integer' || value.type === 'Long' || value.type === 'Byte') {
