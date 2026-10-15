@@ -470,6 +470,21 @@ const NAME_DOT_CELLS: ReadonlyArray<readonly [number, string, string]> = [
   [1054, 'CDate("15.ม.ค..2026")', 'ERR 13'],
   [1054, 'CDate("15 Jan. 2026")', 'ERR 13'],
   [1054, 'CStr(Month(CDate("15 Jan 2026")))', '1'],
+  // A name Windows writes with a dot is read only where a space or the end of the text follows it, and only
+  // where the locale writes its dates with a dot: "15/jan./2026" is a type mismatch under 1038 while the same
+  // text reads under 1027, whose own date mark is a slash, and under 1054, whose dotted names are read
+  // wherever they stand.
+  [1038, 'CStr(Month(CDate("15 jan. 2026")))', '1'],
+  [1038, 'CDate("15/jan./2026")', 'ERR 13'],
+  [1038, 'CDate("15 jan., 2026")', 'ERR 13'],
+  [1038, 'CDate("15.Jan.2026")', 'ERR 13'],
+  [1038, 'CStr(CDate("15. január 2026"))', '2026. 01. 15.'],
+  [1039, 'CDate("15/jan./2026")', 'ERR 13'],
+  [1039, 'CDate("15.jan..2026")', 'ERR 13'],
+  [2074, 'CStr(Month(CDate("15 jan. 2026")))', '1'],
+  [2074, 'CDate("15/jan./2026")', 'ERR 13'],
+  [1027, 'CStr(Month(CDate("15/gen./2026")))', '1'],
+  [1054, 'CStr(Month(CDate("15/ม.ค./2026")))', '1'],
 ];
 
 describe('a dot beside a month name is read the way Windows reads one', () => {

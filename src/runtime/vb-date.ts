@@ -6,6 +6,7 @@ import { NLS_MONTH_NAME_READS } from './nls-month-name-reads.generated.ts';
 import { ICU_MONTH_NAME_READS } from './icu-month-name-reads.generated.ts';
 import { NLS_COMMA_BEFORE_TIME } from './nls-comma-time.generated.ts';
 import { NLS_NO_TRAILING_DOT } from './nls-no-trailing-dot.generated.ts';
+import { dottedWrittenNames } from './nls-dotted-names.generated.ts';
 import {
   HIJRI_FIRST_YEAR,
   HIJRI_YEAR_MONTH_MASKS,
@@ -1384,13 +1385,27 @@ function findCompleteMonthName(
         let end = at + needle.length;
         // How a dot right after the name is read, all of it measured: a name written without a dot takes one
         // after it where the locale reads such a dot at all (Vietnamese "Thg 1." is January), a name written
-        // with a dot refuses a second one (Catalan "ag." reads and "ag.." does not), and where the locale
-        // refuses a dot after a name the name ends before any dot, so Thai "15.ม.ค..2026" is a type mismatch
-        // while "15 ม.ค. 2026" is January.
+        // with a dot refuses a second one (Catalan "ag." reads and "ag.." does not) and refuses a mark right
+        // after it as well ("15/jan./2026" is a type mismatch under 1038), and where the locale refuses a dot
+        // after a name the name ends before any dot, so Thai "15.ม.ค..2026" is a type mismatch while
+        // "15 ม.ค. 2026" is January.
+        // The name the locale writes may carry a dot, and the text may write it without that dot, so both
+        // forms count as a dotted name for the two rules below.
+        const nameHasDot = entry.name.endsWith('.');
+        // Thai reads its own dotted abbreviations wherever they stand, measured: "15/ม.ค./2026" is January
+        // there while the same text is a type mismatch under the 14 locales that write a dot in their own
+        // short date picture.
+        if (
+          nameHasDot &&
+          !NLS_NO_TRAILING_DOT.has(currentLcid()) &&
+          /[,/.-]/.test(text[end] ?? '')
+        ) {
+          continue;
+        }
         if (text[end] === '.') {
           // Only a name written without a dot takes exactly one dot after it, and only where the locale reads
           // a dot there at all: a name written with a dot refuses a second one, and Thai refuses every one.
-          if (needle.endsWith('.') || NLS_NO_TRAILING_DOT.has(currentLcid())) continue;
+          if (nameHasDot || NLS_NO_TRAILING_DOT.has(currentLcid())) continue;
           end += 1;
         }
         if (text[end] === '.') continue;
@@ -1555,14 +1570,27 @@ function validDate(year: number, month: number, day: number): Date | null {
  * with a dot. Where a dot is no field mark at all it stays in the word it stands in, which is what makes "5.
  * Januar 2026" three words under 1031 and one odd word under 1033.
  *
- * What a dot does beside a name is measured over the 132 locales. Where a dot after a name is read at all, one
- * dot separates that name from the next field and a run of two or more stays with the name unless a digit
- * follows it: "15 Jan.. 2026" is refused under 1031 while "15.Jan..2026" reads there. Where the locale refuses
- * a dot after a name, every such dot stays with the name, so Thai "ม.ค." is the name and "มกราคม." is no name.
+ * Beside a name, a dot is read three ways, all measured over the 132 locales:
+ *
+ *   * Where the locale writes its dates with a dot, a dot right after a name Windows writes with a dot, with a
+ *     mark right after that dot, leaves the text unread: "15/jan./2026" and "15 jan., 2026" are type
+ *     mismatches under 1038, while the same texts read under 1027 (whose own date mark is a slash) and under
+ *     1054 (whose dotted names are read wherever they stand). The word then takes in the character after the
+ *     dot, so that no name can match it.
+ *   * A dot after a name is otherwise a mark, and a run of two or more stays with the name unless a digit
+ *     follows it: "15 Jan.. 2026" is refused under 1031 while "15.Jan..2026" reads there.
+ *   * Where the locale writes a space after the dot (1038 "yyyy. MM. dd.") a dot is a mark only after a digit,
+ *     so "15. január 2026" reads there and "15.Jan.2026" and "15 .Jan 2026" do not.
  */
-function dateWords(text: string, dotsAreMarks: boolean): string[] {
+function dateWords(
+  text: string,
+  locale: string,
+  dotsAreMarks: boolean,
+  dotsAreMarksAfterNames: boolean
+): string[] {
   const words: string[] = [];
   const refusesDot = NLS_NO_TRAILING_DOT.has(currentLcid());
+  const dottedNames = dottedWrittenNames(currentLcid());
   let word = '';
   const flush = (): void => {
     if (word !== '') words.push(word);
@@ -1582,9 +1610,28 @@ function dateWords(text: string, dotsAreMarks: boolean): string[] {
       word += char;
       continue;
     }
+    if (
+      !refusesDot &&
+      /[\p{L}]$/u.test(word) &&
+      /[,/.-]/.test(text[at + 1] ?? '') &&
+      dottedNames.has(`${word.toLowerCase()}.`)
+    ) {
+      // A name Windows writes with a dot is read only where a space or the end of the text follows it:
+      // "15 jan. 2026" is January under 1038 while "15/jan./2026" and "15 jan., 2026" are type mismatches
+      // there. A text of that shape holds no month at all, which the word records by taking in the character
+      // after the dot, so that no name can match it. Thai reads its dotted names wherever they stand, so its
+      // names are not used this way.
+      word += `.${text[at + 1]}`;
+      at += 1;
+      continue;
+    }
     if (refusesDot) {
       if (/[\p{L}.]$/u.test(word)) word += char;
       else flush();
+      continue;
+    }
+    if (!dotsAreMarksAfterNames && !/\d$/.test(word)) {
+      word += char;
       continue;
     }
     let run = 1;
@@ -1608,12 +1655,13 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // dates are written with hyphens. 1054 reads it as well, which is measured and comes with the rest of that
   // locale's reading of dotted dates.
   const ownMark = dateOrderOf().separator;
+  const { dottedDates } = dateOrderOf();
   const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
   // A name with a dot or a space in it is taken out of the text first, so the words cannot break it in two.
   const complete = findCompleteMonthName(text, locale);
   const rest =
     complete === null ? text : text.slice(0, complete.start) + ' ' + text.slice(complete.end);
-  const words = dateWords(rest, ownMark === '.' || buddhistDates);
+  const words = dateWords(rest, locale, ownMark === '.' || buddhistDates, dottedDates);
 
   let month: number;
   let numbers: string[];
