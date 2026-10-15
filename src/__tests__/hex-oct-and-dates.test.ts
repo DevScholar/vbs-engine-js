@@ -171,6 +171,46 @@ describe('the strings CDate reads are the ones vbscript.dll reads', () => {
   }
 });
 
+// A date field with more digits than a date can hold, which the original reader keeps in sixteen signed bits.
+// Measured under 1031, where a dot is the date separator: a year wraps, so 2958465 becomes 9345 and 65535
+// becomes -1, which the year window then reads as 1999. A day or a month does not wrap, so a long one is
+// simply not a day or a month and the text falls through to the other readings.
+const WRAPPED_FIELD_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1031, 'CStr(CDate("2958465.5"))', '01.05.9345'],
+  [1031, 'CStr(CDate("2958465.4"))', '01.04.9345'],
+  [1031, 'CStr(CDate("2958466.5"))', '01.05.9346'],
+  [1031, 'CStr(CDate("5.2958465"))', '01.05.9345'],
+  [1031, 'CStr(CDate("65535.5"))', '01.05.1999'],
+  [1031, 'CStr(CDate("65536.5"))', '01.05.2000'],
+  [1031, 'CStr(CDate("65537.5"))', '01.05.2001'],
+  [1031, 'CStr(CDate("131073.5"))', '01.05.2001'],
+  [1031, 'CStr(CDate("196609.5"))', '01.05.2001'],
+  [1031, 'CStr(CDate("70000.5"))', '01.05.4464'],
+  [1031, 'CStr(CDate("32767.5"))', '20.02.2797'],
+  [1031, 'CStr(CDate("100000.5"))', '01.12.4637'],
+  [1031, 'CStr(CDate("2958465.25"))', 'ERR 13'],
+  [1031, 'CStr(CDate("999999.5"))', 'ERR 13'],
+  [1031, 'CStr(CDate("2000000.5"))', 'ERR 13'],
+  [1033, 'CStr(CDate("1000000.5"))', '11/26/4637 12:00:00 PM'],
+  [1033, 'CStr(CDate("2000000.5"))', '10/23/7375 12:00:00 PM'],
+  [1033, 'CStr(CDate("2958465.5"))', '12/31/9999 12:00:00 PM'],
+  [1033, 'CStr(CDate("65536.5"))', '12:05:00 AM'],
+  [1033, 'CStr(CDate("131073.5"))', '1:05:00 AM'],
+  [1033, 'CStr(CDate("1.2.65536"))', '1:02:00 AM'],
+  [1033, 'CStr(CDate("65535.5"))', '6/4/2079 12:00:00 PM'],
+  [1033, 'CStr(CDate("70000.5"))', '8/25/2091 12:00:00 PM'],
+  [1033, 'CStr(CDate("1.2.70000"))', 'ERR 13'],
+  [1033, 'CStr(CDate("1.70000.5"))', 'ERR 13'],
+];
+
+describe('a date field is held in sixteen signed bits', () => {
+  for (const [lcid, expression, expected] of WRAPPED_FIELD_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});
+
 describe('a day count below zero counts its time away from zero', () => {
   for (const [expression, expected] of NEGATIVE_SERIAL_CELLS) {
     it(`${expression} is ${expected}`, () => {

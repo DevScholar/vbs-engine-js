@@ -1138,8 +1138,26 @@ function toFullYear(year: number): number {
 
 /** A year field: a value under a hundred is a year of the near past or present, as vbscript.dll reads it. */
 function yearOf(field: string): number {
-  const value = Number(field);
+  return yearOfNumber(Number(field));
+}
+
+/** The same reading for a year that was already turned into a number. */
+function yearOfNumber(value: number): number {
   return value < 100 ? toFullYear(value) : value;
+}
+
+/**
+ * A number read as a date field, which the original reader holds in sixteen signed bits.
+ *
+ * This is a limit of the reader rather than a rule about dates, and a fresh cscript under 1031 shows it
+ * plainly: CDate("2958465.5") is 1 May 9345, because 2958465 wraps to 9345, and CDate("65535.5") is 1 May
+ * 1999, because 65535 wraps to -1 and a year under a hundred is read as 1999. 65536.5, 131073.5 and 196609.5
+ * are 1 May 2000, 2001 and 2001 for the same reason, 70000.5 is 1 May 4464, and CDate("2958465.25") is a
+ * type mismatch because the wrapped month is 25.
+ */
+function wrapToDateField(value: number): number {
+  const wrapped = ((value % 65536) + 65536) % 65536;
+  return wrapped >= 32768 ? wrapped - 65536 : wrapped;
 }
 
 function validDate(year: number, month: number, day: number): Date | null {
@@ -1259,7 +1277,10 @@ function parseDatePart(text: string, locale: string): Date | null {
   const separatorAllowed = (mark: string): boolean =>
     mark === '/' || mark === '-' || mark === ',' || mark === own;
 
-  const two = /^(\d{1,4})([.,/-])(\d{1,4})$/.exec(text);
+  // A field may be written with more digits than a date can hold, and the reader wraps it: see
+  // wrapToDateField. The time and the marked number are read before and after this, so a text that this
+  // does not make a date still has its other readings.
+  const two = /^(\d{1,9})([.,/-])(\d{1,9})$/.exec(text);
   if (two && separatorAllowed(two[2])) {
     const year = new Date().getFullYear();
     const first = Number(two[1]);
@@ -1278,9 +1299,11 @@ function parseDatePart(text: string, locale: string): Date | null {
             [year, first, second],
             [year, second, first],
           ];
+    // Only a year is wrapped: a day or a month written with more digits than it can hold is simply not a
+    // day or a month, which is why "5.2958465" is May 9345 rather than a type mismatch.
     const byMonthAndYear: [number, number, number][] = [
-      [yearOf(two[3]), first, 1],
-      [yearOf(two[1]), second, 1],
+      [yearOfNumber(wrapToDateField(second)), first, 1],
+      [yearOfNumber(wrapToDateField(first)), second, 1],
     ];
     for (const [candidateYear, month, day] of [...byDayAndMonth, ...byMonthAndYear]) {
       const date = validDate(candidateYear, month, day);
@@ -1334,6 +1357,26 @@ function parseTimePart(text: string): [number, number, number] | null {
 }
 
 /**
+ * A time whose fields are marked with a dot, which Windows reads where a dot is not the date separator.
+ *
+ * Its fields are held in sixteen signed bits like a date field, so under 1033 CDate("65536.5") is five past
+ * midnight because 65536 wraps to 0, and CDate("65535.5") is the day count 65535.5 instead, because -1 is no
+ * hour. Both were measured on a fresh cscript.
+ */
+function parseDottedTimePart(text: string): [number, number, number] | null {
+  const match = /^(\d{1,9})\.(\d{1,9})(?:\.(\d{1,9}))?\s*([AaPp][Mm])?$/.exec(text);
+  if (!match) return null;
+  const hours = wrapToDateField(Number(match[1]));
+  const minutes = wrapToDateField(Number(match[2]));
+  const seconds = match[3] === undefined ? 0 : wrapToDateField(Number(match[3]));
+  const meridiem = match[4]?.toUpperCase();
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59)
+    return null;
+  const hourOfDay = meridiem ? (hours % 12) + (meridiem === 'PM' ? 12 : 0) : hours;
+  return [hourOfDay, minutes, seconds];
+}
+
+/**
  * A date or a time as CDate and IsDate read it: the locale's date order and separator (or ISO), a month
  * name, a 24-hour or AM/PM time, or a date and a time. A time alone is on day 0; a date alone is at
  * midnight. `null` when it is neither.
@@ -1363,7 +1406,7 @@ export function parseVbDate(text: string, locale: string): Date | null {
   // under 1033 CDate("2.5") is 2:05 in the morning and CDate("2.5 PM") is 2:05 in the afternoon, while under
   // 1031 a dot is the date separator and the same text is 2 May.
   if (dateOrderOf(locale).separator !== '.') {
-    const dottedTime = parseTimePart(trimmed.replace(/\./g, ':'));
+    const dottedTime = parseDottedTimePart(trimmed);
     if (dottedTime) return new Date(1899, 11, 30, ...dottedTime);
   }
   return null;
