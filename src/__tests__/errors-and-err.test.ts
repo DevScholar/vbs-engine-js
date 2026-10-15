@@ -2,20 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { VbsEngine } from '../index.ts';
 
 // What Err holds after a statement, measured against a fresh cscript under 1033 with the error probe in the
-// probe directory: 82 cells of runtime errors and of the Err object itself. 79 of them agree with the
+// probe directory: 82 cells of runtime errors and of the Err object itself. 80 of them agree with the
 // engine, and the cells below are those. Windows localizes Err.Description to the language of the machine
 // (this one answers in Chinese), so only Err.Number is compared.
 //
-// Three cells are still open, all written down here rather than hidden:
+// Two cells are still open, and both call a member of a host class the runner does not have (a file that is
+// not there and a drive that is not there, error 53 and 76 in Windows). A host class is the host's business
+// rather than this engine's, so those two are out of this file's scope.
 //
-//   * x = NoSuchFunction(1) is error 13 in Windows, since the name holds nothing and is indexed like any
-//     other Empty. The engine answers 500 there, because it reads the same shape as a call to an undefined
-//     procedure, which is what that shape is at statement level ("NoSuchFunction 1" is error 500).
-//   * Two cells call a member of a host class the runner does not have (a file that is not there and a drive
-//     that is not there, error 53 and 76 in Windows). A host class is the host's business rather than this
-//     engine's, so those two are out of this file's scope.
-//
-// The argument count of a call is checked now, which was two more of these cells: see builtin-arity.test.ts.
+// The argument count of a call is checked now, and so is a call on a name nothing holds, which was two more
+// of these cells: see builtin-arity.test.ts and the "undefined name" cells below.
 const CELLS: ReadonlyArray<readonly [string, string, string]> = [
   // The number each runtime failure leaves in Err.
   ['ok.nothing', 'x = 1 + 1', '0'],
@@ -49,7 +45,18 @@ const CELLS: ReadonlyArray<readonly [string, string, string]> = [
   ['err.proc.string', 'x = String(-1, "a")', '5'],
   // Chr(-1) is a character and not an error.
   ['err.proc.chr', 'x = Chr(-1)', '0'],
-  ['err.args.unknown', 'x = NoSuchFunction(1)', '500'],
+  ['err.args.unknown', 'x = NoSuchFunction(1)', '13'],
+  // A call on a name nothing holds indexes the Empty it stands for, which is a type mismatch, in every shape
+  // a call can be written without Option Explicit: measured, the three statement forms and the four
+  // expression forms below are all 13, while a bare reference is the Empty itself.
+  ['err.args.unknown.statement', 'NoSuchFunction(1)', '13'],
+  ['err.args.unknown.statementBare', 'NoSuchFunction 1', '13'],
+  ['err.args.unknown.statementCall', 'Call NoSuchFunction(1)', '13'],
+  ['err.args.unknown.twoArgs', 'x = NoSuchFunction(1, 2)', '13'],
+  ['err.args.unknown.condition', 'If NoSuchFunction(1) Then x = 1', '13'],
+  ['err.args.unknown.argument', 'x = CStr(NoSuchFunction(1))', '13'],
+  ['err.args.unknown.arithmetic', 'x = NoSuchFunction(1) + 1', '13'],
+  ['err.args.unknown.bareName', 'x = NoSuchFunction', '0'],
   ['err.for.each', 'x = 0 : For Each y In 5 : x = x + 1 : Next', '451'],
   ['err.null.method', 'x = Null.Foo', '424'],
   ['err.null.property', 'x = Len(Null)', '0'],
@@ -122,6 +129,36 @@ describe('the number a failure leaves in Err', () => {
   for (const [label, statement, expected] of CELLS) {
     it(`${label} leaves ${expected}`, () => {
       expect(errorNumber(statement)).toBe(expected);
+    });
+  }
+});
+
+// With Option Explicit the name itself is the error, so every one of those shapes is 500 instead. Option
+// Explicit has to open the script, so these cells are run on their own rather than through the helper above.
+const EXPLICIT_CELLS: ReadonlyArray<readonly [string, string]> = [
+  ['NoSuchFunction(1)', '500'],
+  ['NoSuchFunction 1', '500'],
+  ['Call NoSuchFunction(1)', '500'],
+  ['x = NoSuchFunction(1)', '500'],
+  ['x = NoSuchFunction', '500'],
+  ['NoSuchFunction', '500'],
+  ['x = NoSuchFunction(1, 2)', '500'],
+  ['x = 1 + 1', '0'],
+];
+
+describe('an undefined name with Option Explicit', () => {
+  for (const [statement, expected] of EXPLICIT_CELLS) {
+    it(`${statement} leaves ${expected}`, () => {
+      const engine = new VbsEngine();
+      engine.executeStatement(
+        `Option Explicit\nOn Error Resume Next\nDim x, value\nErr.Clear\n${statement}\nvalue = CStr(Err.Number)`
+      );
+      const failure = engine.error;
+      const number =
+        failure && failure.number !== 0
+          ? failure.number
+          : Number(engine._getVariable('value').value);
+      expect(String(number)).toBe(expected);
     });
   }
 });

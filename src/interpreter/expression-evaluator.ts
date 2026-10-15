@@ -605,12 +605,12 @@ export class ExpressionEvaluator {
       if (callee.type === 'Object' && callee.value !== null) {
         return this.callObjectMethod(callee, callArgs);
       }
-      // A name nothing holds is "Variable is undefined" and a value that is simply not callable is a type
-      // mismatch, both measured on a fresh cscript: undefinedName(1) is error 500 while v(1), with v = 1,
-      // is error 13.
-      if (!this.context.hasVariable(name)) {
-        throw createVbError(VbErrorCodes.VariableNotDefined, `Variable is undefined: '${name}'`);
-      }
+      // A call on a name nothing holds indexes the Empty it stands for, which is a type mismatch, and the same
+      // answer comes from every position: measured without Option Explicit, "NoSuchFunction(1)",
+      // "NoSuchFunction 1", "Call NoSuchFunction(1)", "x = NoSuchFunction(1)" and "x = NoSuchFunction(1) + 1"
+      // are all error 13, while a bare "x = NoSuchFunction" is the Empty itself. With Option Explicit the name
+      // is the error instead, "Variable is undefined", which the scope lookup above already answers for every
+      // one of those shapes.
       throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: '${name}'`);
     }
 

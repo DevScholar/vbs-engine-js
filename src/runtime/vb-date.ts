@@ -5,7 +5,7 @@ import { nlsDateFormat } from './nls-date-table.generated.ts';
 import { parseVbNumericString } from './nls-number.ts';
 import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
 import { createVbError, VbErrorCodes } from './errors.ts';
-import { currentLcid } from '../builtins/locale.ts';
+import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
 
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
@@ -1151,7 +1151,12 @@ function written(date: Date | null, yearWritten: boolean): WrittenDate | null {
  * time 1:05 there, "1.5.26" is 1:05:26, "29.9" is the day count 299 under 1060 and a type mismatch under the
  * other two. Only their own spaced form is a date ("2026. 05. 01." under 1038, "1. 5. 2026" under 1051).
  */
-function dateOrderOf(): { order: DateOrder; separator: string; dottedDates: boolean } {
+function dateOrderOf(): {
+  order: DateOrder;
+  separator: string;
+  dottedDates: boolean;
+  trailingDot: boolean;
+} {
   const picture = nlsDateFormat(currentLcid())?.shortDate ?? '';
   const fields: string[] = [];
   let separator = '/';
@@ -1178,18 +1183,47 @@ function dateOrderOf(): { order: DateOrder; separator: string; dottedDates: bool
     index += run;
   }
   const order = fields.join('');
-  return { order: order === 'MDY' || order === 'YMD' ? order : 'DMY', separator, dottedDates };
+  // A picture that ends with a dot writes that dot into a date it prints, and Windows reads it back only
+  // there: 1038 writes "yyyy. MM. dd." and reads CDate("2026. 05. 01."), while 1031, 1051 and 1060 write no
+  // trailing dot and answer a type mismatch for the same text.
+  return {
+    order: order === 'MDY' || order === 'YMD' ? order : 'DMY',
+    separator,
+    dottedDates,
+    trailingDot: /\.\s*$/.test(picture),
+  };
 }
 
 /**
  * A year under a hundred, read as the year it stands for.
  *
- * Measured against a fresh cscript under 1031 and 1033, for every value from 00 to 99: 00 to 49 are 2000 to
- * 2049 and 50 to 99 are 1950 to 1999. The window does not move with the current year. It reads the VALUE and
- * not the digits written, so CDate("0001-01-01") is 1 January 2001 while CDate("1/1/100") is year 100.
+ * The window runs from 76 years before the current year to 23 years after it, which a fresh cscript shows
+ * under 1031 and 1033 in 2026: 00 to 49 are 2000 to 2049 and 50 to 99 are 1950 to 1999. Under a calendar that
+ * counts from another epoch the same window sits around that calendar's own current year, measured under 1054
+ * in 2026, whose calendar is the Buddhist one and whose year is 2569: "5. 1. 00" is 2500, "5. 1. 92" is 2592
+ * and "5. 1. 93" is 2493.
+ *
+ * It reads the VALUE and not the digits written, so CDate("0001-01-01") is 1 January 2001 while
+ * CDate("1/1/100") is year 100.
  */
 function toFullYear(year: number): number {
-  return year < 50 ? 2000 + year : 1900 + year;
+  // A value outside the one and two digit range is no year field, and keeps the reading it always had rather
+  // than being folded into the window: 65535 wraps to -1, which a fresh cscript under 1031 reads as 1999 in
+  // CDate("65535.5"), while the wrapped -31072 of CDate("100000.5") stays out of range so that reading fails
+  // and the marked number 1000005, the day count Windows reads there, gets its turn.
+  if (year < 0 || year > 99) return year < 50 ? 2000 + year : 1900 + year;
+  const base = currentYearInItsOwnCalendar() - 76;
+  return base + ((((year - base) % 100) + 100) % 100);
+}
+
+/** The current year as the locale's own calendar counts it, which a Buddhist calendar counts as 2569 where
+ * the Gregorian one counts 2026. */
+function currentYearInItsOwnCalendar(): number {
+  const parts = new Intl.DateTimeFormat(getCurrentBCP47Locale(), { year: 'numeric' }).formatToParts(
+    new Date()
+  );
+  const ownYear = Number(parts.find(part => part.type === 'year')?.value);
+  return Number.isFinite(ownYear) && ownYear > 0 ? ownYear : new Date().getFullYear();
 }
 
 /** A year field: a value under a hundred is a year of the near past or present, as vbscript.dll reads it. */
@@ -1230,9 +1264,11 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // mark. A dot counts only where the locale writes its dates with a dot, which a fresh cscript shows: under
   // 1033 "5. Januar 2026" is a type mismatch while "Januar. 5, 2026" reads, because the dot there belongs to
   // the name, and under 1031 both read. 1060 reads the dotted form too, and 1042 refuses it because its own
-  // dates are written with hyphens.
+  // dates are written with hyphens. 1054 reads it as well, which is measured and comes with the rest of that
+  // locale's reading of dotted dates.
   const ownMark = dateOrderOf().separator;
-  const separators = ownMark === '.' ? /[\s,./-]+/ : /[\s,/-]+/;
+  const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
+  const separators = ownMark === '.' || buddhistDates ? /[\s,./-]+/ : /[\s,/-]+/;
   const words = text.split(separators).filter(word => word !== '');
   if (words.length < 2 || words.length > 3) return null;
 
@@ -1333,7 +1369,7 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   // year of the near past or present: CDate("0001-01-01") is 1 January 2001, as a fresh cscript answers.
   if (iso) return written(validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3])), true);
 
-  const { order, separator, dottedDates } = dateOrderOf();
+  const { order, separator, dottedDates, trailingDot } = dateOrderOf();
   // "/" and "-" are read everywhere, a comma is read too, and the locale's own field mark is read as well.
   // The locale's own mark holds the text to the locale's own order instead of letting the other order
   // rescue it ("29.9.26" is no date in Hungarian). A dot is that mark only where the locale's picture puts
@@ -1343,39 +1379,37 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   const separatorAllowed = (mark: string): boolean =>
     mark === '/' || mark === '-' || mark === ',' || mark === own;
 
+  // A dotted date written with the spaces its own locale puts in the picture, which Windows reads where the
+  // locale writes its dates with a dot, and under 1054 as well: measured, CDate("2026. 05. 01.") is 1 May
+  // 2026 under 1038 and CDate("1. 5. 2026") is a date under 1031, 1038, 1051, 1054 and 1060, while 1033,
+  // 1041, 1042, 2052 and 2057 answer a type mismatch or read it as a time. The trailing dot is read only
+  // under 1038, whose own picture ends with one, and under 1054. Why Thai takes both readings is not known,
+  // only that it does.
+  const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
+  if (ownMark === '.' || buddhistDates) {
+    const spaced = /^(\d{1,4})\.\s+(\d{1,2})\.\s+(\d{1,4})(\.?)$/.exec(text);
+    if (spaced && (spaced[4] === '' || trailingDot || buddhistDates)) {
+      const read = threeFieldDate(order, spaced[1]!, spaced[2]!, spaced[3]!, false);
+      if (read) return read;
+    }
+    // 1054 reads a two field spaced form as a date as well, which its own picture does not write: measured,
+    // CDate("1. 5.") is 1 May of the current year there and CDate("2026. 05.") is May of the Buddhist year
+    // 2026, where 1033 reads the same texts as the times 1:05 and 20:26.
+    if (buddhistDates) {
+      const spacedTwo = /^(\d{1,9})\.\s+(\d{1,9})\.?$/.exec(text);
+      if (spacedTwo) {
+        const read = twoFieldDate(order, spacedTwo[1]!, spacedTwo[2]!);
+        if (read) return read;
+      }
+    }
+  }
+
   // A field may be written with more digits than a date can hold, and the reader wraps it: see
   // wrapToDateField. The time and the marked number are read before and after this, so a text that this
   // does not make a date still has its other readings.
   const two = /^(\d{1,9})([.,/-])(\d{1,9})$/.exec(text);
   if (two && separatorAllowed(two[2])) {
-    const year = new Date().getFullYear();
-    const first = Number(two[1]);
-    const second = Number(two[3]);
-    // A two field date is read as a day and a month first, the locale's own way round, and then as a month
-    // and a year, and then as a year and a month. Measured against a fresh cscript under 1031, where the
-    // date separator is a dot: "5.1" is 5 January and "31.12" is 31 December, "12.31" is 31 December too
-    // because the first field cannot be a day there, "2.30" is February 2030 and "0.5" is May 2000.
-    const byDayAndMonth: [number, number, number][] =
-      order === 'DMY'
-        ? [
-            [year, second, first],
-            [year, first, second],
-          ]
-        : [
-            [year, first, second],
-            [year, second, first],
-          ];
-    // Only a year is wrapped: a day or a month written with more digits than it can hold is simply not a
-    // day or a month, which is why "5.2958465" is May 9345 rather than a type mismatch.
-    const byMonthAndYear: [number, number, number][] = [
-      [yearOfNumber(wrapToDateField(second)), first, 1],
-      [yearOfNumber(wrapToDateField(first)), second, 1],
-    ];
-    for (const [candidateYear, month, day] of [...byDayAndMonth, ...byMonthAndYear]) {
-      const date = validDate(candidateYear, month, day);
-      if (date) return written(date, false);
-    }
-    return null;
+    return twoFieldDate(order, two[1]!, two[3]!);
   }
 
   const match = /^(\d{1,4})([.,/-])(\d{1,2})\2(\d{1,4})$/.exec(text);
@@ -1383,12 +1417,71 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
 
   const [first, second, third] = [match[1], match[3], match[4]];
   const strict = own !== null && match[2] === own;
+  return threeFieldDate(order, first, second, third, strict);
+}
+
+/**
+ * The date a written two field date names, read as a day and a month first, the locale's own way round, and
+ * then as a month and a year, and then as a year and a month.
+ *
+ * Measured against a fresh cscript under 1031, where the date separator is a dot: "5.1" is 5 January and
+ * "31.12" is 31 December, "12.31" is 31 December too because the first field cannot be a day there, "2.30"
+ * is February 2030 and "0.5" is May 2000.
+ */
+function twoFieldDate(order: DateOrder, firstText: string, secondText: string): WrittenDate | null {
+  const year = new Date().getFullYear();
+  const first = Number(firstText);
+  const second = Number(secondText);
+  // The last field of each candidate says whether the reading used a year, which a Buddhist calendar has to
+  // know: measured under 1054, CDate("2026. 05.") is May of the Buddhist year 2026, while CDate("1. 5.") is
+  // 1 May of the current year.
+  const byDayAndMonth: [number, number, number, boolean][] =
+    order === 'DMY'
+      ? [
+          [year, second, first, false],
+          [year, first, second, false],
+        ]
+      : [
+          [year, first, second, false],
+          [year, second, first, false],
+        ];
+  // Only a year is wrapped: a day or a month written with more digits than it can hold is simply not a day or
+  // a month, which is why "5.2958465" is May 9345 rather than a type mismatch.
+  const byMonthAndYear: [number, number, number, boolean][] = [
+    [yearOfNumber(wrapToDateField(second)), first, 1, true],
+    [yearOfNumber(wrapToDateField(first)), second, 1, true],
+  ];
+  for (const [candidateYear, month, day, yearWritten] of [...byDayAndMonth, ...byMonthAndYear]) {
+    const date = validDate(candidateYear, month, day);
+    if (date) return written(date, yearWritten);
+  }
+  return null;
+}
+
+/**
+ * The date a written three field date names, in the locale's own order and then in the other one.
+ *
+ * Shared by the unspaced form and the spaced dotted form, which read the same way once their fields are
+ * separated: measured, "1. 5. 2026" under 1038 is 5 January 2026, the same date "1-5-2026" gives there.
+ *
+ * A field with more digits than a date can hold wraps, and only a year is wrapped: a day or a month written
+ * that way is simply not a day or a month, which is why "5.2958465" is May 9345 rather than a type mismatch.
+ */
+function threeFieldDate(
+  order: DateOrder,
+  first: string,
+  second: string,
+  third: string,
+  strict: boolean
+): WrittenDate | null {
   const candidates: [number, number, number][] = [];
   if (first.length === 4) {
     // "2026/09/29" is year first wherever it is written.
     candidates.push([Number(first), Number(second), Number(third)]);
   } else if (order === 'YMD') {
-    candidates.push([Number(first), Number(second), Number(third)]);
+    // A year written with fewer than four digits goes through the same window as any other year field, which
+    // a fresh cscript shows under 1038, 1041, 1042 and 2052: CDate("1-5-26") is 26 May 2001.
+    candidates.push([yearOf(first), Number(second), Number(third)]);
     if (!strict) {
       candidates.push(
         [yearOf(third), Number(first), Number(second)],
@@ -1430,7 +1523,10 @@ function parseTimePart(text: string): [number, number, number] | null {
  * hour. Both were measured on a fresh cscript.
  */
 function parseDottedTimePart(text: string): [number, number, number] | null {
-  const match = /^(\d{1,9})\.(\d{1,9})(?:\.(\d{1,9}))?\s*([AaPp][Mm])?$/.exec(text);
+  // The spaces after the marks are read as well as the marks themselves, which a fresh cscript shows under
+  // 1033: CDate("1. 5. 26") is 1:05:26 in the morning there, and CDate("1. 5 PM") is five past one in the
+  // afternoon. A dot at the very end is not part of a time ("1. 5." is a type mismatch).
+  const match = /^(\d{1,9})\.\s*(\d{1,9})(?:\.\s*(\d{1,9}))?\s*([AaPp][Mm])?$/.exec(text);
   if (!match) return null;
   const hours = wrapToDateField(Number(match[1]));
   const minutes = wrapToDateField(Number(match[2]));
@@ -1460,12 +1556,11 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
  *     mismatch for "5. Januar 2026" and so does the engine, since a dot is a field mark only where the
  *     locale's own picture writes it against the field.
  *
- * One reading is still narrower than Windows, and it is the one shape neither reader below covers: a dotted
- * date written with the spaces its locale's own picture uses. Windows reads CDate("2026. 05. 01.") as
- * 1 May 2026 under 1038 and CDate("1. 5. 2026") as a date under 1031, 1038, 1051, 1060 and 1054 alike,
- * while the engine answers a type mismatch for every one of them. The unspaced form is the other way round:
- * Windows refuses it there, and so does the engine. Two smaller gaps sit beside it: under 1054 Windows reads
- * a German month name with a dot, and under 1038 and 1054 it reads the spaced form with single digit fields.
+ * A dotted date written with the spaces its locale's own picture uses is read too, which is measured: Windows
+ * reads CDate("2026. 05. 01.") as 1 May 2026 under 1038 and CDate("1. 5. 2026") as a date under 1031, 1038,
+ * 1051, 1054 and 1060, while its unspaced form is refused under all of those but 1031. Two smaller readings
+ * come with it, both measured under 1054 alone: a German month name with a dot, and the spaced form of two
+ * fields.
  */
 export function parseVbDate(text: string, locale: string): Date | null {
   const read = parseVbDateInItsOwnCalendar(text, locale);

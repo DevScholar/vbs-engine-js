@@ -203,7 +203,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | CBool | ✔️ | |
 | CByte | ✔️ | |
 | CCur | ✔️ | |
-| CDate | ✔️ | Reads a written date with the locale's own order, from the Windows short date picture. Measured across the 132 locales that answer, with one shape still missing: a dotted date written with the spaces the locale's own picture uses, such as `CDate("2026. 05. 01.")` under 1038 |
+| CDate | ✔️ | Reads a written date with the locale's own order and separators, from the Windows short date picture, the spaced dotted form the picture itself writes included: `CDate("2026. 05. 01.")` is 1 May 2026 under 1038 and `CDate("1. 5. 2026")` is a date under 1031, 1038, 1051, 1054 and 1060. Measured across the 132 locales that answer |
 | CDbl | ✔️ | |
 | CInt | ✔️ | |
 | CLng | ✔️ | |
