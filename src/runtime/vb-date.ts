@@ -5,6 +5,7 @@ import { nlsDateFormat } from './nls-date-table.generated.ts';
 import { NLS_MONTH_NAME_READS } from './nls-month-name-reads.generated.ts';
 import { ICU_MONTH_NAME_READS } from './icu-month-name-reads.generated.ts';
 import { NLS_COMMA_BEFORE_TIME } from './nls-comma-time.generated.ts';
+import { NLS_NO_TRAILING_DOT } from './nls-no-trailing-dot.generated.ts';
 import {
   HIJRI_FIRST_YEAR,
   HIJRI_YEAR_MONTH_MASKS,
@@ -1320,17 +1321,37 @@ function standaloneNamesFromWindows(
  * July the longer "červenec" would give by the prefix rule alone.
  */
 function monthOfWord(word: string, locale: string): number | null {
-  const bare = word.toLowerCase().replace(/\.+$/, '');
-  if (bare === '') return null;
+  const written = word.toLowerCase();
+  if (written === '') return null;
   let best: { month: number; length: number } | null = null;
   for (const entry of monthTable(locale)) {
-    const name = entry.name.toLowerCase().replace(/\.+$/, '');
-    if (name === bare) return entry.month;
-    if (bare.length < 3 || !name.startsWith(bare)) continue;
+    const name = entry.name.toLowerCase();
+    const bare = name.replace(/\.+$/, '');
+    if (name === written || bare === written) return entry.month;
+    if (written.length < 3) continue;
+    if (!name.startsWith(written) && !bare.startsWith(written)) continue;
     if (best === null || name.length > best.length)
       best = { month: entry.month, length: name.length };
   }
   return best === null ? null : best.month;
+}
+
+/**
+ * The month a word names, with one dot after it allowed where Windows allows one.
+ *
+ * A fresh cscript reads a month name with a dot added after it almost everywhere, as the dot of an
+ * abbreviation: English "15 Jan. 2026" and "15 January. 2026" are January, and so is German "15 Januar.
+ * 2026". Two dots are never read ("15 Jan.. 2026" is error 13 under 1033, 1031 and 1041 alike), a name that is
+ * itself written with a dot refuses a second one ("gen." reads under 1027 and "gen.." does not), and the
+ * locales in NLS_NO_TRAILING_DOT refuse the dot for every name they answer to, Thai among them. All measured
+ * over the 132 locales.
+ */
+function monthOfDottedWord(word: string, locale: string): number | null {
+  const exact = monthOfWord(word, locale);
+  if (exact !== null) return exact;
+  if (!word.endsWith('.') || word.endsWith('..')) return null;
+  if (NLS_NO_TRAILING_DOT.has(currentLcid())) return null;
+  return monthOfWord(word.slice(0, -1), locale);
 }
 
 /**
@@ -1341,8 +1362,8 @@ function monthOfWord(word: string, locale: string): number | null {
  * fresh cscript reads both. Only such a name is looked for here, so a name of one word is left to the rules
  * above and a text Windows refuses is not read on the strength of this. A name counts only as a whole word,
  * which is what keeps "1 Janu 2026" to the prefix rule rather than reading the "Jan" inside "Janu". The
- * longest name the text holds wins, any dots right after it belong to it, and the match ends at a separator
- * or at the end of the text.
+ * longest name the text holds wins, at most one dot right after it belongs to it, and the match ends at a
+ * separator or at the end of the text.
  */
 function findCompleteMonthName(
   text: string,
@@ -1361,7 +1382,18 @@ function findCompleteMonthName(
       for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
         if (!isSeparator(text[at - 1])) continue;
         let end = at + needle.length;
-        while (text[end] === '.') end++;
+        // How a dot right after the name is read, all of it measured: a name written without a dot takes one
+        // after it where the locale reads such a dot at all (Vietnamese "Thg 1." is January), a name written
+        // with a dot refuses a second one (Catalan "ag." reads and "ag.." does not), and where the locale
+        // refuses a dot after a name the name ends before any dot, so Thai "15.ม.ค..2026" is a type mismatch
+        // while "15 ม.ค. 2026" is January.
+        if (text[end] === '.') {
+          // Only a name written without a dot takes exactly one dot after it, and only where the locale reads
+          // a dot there at all: a name written with a dot refuses a second one, and Thai refuses every one.
+          if (needle.endsWith('.') || NLS_NO_TRAILING_DOT.has(currentLcid())) continue;
+          end += 1;
+        }
+        if (text[end] === '.') continue;
         if (!isSeparator(text[end])) continue;
         if (best === null || end - at > best.length) {
           best = { month: entry.month, start: at, end, length: end - at };
@@ -1516,6 +1548,58 @@ function validDate(year: number, month: number, day: number): Date | null {
 }
 
 /** A date written with a month name: "1 Jan 2026", "Jan 1, 2026", "März 1 2026", "Jan 2026", "1 Jan". */
+/**
+ * The words a date text holds, which is where a month name may stand.
+ *
+ * A field mark separates them: a space, a comma, a slash, a hyphen, and a dot where the locale writes its dates
+ * with a dot. Where a dot is no field mark at all it stays in the word it stands in, which is what makes "5.
+ * Januar 2026" three words under 1031 and one odd word under 1033.
+ *
+ * What a dot does beside a name is measured over the 132 locales. Where a dot after a name is read at all, one
+ * dot separates that name from the next field and a run of two or more stays with the name unless a digit
+ * follows it: "15 Jan.. 2026" is refused under 1031 while "15.Jan..2026" reads there. Where the locale refuses
+ * a dot after a name, every such dot stays with the name, so Thai "ม.ค." is the name and "มกราคม." is no name.
+ */
+function dateWords(text: string, dotsAreMarks: boolean): string[] {
+  const words: string[] = [];
+  const refusesDot = NLS_NO_TRAILING_DOT.has(currentLcid());
+  let word = '';
+  const flush = (): void => {
+    if (word !== '') words.push(word);
+    word = '';
+  };
+  for (let at = 0; at < text.length; at++) {
+    const char = text[at]!;
+    if (/[\s,/-]/.test(char)) {
+      flush();
+      continue;
+    }
+    if (char !== '.') {
+      word += char;
+      continue;
+    }
+    if (!dotsAreMarks) {
+      word += char;
+      continue;
+    }
+    if (refusesDot) {
+      if (/[\p{L}.]$/u.test(word)) word += char;
+      else flush();
+      continue;
+    }
+    let run = 1;
+    while (text[at + run] === '.') run += 1;
+    if (run > 1 && /[\p{L}.]$/u.test(word) && !/\d/.test(text[at + run] ?? '')) {
+      word += '.'.repeat(run);
+      at += run - 1;
+      continue;
+    }
+    flush();
+  }
+  flush();
+  return words;
+}
+
 function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // A month name is set off from the rest by a space, a comma, a slash, a hyphen or the locale's own date
   // mark. A dot counts only where the locale writes its dates with a dot, which a fresh cscript shows: under
@@ -1525,12 +1609,11 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // locale's reading of dotted dates.
   const ownMark = dateOrderOf().separator;
   const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
-  const separators = ownMark === '.' || buddhistDates ? /[\s,./-]+/ : /[\s,/-]+/;
-  // A name with a dot or a space in it is taken out of the text first, so the split cannot break it in two.
+  // A name with a dot or a space in it is taken out of the text first, so the words cannot break it in two.
   const complete = findCompleteMonthName(text, locale);
   const rest =
     complete === null ? text : text.slice(0, complete.start) + ' ' + text.slice(complete.end);
-  const words = rest.split(separators).filter(word => word !== '');
+  const words = dateWords(rest, ownMark === '.' || buddhistDates);
 
   let month: number;
   let numbers: string[];
@@ -1541,7 +1624,7 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
     numbers = words;
   } else {
     if (words.length < 2 || words.length > 3) return null;
-    const months = words.map(word => monthOfWord(word, locale));
+    const months = words.map(word => monthOfDottedWord(word, locale));
     const named = months.filter(entry => entry !== null).length;
     if (named !== 1) return null;
     month = months[months.findIndex(entry => entry !== null)] as number;

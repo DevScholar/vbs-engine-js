@@ -451,6 +451,35 @@ describe('numbers written with spaces are read the way Windows reads them', () =
   }
 });
 
+// A dot beside a month name, measured over all 132 locales. One dot after a name is the dot of an abbreviation
+// and is read almost everywhere (English "15 Jan. 2026" is January), two dots are read nowhere, a name that is
+// itself written with a dot refuses a second one (Catalan "ag." reads and "ag.." does not), and Thai refuses
+// the dot for every name it answers to, its own and English alike.
+const NAME_DOT_CELLS: ReadonlyArray<readonly [number, string, string]> = [
+  [1033, 'CStr(CDate("15 Jan. 2026"))', '1/15/2026'],
+  [1033, 'CDate("15 Jan.. 2026")', 'ERR 13'],
+  [1033, 'CDate("15 .Jan 2026")', 'ERR 13'],
+  [1031, 'CDate("15 Jan.. 2026")', 'ERR 13'],
+  [1031, 'CStr(CDate("15.Jan..2026"))', '15.01.2026'],
+  [1027, 'CStr(Month(CDate("15 ag. 2026")))', '8'],
+  [1027, 'CDate("15 ag.. 2026")', 'ERR 13'],
+  [1041, 'CStr(Month(CDate("15 Jan. 2026")))', '1'],
+  [1054, 'CStr(Month(CDate("15 ม.ค. 2026")))', '1'],
+  [1054, 'CDate("15 ม.ค.. 2026")', 'ERR 13'],
+  [1054, 'CDate("15 มกราคม. 2026")', 'ERR 13'],
+  [1054, 'CDate("15.ม.ค..2026")', 'ERR 13'],
+  [1054, 'CDate("15 Jan. 2026")', 'ERR 13'],
+  [1054, 'CStr(Month(CDate("15 Jan 2026")))', '1'],
+];
+
+describe('a dot beside a month name is read the way Windows reads one', () => {
+  for (const [lcid, expression, expected] of NAME_DOT_CELLS) {
+    it(`under ${lcid}, ${expression} is ${expected}`, () => {
+      expect(answer(expression, lcid)).toBe(expected);
+    });
+  }
+});
+
 // A dotted date written with the spaces the locale's own picture uses, which Windows reads where its dates are
 // written with a dot and under 1054 as well: measured, "2026. 05. 01." is 1 May 2026 under 1038 and
 // "1. 5. 2026" is a date under 1031, 1038, 1051, 1054 and 1060, while 1033 and 2052 read the same texts as
