@@ -594,3 +594,39 @@ and are intended for Node.js/JavaScript interoperability.
 | `CVar()` and `CVErr()` | ✔️ | Not functions of `vbscript.dll` either, which answers error 13 for every call to them. Kept because VB6 and VBA have them |
 | `Type...End Type` (user-defined types) | ✔️ | Struct-like; fields typed to VB6 defaults; `Dim x As MyType` creates initialized instance |
 
+---
+
+## How the compatibility was measured
+
+Every rule in this document that has a note beside it was read off a fresh `cscript` process, because
+`SetLocale` in a loop is not reliable on Windows. The measurements are kept as development probes outside this
+repository, in the temporary probe directory, since the brief asks that no probe or throwaway script goes into
+the repository. Each area there is a `.vbs` probe that writes the Windows answers, a UTF-16LE capture, and a
+comparison script that runs the same cells through this engine. `run-all-compares.mjs` runs them all and prints
+one line with the number of cells that differ, which is the regression net a change in a shared part of the
+engine is checked against. The durable net is this repository's own test suite, which holds a cell for every
+rule that was measured and fixed.
+
+Two things that guide the probes: an expression is always written out, since `Eval` is not faithful and once
+reported 24 differences that a written out probe does not have, and a label that is missing from a capture is
+not a difference, since it means the probe could not write the line.
+
+## What is not measured yet
+
+The measurements cover the language, the built-in functions, the locales and the host calls this engine makes.
+These parts have no comparison yet, and are the honest limit of the claim that this engine matches
+`vbscript.dll`:
+
+* **Events.** `Class_Initialize` and `Class_Terminate` have one test each and no `cscript` comparison, so the
+  order and the timing of them are unmeasured.
+* **`ExecuteGlobal` and `Execute`.** No test and no probe, so their scoping rules are unmeasured.
+* **Parts of the `Err` object.** `Err.Source` has no test, `Err.Description` and `Err.HelpContext` have one
+  each, and the arguments of `Err.Raise` are not compared.
+* **The text of an error.** The probes compare the error number only, since the description is localized.
+* **COM and the host.** `RegExp`, `Scripting.Dictionary`, `Scripting.FileSystemObject` and `WScript.Shell` are
+  out of scope for this engine, which the brief keeps to the `node-ps1-dotnet` project. `WScript` itself is
+  covered by this repository's own tests rather than by a `cscript` comparison.
+* **One flagged row above**, the `.wsf` `<object>`, `<reference>` and `<resource>` hoisting, which is marked
+  with a warning rather than a tick.
+
+
