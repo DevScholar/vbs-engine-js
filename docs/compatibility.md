@@ -294,7 +294,7 @@ fresh cscript:
 | HelpContext | ✔️ | Read/write `Long`, default `0` (no help source); only set when `Err.Raise` passes a helpcontext argument. No `.hlp` loading |
 | LastDllError | ✔️ | Returns 0 (no DLL loader wired) |
 | Clear | ✔️ | |
-| Raise | ✔️ | Supports `number, source, description, helpfile, helpcontext` |
+| Raise | ✔️ | Supports `number, source, description, helpfile, helpcontext`. It fills `Err` and then raises, so a script with no handler stops at that statement, measured on a fresh cscript: a script that writes a line, then `Err.Raise 4321, "a source", "a description"`, then another line prints the first line and `(4, 1) a source: a description`, and the line after it never runs. A handler is what keeps the script going, and the fields it filled are the ones the script then reads |
 
 ### RegExp Object
 
@@ -652,14 +652,27 @@ What a caught error looks like, for a divide by zero, in modes 7 to 10:
 is the document's own URL, and `line` is the line in the **document** rather than in the script block, measured
 by putting the failing statement on line 172 of the file and being told 172.
 
-Where this engine differs, on purpose:
+What this engine's own thrown error looks like beside those, for a divide by zero:
 
-* The position of the failing VBScript statement rides on the thrown error as `line` and `column`, and it is
-  counted within the script block it was handed. The host gave a page no column at all and counted in the
-  document.
-* The head of `stack` is written the way `cscript` prints it, as in `(4, 3) Microsoft VBScript runtime error:
-  Division by zero`, so a host that has no stack of its own, which is every mode up to 9, still has that reading.
-* The text stays English, as it is throughout this engine, where the host localizes it.
+| What | This engine | IE 7 to 9 | IE 10 |
+|------|-------------|-----------|-------|
+| `number` | `0x800a000b` | `0x800a000b` | `0x800a000b` |
+| `description`, `message` | both, equal, in English | both, equal, localized by the host | both, equal, localized by the host |
+| `name` | `Error`, an own enumerable property | `Error`, inherited | `Error`, inherited |
+| `line`, `column` | the VBScript position, own | absent | absent |
+| `stack` | own, headed by the `cscript` reading | absent | the JavaScript frames |
+| `Object.keys` and `for...in` | `name,number,description,line,column` | `message,description,number,name` | `description,number,stack` |
+
+So it is not a copy of any one document mode. It keeps what every mode has, and adds the two things the host
+never put on the object:
+
+* The position of the failing VBScript statement rides on the thrown error as `line` and `column`, counted
+  within the script block it was handed. The host gave a page no column at all, counted in the document, and
+  reported a line only through the arguments of `window.onerror`.
+* `stack` is headed by the `cscript` reading, as in `(4, 3) Microsoft VBScript runtime error: Division by zero`,
+  so a host that has no stack of its own, which is every mode up to 9, still has that reading.
+
+The text stays English, as it is throughout this engine, where the host localizes it.
 
 ---
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VbsEngine } from '../index.ts';
+import { VbsEngine, type VbsHostError } from '../index.ts';
 
 // What Err holds after a statement, measured against a fresh cscript under 1033 with the error probe in the
 // probe directory: 82 cells of runtime errors and of the Err object itself. 80 of them agree with the
@@ -230,5 +230,42 @@ afterDescription = Err.Description`);
     expect(engine._getVariable('after').value).toBe('0');
     expect(engine._getVariable('afterSource').value).toBe('');
     expect(engine._getVariable('afterDescription').value).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Err.Raise does not only fill Err, it raises
+// ---------------------------------------------------------------------------
+// Measured on a fresh cscript: a script that writes a line, then `Err.Raise 4321, "a source", "a description"`,
+// then another line prints the first line and then `(4, 1) a source: a description`, and the line after it never
+// runs. So the statement raises a run-time error like any other, and a handler is what keeps a script going.
+describe('Err.Raise', () => {
+  it('stops a script that has no handler', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`Dim after
+after = 0
+before = 1
+Err.Raise 4321, "a source", "a description"
+after = 1`);
+    expect(engine._getVariable('before').value).toBe(1);
+    expect(engine._getVariable('after').value).toBe(0);
+    expect(engine.error!.number).toBe(4321);
+    expect(engine.error!.description).toBe('a description');
+    expect(engine.error!.source).toBe('a source');
+  });
+
+  it('reaches a JavaScript caller as the HRESULT for the number it raised', () => {
+    const engine = new VbsEngine();
+    let caught: VbsHostError | null = null;
+    try {
+      engine.executeStatementThrows('Err.Raise 4321, "a source", "a description"');
+    } catch (e) {
+      caught = e as VbsHostError;
+    }
+    expect(caught).not.toBeNull();
+    // 4321 is 0x10E1, and the VBScript facility puts it at 0x800A10E1. Measured the same way out of
+    // Internet Explorer, whose caught error for Err.Raise 4321 is -2146823967.
+    expect(caught!.number).toBe(-2146823967);
+    expect(caught!.description).toBe('a description');
   });
 });

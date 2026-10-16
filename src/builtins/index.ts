@@ -1,6 +1,7 @@
 import type { VbContext, VbValue } from '../runtime/index.ts';
 import {
   createVbError,
+  VbError,
   VbErrorCodes,
   VbErrorDescriptions,
   parseVbNumericString,
@@ -428,17 +429,31 @@ export function registerBuiltins(context: VbContext): void {
             helpContext?: VbValue
           ): VbValue => {
             const raised = readErrorNumber(number, false);
-            context.err.number = raised;
             // Windows fills in what the caller left out: the runtime's own name for the source, and the
             // standard text for the number as the description ("Unknown runtime error" where the number has
             // no standard text of its own, which Err.Raise 60000 answers).
-            context.err.source = source ? String(source.value ?? '') : RAISED_SOURCE;
-            context.err.description = description
+            const raisedSource = source ? String(source.value ?? '') : RAISED_SOURCE;
+            const raisedDescription = description
               ? String(description.value ?? '')
               : (VbErrorDescriptions[raised] ?? 'Unknown runtime error');
-            context.err.helpFile = helpFile ? String(helpFile.value ?? '') : '';
-            context.err.helpContext = helpContext ? Number(helpContext.value) || 0 : 0;
-            return { type: 'Empty', value: undefined };
+            const raisedHelpFile = helpFile ? String(helpFile.value ?? '') : '';
+            const raisedHelpContext = helpContext ? Number(helpContext.value) || 0 : 0;
+
+            // The statement fills the Err object and then raises, so a script with no handler stops there.
+            // Measured on a fresh cscript: a script that writes a line, then `Err.Raise 4321, "a source", "a
+            // description"`, then another line prints the first line and then
+            // `(4, 1) a source: a description`, and the line after it never runs. The fields are set here as
+            // well as carried on the error, because a handler that resumes leaves them in Err to be read.
+            context.err.number = raised;
+            context.err.source = raisedSource;
+            context.err.description = raisedDescription;
+            context.err.helpFile = raisedHelpFile;
+            context.err.helpContext = raisedHelpContext;
+
+            const raisedError = new VbError(raised, raisedDescription, raisedSource);
+            raisedError.helpFile = raisedHelpFile;
+            raisedError.helpContext = raisedHelpContext;
+            throw raisedError;
           },
         };
       }
