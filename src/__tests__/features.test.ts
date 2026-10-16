@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VbsEngine } from '../index.ts';
+import { VbsEngine, type VbsHostError } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // VB6 Type Syntax (As Type in declarations and parameters)
@@ -1125,6 +1125,49 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     }
     expect(engine.error!.number).toBe(13);
     expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
+  });
+
+  // IE reported where a script failed through the arguments of `window.onerror`, not on the error object.
+  // Carrying the position on the error is what lets a page say which VBScript line failed, and lets a reporter
+  // take over the stack with it.
+  it('carries the position of the failing VBScript statement', () => {
+    const engine = new VbsEngine();
+    let caught: VbsHostError | null = null;
+    try {
+      engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
+    } catch (e) {
+      caught = e as VbsHostError;
+    }
+    expect(caught!.line).toBe(3);
+    expect(caught!.column).toBe(1);
+  });
+
+  // `error.stack` is an ordinary writable own property, so the engine writes the head of it in the reading
+  // `cscript` prints instead of leaving a stack of its own internals first. V8's `Error.prepareStackTrace` would
+  // do the same job, but for every error in the page rather than this one, which is not a library's to take.
+  it('heads the stack with the position and the source cscript prints', () => {
+    const engine = new VbsEngine();
+    let caught: VbsHostError | null = null;
+    try {
+      engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
+    } catch (e) {
+      caught = e as VbsHostError;
+    }
+    expect(caught!.stack!.split('\n')[0]).toBe('(3, 1) Microsoft VBScript runtime error: Division by zero');
+  });
+
+  // Script the host asked for, which nobody called for from JavaScript, has no caller to choose an outlet, so
+  // `useJsError` chooses: a real error the page's `window.onerror` sees, the way IE reported a script error, or
+  // a record in `engine.error` alone.
+  it('sends a host run failure to the page, or to engine.error when the option says so', () => {
+    const throwing = new VbsEngine();
+    throwing.addCode('Sub Boom()\n  x = 1 / 0\nEnd Sub');
+    expect(() => throwing.executeHostScript('Boom')).toThrow();
+
+    const quiet = new VbsEngine({ useJsError: false });
+    quiet.addCode('Sub Boom()\n  x = 1 / 0\nEnd Sub');
+    expect(() => quiet.executeHostScript('Boom')).not.toThrow();
+    expect(quiet.error!.number).toBe(11);
   });
 });
 

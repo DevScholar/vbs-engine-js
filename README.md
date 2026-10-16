@@ -22,7 +22,7 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 |--------|-------------|
 | `addCode(code: string)` | Adds script code to the engine (function/class definitions) |
 | `executeStatement(statement: string)` | Executes a VBScript statement; captures errors in `engine.error` |
-| `executeStatementThrows(statement: string)` | Executes a statement and rethrows the error as a native JS `Error` with an HRESULT `number` (IE/WSH `catch` style) |
+| `executeStatementThrows(statement: string)` | Executes a statement and rethrows the error as a native JS `Error` with an HRESULT `number` (IE/WSH `catch` style). It also carries `description`, the VBScript `line` and `column` of the statement that failed, and a `stack` whose first line is the reading `cscript` prints, as in `(4, 3) Microsoft VBScript runtime error: Division by zero` |
 | `run(procedureName: string, ...args)` | Calls a function and returns the result |
 | `eval(expression: string)` | Evaluates an expression and returns the result |
 | `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |

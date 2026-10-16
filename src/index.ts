@@ -62,6 +62,7 @@ export {
   evalVbscript,
   type VbsEngineOptions,
   type VbsEngineMode,
+  type VbsHostError,
   type BrowserEngineOptions,
   type VbsError,
   jsToVb,

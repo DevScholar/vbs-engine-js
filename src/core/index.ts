@@ -238,6 +238,41 @@ function resolveMode(mode: VbsEngineMode | undefined): VbsEngineMode {
   return mode;
 }
 
+/**
+ * The native `Error` a VBScript failure reaches a JavaScript caller as, which mirrors what IE handed JScript:
+ * `instanceof Error`, `name === 'Error'`, `message` equal to `description`, and `number` as an HRESULT.
+ *
+ * `line` and `column` say where the failing VBScript statement began. IE reported that position through the
+ * arguments of `window.onerror` rather than on the error object; carrying it here lets a page report a script
+ * error the way the Windows Script Host does, and lets a reporter take over the stack.
+ */
+export interface VbsHostError extends Error {
+  /** The VBScript error code as an HRESULT, for example 0x800a000b for a division by zero. */
+  number: number;
+  description: string;
+  line?: number;
+  column?: number;
+}
+
+/**
+ * Puts the Windows Script Host's own reading of a failure at the head of the stack: the position, the source and
+ * the description, the way `cscript` prints them, as in `(4, 3) Microsoft VBScript runtime error: Division by
+ * zero`. A host that knows the file it ran can put the name in front; this engine is handed statements and not
+ * a file, so the position stands alone.
+ *
+ * Writing `error.stack` is how the format is taken over. It is an ordinary writable own property, so this works
+ * in every browser and touches this one error only. V8 also offers `Error.prepareStackTrace`, but that is a hook
+ * on the whole page: it would rewrite the stack of every other error the host reports, which is not a library's
+ * to do. Firefox has no such hook and keeps the throw position in the non-standard `lineNumber` and
+ * `columnNumber` properties, which cannot be written.
+ */
+function withWindowsScriptHostPosition(stack: string, err: VbError): string {
+  if (err.line === undefined) return stack;
+  const position = `(${err.line}, ${err.column ?? 0})`;
+  const source = err.source || 'Microsoft VBScript runtime error';
+  return `${position} ${source}: ${err.description}\n${stack}`;
+}
+
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
@@ -685,22 +720,23 @@ export class VbsEngine {
    * JavaScript host would see in its own `catch`. Mirrors JScript catching a
    * VBScript runtime error: `instanceof Error`, `name === 'Error'`,
    * `message === description`, and `number` as an HRESULT.
+   *
+   * The position of the failing VBScript statement rides along on `line` and `column`, which IE reported
+   * through the arguments of `window.onerror` rather than on the error object, and which `engine.error`
+   * carries under the same names.
    */
-  private toHostError(err: unknown): Error & { number: number; description: string } {
+  private toHostError(err: unknown): VbsHostError {
     if (err instanceof VbError) {
-      const hostError = new Error(err.description) as Error & {
-        number: number;
-        description: string;
-      };
+      const hostError = new Error(err.description) as VbsHostError;
       hostError.name = 'Error';
       hostError.number = toHresult(err.number);
       hostError.description = err.description;
+      hostError.line = err.line;
+      hostError.column = err.column;
+      hostError.stack = withWindowsScriptHostPosition(String(hostError.stack), err);
       return hostError;
     }
-    const hostError = new Error(err instanceof Error ? err.message : String(err)) as Error & {
-      number: number;
-      description: string;
-    };
+    const hostError = new Error(err instanceof Error ? err.message : String(err)) as VbsHostError;
     hostError.name = 'Error';
     hostError.number = toHresult(-1);
     hostError.description = hostError.message;
