@@ -819,6 +819,24 @@ the value its host layer already had.
 That is what `addCode`'s position mirrors, so it is an extension of the ScriptControl member set and not an
 invention: the information exists at the engine layer, and no control above it had a way to pass it.
 
+**A ScriptControl numbers every `AddCode` from the first line of what it was given.** The control is the host that
+calls `ParseScriptText`, so the starting line is its to choose, and it chooses zero every time. Measured by adding
+three blocks one after another, whose failures stood on their own lines 4, 2 and 2: the control answered 4, 2 and
+2, not 4, 7 and 9. So a control has no line beyond the block it was handed, which is the other half of why it
+cannot name a file, and why its own documentation tells an author to add all of the code at once or a routine at a
+time, whichever suits how the code is edited.
+
+That is what `addCode` does when a host says nothing, so the default is the control's own behaviour. A host whose
+code came from somewhere else says so, and passes `startingLineNumber` the same way its host layer already counts
+it.
+
+Two more things the control does, both of them what its documentation describes, and only the first of which this
+engine does: it clears its `Error` object before it starts, as `Eval`, `ExecuteStatement` and `Reset` do; and it
+raises the first failure it finds, which is why that documentation recommends wrapping the call in
+`On Error Resume Next`. This engine records a failure in `engine.error` instead of raising it, which is what
+`executeStatement` does as well, and what a browser needs, since a failing `<script>` block is reported and the
+page carries on rather than the parser being thrown into.
+
 ### What Windows Script Host does that this engine leaves to its host
 
 Measured with `cscript` on fifteen scripts: five plain ones, and ten `.wsf` jobs written in the shapes an author
