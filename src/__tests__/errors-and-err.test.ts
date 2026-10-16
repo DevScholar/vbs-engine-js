@@ -162,3 +162,47 @@ describe('an undefined name with Option Explicit', () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// The scope of On Error Resume Next
+// ---------------------------------------------------------------------------
+// Measured on a fresh cscript. The handler is the procedure's own: it is not in force in a procedure that
+// procedure calls, and the handler the caller set is in force again once the call returns. So a divide by zero
+// inside a Sub answers 11 to a caller that set the handler, the Sub's own statements after it do not run, and
+// the caller carries on; and a handler a procedure set for itself is gone once it returns. The engine used to
+// keep one flag for the whole run, so a single `On Error Resume Next` written inside a helper swallowed every
+// later failure in the script, which is how the example page's clock stopped reporting its own errors.
+describe('the scope of On Error Resume Next', () => {
+  it('is not in force in a procedure the caller calls, and comes back when the call returns', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`On Error Resume Next
+Dim result
+Sub Inner()
+  result = "before"
+  result = 1 / 0
+  result = "after"
+End Sub
+Inner
+after = result & "/" & CStr(Err.Number)`);
+    expect(engine.error).toBeNull();
+    // The Sub stopped where it failed, and the caller's own handler took the error and carried on.
+    expect(engine._getVariable('after').value).toBe('before/11');
+  });
+
+  it('does not outlive the procedure that set it', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`Dim answer
+Function Inside()
+  On Error Resume Next
+  Inside = 1 / 0
+  If Err.Number <> 0 Then Inside = "handled"
+End Function
+answer = Inside()
+x = 1 / 0`);
+    // The divide at the end is the script's own and nobody is handling it, which is what the documented rule
+    // says: the handler the function set went with the function.
+    expect(engine.error).not.toBeNull();
+    expect(engine.error!.number).toBe(11);
+    expect(engine._getVariable('answer').value).toBe('handled');
+  });
+});

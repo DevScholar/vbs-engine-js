@@ -874,7 +874,9 @@ export class StatementExecutor {
 
       self.context.declareVariable(funcName, VbEmpty);
 
-      let result: VbValue;
+      // Empty until the body answers: a Function that leaves through an error never reaches the return below,
+      // so the value here is only ever the answer of a call that finished.
+      let result: VbValue = VbEmpty;
 
       try {
         self.bindParameters(node.params, args, refs);
@@ -907,8 +909,8 @@ export class StatementExecutor {
         // measured, a `Function FreshMaker()` answering a fresh instance lets the caller name it afterwards,
         // and that instance's Terminate event runs when the caller lets it go, not at the return. The value is
         // marked as one the procedure made, so the place the caller stores it in takes that reference rather
-        // than a second one.
-        markMadeValue(result!);
+        // than a second one. An Empty answer holds nothing, so a call that left through an error keeps nothing.
+        markMadeValue(result);
         self.context.popProcedure();
         self.context.popCall();
         self.context.popScope();
@@ -1117,7 +1119,7 @@ export class StatementExecutor {
             self.context.pushProcedure('function');
             self.context.declareVariable(memberNode.name.name, VbEmpty);
             self.bindParameters(memberNode.params, args);
-            let result: VbValue;
+            let result: VbValue = VbEmpty;
             try {
               self.executeBlockStatement(memberNode.body);
               result = self.context.getVariable(memberNode.name.name);
@@ -1136,8 +1138,9 @@ export class StatementExecutor {
               }
             } finally {
               // Same reading as a plain Function's answer above: the answer's own reference is kept, so a
-              // member that answers a fresh instance hands the caller a reference that survives the return.
-              markMadeValue(result!);
+              // member that answers a fresh instance hands the caller a reference that survives the return. An
+              // Empty answer holds nothing, so a member that left through an error keeps nothing.
+              markMadeValue(result);
               self.context.popProcedure();
               self.context.popScope();
               self.context.currentInstance = prevInstance;

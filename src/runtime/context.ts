@@ -44,6 +44,8 @@ export class VbContext {
   public classRegistry: VbClassRegistry;
   public optionExplicit: boolean = false;
   public onErrorResumeNext: boolean = false;
+  /** The handler each running procedure found when it was called, innermost last. See pushProcedure. */
+  private savedErrorHandlers: boolean[] = [];
   public lastError: VbError | null = null;
   public err: {
     number: number;
@@ -144,13 +146,25 @@ export class VbContext {
     return this.callStack[this.callStack.length - 1];
   }
 
-  /** Marks the procedure the statements about to run belong to, so an exit can name its target. */
+  /**
+   * Marks the procedure the statements about to run belong to, so an exit can name its target, and starts it
+   * with no error handler of the caller's.
+   *
+   * Measured on a fresh cscript: `On Error Resume Next` is not in force in a procedure the caller calls, and the
+   * handler the caller set is in force again once the call returns. So the call is the boundary in both
+   * directions. With the handler set at script level, `y = 1 / 0` inside a Sub answers 11 and the Sub's own
+   * statements after it do not run, while the caller carries on at the statement after the call; and a handler a
+   * Function set for itself is gone once it returns, so a later failure at script level is not swallowed.
+   */
   pushProcedure(target: 'sub' | 'function' | 'property'): void {
     this.procedureStack.push(target);
+    this.savedErrorHandlers.push(this.onErrorResumeNext);
+    this.onErrorResumeNext = false;
   }
 
   popProcedure(): void {
     this.procedureStack.pop();
+    this.onErrorResumeNext = this.savedErrorHandlers.pop() ?? false;
   }
 
   /**
