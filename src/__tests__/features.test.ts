@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VbsEngine, type VbsHostError } from '../index.ts';
+import { VbsEngine } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // VB6 Type Syntax (As Type in declarations and parameters)
@@ -1121,8 +1121,38 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught!.name).toBe('Error');
     expect(caught!.number).toBe(-2146828277); // 0x800A000B
-    expect(caught!.message).toBe('Division by zero');
-    expect(caught!.message).toBe(caught!.description);
+    expect(caught!.description).toBe('Division by zero');
+    // The general environment stands for Windows Script Host, which put no error object in front of anyone and
+    // printed one line instead. A host that never named its script gets that line without the name.
+    expect(caught!.message).toBe('(1, 1) Microsoft VBScript runtime error: Division by zero');
+  });
+
+  // The name is the host's, and so is where its code stands: what the host says is what the report shows, which
+  // is how a block Windows Script Host took out of a `.wsf` comes back as a line in the `.wsf` file.
+  it('reports the script name and the line a host supplied', () => {
+    const engine = new VbsEngine();
+    engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
+      name: 'C:\\work\\demo.wsf',
+      startingLineNumber: 3,
+      columnOffset: 1,
+    });
+
+    // The block begins on line 3 of the host's script, so its own third line is the file's line 5, and this host
+    // reports columns one further along than the code's own.
+    expect(engine.error!.line).toBe(5);
+    expect(engine.error!.column).toBe(2);
+    expect(engine.error!.description).toBe('Division by zero');
+
+    // The name stays with the host, while a starting line stays with the code it was given for.
+    let message = '';
+    try {
+      engine.executeStatementThrows('x = 1 / divisor');
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(
+      'C:\\work\\demo.wsf(1, 1) Microsoft VBScript runtime error: Division by zero'
+    );
   });
 
   it('still populates engine.error even when throwing', () => {
@@ -1136,44 +1166,9 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
   });
 
-  // The shape is the one Internet Explorer handed JScript in document mode 10, read off an HTA: `name` comes
-  // from the prototype rather than being written on the error, `message` is JavaScript's own non-enumerable
-  // property, `description` and `number` are the engine's two additions, and there is nothing else at all. In
-  // particular there is no `line` and no `column`, which the host never put on the object: a page that wants the
-  // position reads `engine.error`, and the test below holds that the failure fills it.
-  it('hands a page the shape Internet Explorer handed JScript', () => {
-    const engine = new VbsEngine();
-    const owns = (object: object, name: string): boolean =>
-      Object.prototype.hasOwnProperty.call(object, name);
-    let caught: VbsHostError | null = null;
-    try {
-      engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
-    } catch (e) {
-      caught = e as VbsHostError;
-    }
-
-    expect(caught).toBeInstanceOf(Error);
-    expect(caught!.name).toBe('Error');
-    expect(caught!.number).toBe(-2146828277); // 0x800A000B
-    expect(caught!.description).toBe('Division by zero');
-    expect(caught!.message).toBe('Division by zero');
-
-    // Written by the engine, and so enumerable the way the host's own `description` and `number` were. The
-    // host listed its stack here too, so this one is enumerated as well. The order is the host's business, so
-    // only the set is compared: the host listed `description,number,stack` and this one sorts out as the same.
-    expect(Object.keys(caught!).sort()).toEqual(['description', 'number', 'stack']);
-    // JavaScript's own, so not enumerated, and inherited from `Error.prototype` rather than written.
-    expect(owns(caught!, 'message')).toBe(true);
-    expect(owns(caught!, 'name')).toBe(false);
-    // The host kept its stack as an own property, and this one is the host's own rather than a copy.
-    expect(owns(caught!, 'stack')).toBe(true);
-    expect(caught!.stack).toContain('Division by zero');
-    // The host gave a page no position on the error object, so there is none here.
-    expect(owns(caught!, 'line')).toBe(false);
-    expect(owns(caught!, 'column')).toBe(false);
-    expect((caught as unknown as Record<string, unknown>).lineNumber).toBeUndefined();
-    expect((caught as unknown as Record<string, unknown>).columnNumber).toBeUndefined();
-  });
+  // The shape a browser hands a page is a different one, the one Internet Explorer handed JScript in document
+  // mode 10, and it is held in `host-error-shape-browser.test.ts`. That shape belongs to an engine standing for a
+  // browser host, so the file that tests it has to be the one whose first engine claims host integration.
 
   // The position is not lost: it is on the MSScriptControl-style member, which the same failure fills.
   it('carries the position of the failing statement on engine.error', () => {

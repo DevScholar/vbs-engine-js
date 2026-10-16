@@ -112,12 +112,17 @@ function parseJob(job: unknown): WsfJob {
   ).map(s => {
     const language = String(s['language'] ?? '');
     const src = s['src'] === undefined ? undefined : String(s['src']);
-    const code =
-      s['#text'] !== undefined
-        ? String(s['#text'])
-        : s['__cdata'] !== undefined
-          ? String(s['__cdata'])
-          : undefined;
+    // What stands between the tags is the script, and a CDATA section is one of the two ways an author may write
+    // it. The parser reports the section separately from the whitespace around it, and joins the whitespace
+    // before that section to the whitespace after it, so the two cannot simply be put back together in order.
+    // Where that whitespace is all there is, the section is the script, and taking the whitespace with it would
+    // leave a blank line the file does not have.
+    const text = s['#text'] === undefined ? '' : String(s['#text']);
+    const cdata = s['__cdata'] === undefined ? '' : String(s['__cdata']);
+    let code: string | undefined;
+    if (cdata !== '' && text.trim() === '') code = cdata;
+    else if (text === '' && cdata === '') code = undefined;
+    else code = `${text}${cdata}`;
     return { language, src, code };
   });
 
@@ -203,4 +208,58 @@ export function parseWsf(xml: string): WsfDocument {
     throw new Error('WSF: no <job> element found');
   }
   return { jobs };
+}
+
+/** How many newlines a piece of text holds. */
+function countNewlines(text: string): number {
+  let total = 0;
+  for (let at = 0; at < text.length; at++) {
+    if (text.charCodeAt(at) === 10) total += 1;
+  }
+  return total;
+}
+
+/** The text as XML would carry it when an author escapes what XML reserves instead of using CDATA. */
+function escapeXmlText(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Where a script block's code stands in the `.wsf` file, so the engine can be told which line it begins on and
+ * report a failure at the file's own line, the way Windows Script Host does. Measured with `cscript`: a failure
+ * on wsf line 6 of a block that begins on wsf line 3 came back as line 6, and one on wsf line 9 of a block written
+ * as CDATA that begins on wsf line 4 came back as line 9.
+ *
+ * `fast-xml-parser` carries no source positions, so the block is found by the first of its lines that carries
+ * anything, searched from where the last block was found to keep blocks in document order. That line stands in the
+ * file as the code has it whether it was written as plain text or inside a CDATA section, where the whole block
+ * would not be found, since the file holds the `CDATA` marker between the two. A block written with escapes
+ * rather than CDATA is found by its escaped text too, since that is what the file holds.
+ *
+ * @param source - The whole `.wsf` file.
+ * @param code - The block's code, as the parser handed it back.
+ * @param from - Where to start looking, which the caller moves past each block it finds.
+ * @returns The line the code begins on, counted from 1, and where to look for the next block, or null when the
+ * code is not in the file.
+ */
+export function findBlockStart(
+  source: string,
+  code: string,
+  from: number
+): { line: number; next: number } | null {
+  const codeLines = code.split('\n');
+  const firstContent = codeLines.findIndex(line => line.trim() !== '');
+  if (firstContent < 0) return null;
+
+  const anchor = codeLines[firstContent] as string;
+  let bestAt = -1;
+  for (const candidate of [anchor, escapeXmlText(anchor)]) {
+    const at = source.indexOf(candidate, from);
+    if (at >= 0 && (bestAt < 0 || at < bestAt)) bestAt = at;
+  }
+  if (bestAt < 0) return null;
+
+  // The anchor is the block's own `firstContent`th line, so the block begins that many lines above it.
+  const line = Math.max(1, countNewlines(source.slice(0, bestAt)) + 1 - firstContent);
+  return { line, next: bestAt + anchor.length };
 }

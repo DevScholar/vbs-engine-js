@@ -544,6 +544,11 @@ run-script script.wsf //job:Job1 [//options] [script-args...]
 Named script arguments use WSH's `/name:value` form; bare words are positional.
 `WScript.Quit n` sets the process exit code.
 
+A script that fails stops there, and the failure is printed the way `cscript` prints it, one line naming the script
+and the position. The exit code is the one `cscript` leaves as well: 1 for a failure inside a `.wsf` or a parse
+failure in a `.vbs`, and 0 for a `.vbs` that failed while running. See
+[the failure a general host reports](#the-failure-a-general-host-reports).
+
 ### Windows Script File (`.wsf`)
 
 `run-script` parses `.wsf` files (via `fast-xml-parser`), supporting:
@@ -745,8 +750,61 @@ to be so, and a page that breaks one of them is given a line that is short by th
 - and the block's text can be found in the written back document.
 
 Should any of that fail, the line falls back to being counted within the script block, which is what it always
-was. Node mode and `Execute` have no document to count in, so their positions stay counted within the script that
-was handed to them.
+was. A general environment has no document to count in, so it is told where its code stands instead, the way the
+next section describes, and `Execute` keeps its positions counted within the script it was handed.
+
+---
+
+## The failure a general host reports
+
+The general environment stands for Windows Script Host, which put no error object in front of anyone and printed
+one line instead. Measured on Windows 11 with `cscript`, with the failing statement on line 4 of the file:
+
+```
+C:\work\divide.vbs(4, 1) Microsoft VBScript 运行时错误: 被零除
+```
+
+The engine writes that line in English, as it writes every other message. Its parts are:
+
+| Part            | What it holds                                                                                                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the name        | the script file, made absolute even when the script was named relative to the current directory, and the `.wsf`'s own name for a block taken out of one                |
+| the line        | the line in that file, counted from 1                                                                                                                                  |
+| the column      | the column in that line                                                                                                                                                |
+| the source      | `Microsoft VBScript compilation error` for a parse failure, `Microsoft VBScript runtime error` otherwise, and the text a script gave to `Err.Raise` when it raised one |
+| the description | the text of the failure                                                                                                                                                |
+
+**The engine cannot work the name out for itself.** It is handed code rather than a file, so the host says what its
+script is called as it hands that code over. A host that says nothing gets the same line without the name:
+
+```
+(4, 1) Microsoft VBScript runtime error: Division by zero
+```
+
+Where the code stands is the host's to say as well. `addCode` takes it, and applies it as the code is parsed, the
+way Windows Script Host tells the script engine a starting line number. A host that says nothing gets lines counted
+within the code it handed over.
+
+### What Windows Script Host does that this engine leaves to its host
+
+Measured with `cscript` on fifteen scripts: five plain ones, and ten `.wsf` jobs written in the shapes an author
+uses, which are plain text, indented, both, a block whose first line shares the `<script>` tag's line, CDATA,
+escapes instead of CDATA, a script the job points at with `src`, a parse failure, and a raised failure.
+`run-script` reproduced the name and the position of all fifteen, and their exit codes:
+
+- A failure inside a `.wsf` leaves exit code 1.
+- A `.vbs` that failed while running leaves 0, which is what `cscript` does.
+- A `.vbs` that failed while parsing leaves 1.
+
+**A `.wsf` reports its blocks one column further along than the same code in a `.vbs`.** Four blocks whose
+statements stood at columns 1, 5, 1 and 9 came back as 2, 6, 2 and 10. The same adjustment covers a script the job
+points at with `src`, reported at column 2 for a statement standing at column 1 of the file it came from. The value
+is passed to the engine as `columnOffset` rather than assumed, because it belongs to the host rather than to the
+engine.
+
+**The wording is this engine's own.** `cscript` localizes both the source and the description, and its compiler
+messages are its own text: where it says `Expected 'End'`, this engine says `Expected End, got EOF`. The shape and
+the position are what match.
 
 ---
 

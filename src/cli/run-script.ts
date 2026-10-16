@@ -22,9 +22,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { VbsEngine } from '../core/index.ts';
+import { VbsEngine, type VbsError } from '../core/index.ts';
 import { createWScript, WScriptQuitSignal, type WshEnvironment } from '../host/wscript.ts';
-import { parseWsf, type WsfJob } from '../host/wsf.ts';
+import { findBlockStart, parseWsf, type WsfJob } from '../host/wsf.ts';
+import { VBS_COMPILE_SOURCE } from '../runtime/errors.ts';
+import { formatWshErrorLine } from '../runtime/wsh-report.ts';
 import { runJScript } from '../host/jscript.ts';
 import { createMsgBox, getDefaultResult } from '../builtins/msgbox.ts';
 import { createInputBox } from '../builtins/inputbox.ts';
@@ -204,7 +206,15 @@ function buildUsage(fileName: string, job: WsfJob): string {
   return lines.join('\n') + '\n';
 }
 
-function readScriptFile(filePath: string): { kind: 'vbs' | 'wsf'; source: string } {
+/**
+ * Windows Script Host reports a block taken out of a `.wsf` one column further along than the same code in a
+ * `.vbs`: measured on four blocks whose statements stood at columns 1, 5, 1 and 9, and came back as 2, 6, 2 and
+ * 10. The same adjustment covers a script a job points at with `src`, which was reported at column 2 for a
+ * statement standing at column 1 of the file it came from.
+ */
+const WSF_COLUMN_OFFSET = 1;
+
+function readScriptFile(filePath: string): { kind: 'vbs' | 'wsf'; source: string; abs: string } {
   const abs = path.resolve(filePath);
   if (!fs.existsSync(abs)) {
     console.error(`run-script: file not found: ${filePath}`);
@@ -212,7 +222,7 @@ function readScriptFile(filePath: string): { kind: 'vbs' | 'wsf'; source: string
   }
   const source = fs.readFileSync(abs, 'utf8');
   const kind = abs.toLowerCase().endsWith('.wsf') ? 'wsf' : 'vbs';
-  return { kind, source };
+  return { kind, source, abs };
 }
 
 /**
@@ -220,16 +230,31 @@ function readScriptFile(filePath: string): { kind: 'vbs' | 'wsf'; source: string
  * For a `.wsf` this selects the requested job and returns each of its script
  * blocks with its language, so VBScript and JScript can be executed in order with
  * a shared global scope. A plain `.vbs` produces a single VBScript block.
+ *
+ * Each block carries where it stands in the file, which the engine is told so that a failure is reported at the
+ * line Windows Script Host would name. For a block inside the `.wsf` that is the block's own line in the file, and
+ * for a script the job points at with `src` it is a line in that other file, which is what `cscript` reported
+ * under the `.wsf`'s own name.
  */
 interface ScriptBlock {
   language: string;
   code: string;
+  /** The file the failure is reported under, which is the `.wsf` or `.vbs` this host was pointed at. */
+  name: string;
+  /** The line in that file the code begins on. */
+  startingLineNumber?: number;
+  /** What this host adds to every column it reports, which a `.wsf` does and a `.vbs` does not. */
+  columnOffset?: number;
 }
 
-function resolveSource(cli: CliOptions): { blocks: ScriptBlock[]; job?: WsfJob } {
-  const { kind, source } = readScriptFile(cli.file);
+function resolveSource(cli: CliOptions): {
+  blocks: ScriptBlock[];
+  job?: WsfJob;
+  kind: 'vbs' | 'wsf';
+} {
+  const { kind, source, abs } = readScriptFile(cli.file);
   if (kind === 'vbs') {
-    return { blocks: [{ language: 'VBScript', code: source }] };
+    return { blocks: [{ language: 'VBScript', code: source, name: abs }], kind };
   }
 
   const doc = parseWsf(source);
@@ -242,20 +267,47 @@ function resolveSource(cli: CliOptions): { blocks: ScriptBlock[]; job?: WsfJob }
     process.exit(1);
   }
 
+  // Blocks are found in the file one after another, so each search begins where the last one ended.
+  let cursor = 0;
   const blocks: ScriptBlock[] = job.scripts.map(s => {
-    if (s.code !== undefined) return { language: s.language, code: s.code };
+    if (s.code !== undefined) {
+      const found = findBlockStart(source, s.code, cursor);
+      if (found) cursor = found.next;
+      return {
+        language: s.language,
+        code: s.code,
+        name: abs,
+        ...(found ? { startingLineNumber: found.line } : {}),
+        columnOffset: WSF_COLUMN_OFFSET,
+      };
+    }
     if (s.src) {
-      const srcPath = path.resolve(path.dirname(path.resolve(cli.file)), s.src);
+      const srcPath = path.resolve(path.dirname(abs), s.src);
       if (!fs.existsSync(srcPath)) {
         console.error(`run-script: script src not found: ${s.src}`);
         process.exit(1);
       }
-      return { language: s.language, code: fs.readFileSync(srcPath, 'utf8') };
+      return {
+        language: s.language,
+        code: fs.readFileSync(srcPath, 'utf8'),
+        name: abs,
+        columnOffset: WSF_COLUMN_OFFSET,
+      };
     }
-    return { language: s.language, code: '' };
+    return { language: s.language, code: '', name: abs, columnOffset: WSF_COLUMN_OFFSET };
   });
 
-  return { blocks, job };
+  return { blocks, job, kind };
+}
+
+/**
+ * Prints a failure the way Windows Script Host prints it and answers the code the process should leave with.
+ * Measured with `cscript`: a failure inside a `.wsf` leaves 1, a `.vbs` leaves 1 for a parse failure, and a `.vbs`
+ * that failed while running leaves 0.
+ */
+function reportFailure(failure: VbsError, scriptName: string, kind: 'vbs' | 'wsf'): never {
+  console.error(formatWshErrorLine(failure, scriptName));
+  process.exit(kind === 'wsf' ? 1 : failure.source === VBS_COMPILE_SOURCE ? 1 : 0);
 }
 
 function buildEnvironment(cli: CliOptions, job: WsfJob | undefined): WshEnvironment {
@@ -328,7 +380,7 @@ async function main(): Promise<void> {
     console.error('Copyright (C) Microsoft Corporation. All rights reserved.\n');
   }
 
-  const { blocks, job } = resolveSource(cli);
+  const { blocks, job, kind } = resolveSource(cli);
   await wireComHost();
 
   const env = buildEnvironment(cli, job);
@@ -369,7 +421,16 @@ async function main(): Promise<void> {
     for (const block of blocks) {
       const lang = block.language.toLowerCase();
       if (lang === 'vbscript' || lang === 'vbs') {
-        engine.addCode(block.code);
+        engine.addCode(block.code, {
+          name: block.name,
+          ...(block.startingLineNumber !== undefined
+            ? { startingLineNumber: block.startingLineNumber }
+            : {}),
+          ...(block.columnOffset !== undefined ? { columnOffset: block.columnOffset } : {}),
+        });
+        // A script that fails stops there, the way it does under Windows Script Host, which prints the one line
+        // and leaves. `addCode` records the failure rather than throwing it, so it is read back here.
+        if (engine.error) reportFailure(engine.error, block.name, kind);
       } else if (lang === 'jscript' || lang === 'javascript' || lang === 'js') {
         runJScript(block.code);
       } else {

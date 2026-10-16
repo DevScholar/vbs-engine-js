@@ -65,6 +65,7 @@ export {
   type VbsHostError,
   type BrowserEngineOptions,
   type VbsError,
+  type VbsScriptPosition,
   jsToVb,
   vbToJs,
   VBArray,

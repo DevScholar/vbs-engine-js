@@ -4,6 +4,8 @@ import { Parser, globalParserCache } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbError, toHresult } from '../runtime/index.ts';
+import { VBS_COMPILE_SOURCE } from '../runtime/errors.ts';
+import { formatWshErrorLine } from '../runtime/wsh-report.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
 import { withLocaleState } from '../builtins/locale.ts';
 import type { LocaleState } from '../builtins/locale.ts';
@@ -111,6 +113,34 @@ export interface VbsError {
   helpFile?: string;
   /** Help context id, populated only for user-raised errors */
   helpContext?: number;
+}
+
+/**
+ * Where the code a host hands the engine stands, which is what the general environment needs to report a failure
+ * the way Windows Script Host reports one. A host that says nothing gets a failure with no script name and with
+ * its line counted within the code as it was handed over.
+ *
+ * `AddCode` in Microsoft's ScriptControl took only code, because the control had one script. Windows Script Host
+ * is the host that knew better: the script engine is told a starting line number as its code is parsed, which is
+ * how a failure inside a block taken out of a `.wsf` comes back as a line in the `.wsf` file.
+ */
+export interface VbsScriptPosition {
+  /**
+   * What the host calls this code, printed at the head of a failure report the way Windows Script Host prints the
+   * script file's absolute path.
+   */
+  name?: string;
+  /**
+   * The line in that script the first line of this code stands on, counted from 1. Windows Script Host passes a
+   * block's own starting line, so a block that begins on line 3 of a `.wsf` reports the file's own lines.
+   */
+  startingLineNumber?: number;
+  /**
+   * Added to the column of every failure this code raises. Windows Script Host reports a block taken out of a
+   * `.wsf` one column further along than the same code in a `.vbs`, measured on four blocks whose statements
+   * stood at columns 1, 5, 1 and 9 in their lines and came back as 2, 6, 2 and 10.
+   */
+  columnOffset?: number;
 }
 
 /**
@@ -287,6 +317,30 @@ function withEnumeratedStack<T extends Error>(hostError: T): T {
   return hostError;
 }
 
+/**
+ * The code as it stands in the host's own script: blank lines above it when the host said which line it begins
+ * on, and a space at the front of every line when the host reports columns further along than the code's own.
+ * Both are how Windows Script Host positions a block it took out of a `.wsf`, and both leave the code's meaning
+ * alone, since leading whitespace means nothing to a script.
+ */
+function standingCode(code: string, position?: VbsScriptPosition): string {
+  let standing = code;
+
+  const columnOffset = position?.columnOffset ?? 0;
+  if (columnOffset > 0) {
+    const padding = ' '.repeat(columnOffset);
+    standing = standing
+      .split('\n')
+      .map(line => `${padding}${line}`)
+      .join('\n');
+  }
+
+  const startingLineNumber = position?.startingLineNumber ?? 1;
+  if (startingLineNumber > 1) standing = `${'\n'.repeat(startingLineNumber - 1)}${standing}`;
+
+  return standing;
+}
+
 export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
@@ -294,6 +348,8 @@ export class VbsEngine {
   /** Removes the hook this engine installed for the end of its host, or null when it installed none. */
   private hostEndCleanup: (() => void) | null = null;
   private lastError: VbsError | null = null;
+  /** What the host calls the script this engine is running, or null when it never said. */
+  private scriptName: string | null = null;
   /** This engine's own locale, installed while its code runs (see withLocaleState). */
   private readonly localeState: LocaleState = { locale: null };
 
@@ -428,19 +484,25 @@ export class VbsEngine {
    * `);
    * ```
    */
-  addCode(code: string): void {
+  addCode(code: string, position?: VbsScriptPosition): void {
+    if (position) this.rememberScriptPosition(position);
     this.clearError();
     try {
+      // A starting line is applied by standing the code further down a page of its own, so every position the
+      // parser stamps is the line it stands on in the host's file. The code itself is unchanged: leading blank
+      // lines mean nothing to a script.
+      const standing = standingCode(code, position);
+
       // Try to get from cache first
-      let program = globalParserCache.get(code);
+      let program = globalParserCache.get(standing);
 
       if (!program) {
         // Parse and cache
-        const lexer = new Lexer(code);
+        const lexer = new Lexer(standing);
         const tokens = lexer.tokenize();
         const parser = new Parser(tokens);
         program = parser.parse();
-        globalParserCache.set(code, program);
+        globalParserCache.set(standing, program);
       }
 
       this.interpreter.run(program);
@@ -694,7 +756,6 @@ export class VbsEngine {
       this.lastError = { number: -1, description: String(err), source: '' };
       return;
     }
-
     // VbError carries the real VBScript code, source, and position. A plain parse
     // Error carries only the token it stopped on. Either way the fields below map
     // onto the MSScriptControl-style VbsError surface.
@@ -708,7 +769,15 @@ export class VbsEngine {
       column?: unknown;
     };
     const number = typeof raised.number === 'number' ? raised.number : -1;
-    const source = typeof raised.source === 'string' ? raised.source : '';
+    // A parse failure is a compilation error, which is what Windows Script Host names it: measured with cscript,
+    // `If True Then` with no `End If` comes back as `Microsoft VBScript compilation error: Expected 'End'`.
+    // A runtime failure carries its own source already.
+    const source =
+      typeof raised.source === 'string' && raised.source !== ''
+        ? raised.source
+        : raised.token
+          ? VBS_COMPILE_SOURCE
+          : '';
 
     // A parse error carries the token it stopped on; a runtime error was stamped with its
     // statement's position on the way out. Either way VbsError's declared line and column can
@@ -730,25 +799,50 @@ export class VbsEngine {
   }
 
   /**
-   * Convert a caught internal error into the native `Error` a page caught off Internet Explorer in document
-   * mode 10. Measured on an HTA: `instanceof Error` is true, `name` reads `Error` because it is inherited,
-   * `number` is the HRESULT, `description` and `message` carry the text, and `stack` is the host's own.
+   * Keeps what a host said about the script it is running. The name is kept for the reports this engine makes
+   * afterwards, while the line and column the code stands at are applied to that code as it is parsed.
+   */
+  private rememberScriptPosition(position: VbsScriptPosition): void {
+    if (position.name !== undefined) this.scriptName = position.name;
+  }
+
+  /**
+   * Convert a caught internal error into the native `Error` a JavaScript caller catches.
    *
-   * Nothing else goes on it, and in particular not `line` or `column`. Internet Explorer put no position on the
-   * object and reported the line of a failing script through the arguments of `window.onerror`, so a page that
-   * wants the position reads `engine.error`, which the same failure fills.
+   * The shape is the one Internet Explorer handed JScript in document mode 10, measured on an HTA: `instanceof
+   * Error` is true, `name` reads `Error` because it is inherited, `number` is the HRESULT, `description` carries
+   * the text, and `stack` is the host's own. Nothing else goes on it, and in particular not `line` or `column`:
+   * Internet Explorer put no position on the object and reported the line of a failing script through the
+   * arguments of `window.onerror`, so a page that wants the position reads `engine.error`.
+   *
+   * The browser keeps that shape. The general environment stands for Windows Script Host instead, which put no
+   * error object in front of anyone and printed one line, so its `message` is that line: the script's name, the
+   * position, and what raised it. `description` stays the text either way.
    */
   private toHostError(err: unknown): VbsHostError {
-    if (err instanceof VbError) {
-      const hostError = new Error(err.description) as VbsHostError;
-      hostError.number = toHresult(err.number);
-      hostError.description = err.description;
-      return withEnumeratedStack(hostError);
-    }
-    const hostError = new Error(err instanceof Error ? err.message : String(err)) as VbsHostError;
-    hostError.number = toHresult(-1);
-    hostError.description = hostError.message;
+    const described =
+      err instanceof VbError ? err.description : err instanceof Error ? err.message : String(err);
+    const hostError = new Error(this.messageForHost(err, described)) as VbsHostError;
+    hostError.number = toHresult(err instanceof VbError ? err.number : -1);
+    hostError.description = described;
     return withEnumeratedStack(hostError);
+  }
+
+  /** The `message` a host error carries, which is the description in a browser and a whole report elsewhere. */
+  private messageForHost(err: unknown, described: string): string {
+    if (this.options.mode === 'browser') return described;
+    const raised = err as { line?: unknown; column?: unknown; source?: unknown };
+    // The position is stamped where the failure was reported, so the record of it is the place to read from.
+    const recorded = this.lastError;
+    return formatWshErrorLine(
+      {
+        description: recorded?.description ?? described,
+        source: typeof raised.source === 'string' ? raised.source : (recorded?.source ?? ''),
+        ...(typeof recorded?.line === 'number' ? { line: recorded.line } : {}),
+        ...(typeof recorded?.column === 'number' ? { column: recorded.column } : {}),
+      },
+      this.scriptName
+    );
   }
 
   private syncFunctionsToGlobalThis(): void {
