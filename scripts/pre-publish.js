@@ -35,7 +35,9 @@ for (const name of Object.keys(localDeps)) {
   if (section) {
     const pinned = packages[name];
     if (!pinned) {
-      console.error(`[pre-publish] ERROR: no version found for "${name}" in last-known-good-versions.json`);
+      console.error(
+        `[pre-publish] ERROR: no version found for "${name}" in last-known-good-versions.json`
+      );
       process.exit(1);
     }
     const current = section[name];

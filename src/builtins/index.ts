@@ -366,8 +366,6 @@ export function registerBuiltins(context: VbContext): void {
     return { type: 'Long', value: rgbValue };
   });
 
-
-
   const errObject = {
     getProperty: (name: string): VbValue => {
       const lowerName = name.toLowerCase();

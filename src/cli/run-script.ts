@@ -85,7 +85,6 @@ function resolveGuiDialog(): (message: string, title?: string) => void {
   };
 }
 
-
 /** Synchronous line read from fd 0; returns null on EOF. */
 function syncReadLine(): string | null {
   try {

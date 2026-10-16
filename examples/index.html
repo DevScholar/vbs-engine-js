@@ -1,32 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VBScript Engine Demo</title>
     <!--[if !IE]> -->
     <script type="module">
-        import { VbsEngine } from '../src/index.ts';
-        new VbsEngine({ mode: 'browser' });
+      import { VbsEngine } from '../src/index.ts';
+      new VbsEngine({ mode: 'browser' });
     </script>
     <!-- <![endif]-->
-</head>
+  </head>
 
-<body>
+  <body>
     <h1>VBScript Engine Demo</h1>
 
     <h2>Clock</h2>
-    <div id="clock">
-    </div>
+    <div id="clock"></div>
 
     <h2>JS/VBS Shared Variables</h2>
     <div id="demo-result"></div>
 
     <h2>VBScript Error</h2>
     <p>
-        <button id="btnRaiseError">Run a Sub that fails</button>
+      <button id="btnRaiseError">Run a Sub that fails</button>
     </p>
     <pre id="error-output">(no error yet)</pre>
 
@@ -41,244 +39,247 @@
     <button id="btnInputBox">Show InputBox</button>
 
     <h2>Inline onclick="vbscript:..."</h2>
-    <button id="btnInline" onclick="vbscript:MsgBox &quot;Inline VBScript works!&quot;, 64, &quot;Inline Test&quot;">Test Inline
-        VBScript</button>
+    <button id="btnInline" onclick='vbscript:MsgBox "Inline VBScript works!", 64, "Inline Test"'>
+      Test Inline VBScript
+    </button>
 
     <h2>&lt;script for="..." event="..."&gt;</h2>
-    <input type="button" id="button1" value="Click Me (for/event)">
+    <input type="button" id="button1" value="Click Me (for/event)" />
     <script for="button1" event="onclick" language="vbscript">
-    MsgBox "Button clicked via for/event syntax!", 64, "For/Event Test"
+      MsgBox "Button clicked via for/event syntax!", 64, "For/Event Test"
     </script>
 
     <h2>vbscript: Protocol</h2>
     <a href="vbscript:MsgBox(1234)">Click this link (vbscript: protocol)</a>
 
     <script type="text/vbscript">
-    ' Shared variable from VBScript
-    sharedMessage = "Hello from VBScript!"
+      ' Shared variable from VBScript
+      sharedMessage = "Hello from VBScript!"
 
-    Function Add(a, b)
-        Add = a + b
-    End Function
-
-
-    Sub BtnMsgBox_OnClick()
-        MsgBox "This is a VBScript MsgBox!", 64, "Demo"
-    End Sub
-
-    Sub ProtocolTest()
-        MsgBox "Link clicked via vbscript: protocol!", 64, "Protocol Test"
-    End Sub
-
-    Sub BtnMsgBoxYesNo_OnClick()
-        Dim res
-        res = MsgBox("Do you like VBScript?", 4 + 32, "Yes/No Test")
-        If res = 6 Then
-            MsgBox "You clicked Yes!", 64, "Result"
-        ElseIf res = 7 Then
-            MsgBox "You clicked No!", 64, "Result"
-        End If
-    End Sub
-
-    Sub BtnMsgBoxYesNoCancel_OnClick()
-        Dim res
-        res = MsgBox("Save changes before closing?", 3 + 48, "Yes/No/Cancel Test")
-        If res = 6 Then
-            MsgBox "You clicked Yes - Saving!", 64, "Result"
-        ElseIf res = 7 Then
-            MsgBox "You clicked No - Discarding!", 64, "Result"
-        ElseIf res = 2 Then
-            MsgBox "You clicked Cancel!", 64, "Result"
-        End If
-    End Sub
-
-    Sub BtnMsgBoxAbortRetryIgnore_OnClick()
-        Dim res
-        res = MsgBox("File operation failed!", 2 + 16, "Abort/Retry/Ignore Test")
-        If res = 3 Then
-            MsgBox "You clicked Abort!", 64, "Result"
-        ElseIf res = 4 Then
-            MsgBox "You clicked Retry!", 64, "Result"
-        ElseIf res = 5 Then
-            MsgBox "You clicked Ignore!", 64, "Result"
-        End If
-    End Sub
-
-    Sub BtnInputBox_OnClick()
-        Dim name
-        name = InputBox("Enter your name:", "Input", "User")
-        If name <> "" Then
-            MsgBox "Hello, " & name & "!", 64, "Welcome"
-        End If
-    End Sub
-
-    Sub BtnSetVbs_OnClick()
-        sharedMessage = "Updated from VBScript!"
-        document.getElementById("sharedOutput").innerHTML = "VBS set: sharedMessage = " & sharedMessage
-    End Sub
-
-    Sub BtnReadJs_OnClick()
-        MsgBox "JS variable: " & jsVar, 64, "From JS"
-    End Sub
-
-    Sub BtnSetJs_OnClick()
-        document.getElementById("sharedOutput").innerHTML = "JS variable is: " & jsVar
-    End Sub
-
-    Sub BtnReadVbs_OnClick()
-        MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
-    End Sub
-
-    ' A Sub the error button calls. It fails on purpose, so a page can see what a VBScript failure looks like
-    ' from JavaScript.
-    Sub BtnRaiseError_OnClick()
-        Dim divisor, answer
-        divisor = 0
-        answer = 1 / divisor
-    End Sub
-
-    Sub Window_OnLoad()
-    End Sub
-  </script>
+      Function Add(a, b)
+          Add = a + b
+      End Function
 
 
-    <script type="text/vbscript">
-' ===== VBScript Section =====
-Dim vbsMessage
-vbsMessage = "Hello from VBS"
+      Sub BtnMsgBox_OnClick()
+          MsgBox "This is a VBScript MsgBox!", 64, "Demo"
+      End Sub
 
-' Function to read JS variable
-Function ReadJSMessage()
-    On Error Resume Next
-    ReadJSMessage = window.jsMessage
-    If Err.Number <> 0 Then ReadJSMessage = "Read failed"
-End Function
+      Sub ProtocolTest()
+          MsgBox "Link clicked via vbscript: protocol!", 64, "Protocol Test"
+      End Sub
 
-' Display result
-Sub ShowResult()
-    Dim displayResult, jsMsg
-    jsMsg = ReadJSMessage()
-    displayResult = "VBS reads JS: " & jsMsg & "<br>"
-    displayResult = displayResult & "JS reads VBS: Waiting for JS display..." & "<br>"
-    document.getElementById("demo-result").innerHTML = displayResult
-End Sub
+      Sub BtnMsgBoxYesNo_OnClick()
+          Dim res
+          res = MsgBox("Do you like VBScript?", 4 + 32, "Yes/No Test")
+          If res = 6 Then
+              MsgBox "You clicked Yes!", 64, "Result"
+          ElseIf res = 7 Then
+              MsgBox "You clicked No!", 64, "Result"
+          End If
+      End Sub
 
-' Delayed execution to ensure JS is loaded
-Sub Window_OnLoad()
-    window.setTimeout "ShowResult()", 100, "VBScript"
-    Call UpdateClock()
-    timerID = window.setInterval("UpdateClock", 1000, "VBScript")
-End Sub
-</script>
+      Sub BtnMsgBoxYesNoCancel_OnClick()
+          Dim res
+          res = MsgBox("Save changes before closing?", 3 + 48, "Yes/No/Cancel Test")
+          If res = 6 Then
+              MsgBox "You clicked Yes - Saving!", 64, "Result"
+          ElseIf res = 7 Then
+              MsgBox "You clicked No - Discarding!", 64, "Result"
+          ElseIf res = 2 Then
+              MsgBox "You clicked Cancel!", 64, "Result"
+          End If
+      End Sub
 
-    <script type="text/javascript">
-        // ===== JavaScript Section =====
-        var jsMessage = "Hello from JS";
+      Sub BtnMsgBoxAbortRetryIgnore_OnClick()
+          Dim res
+          res = MsgBox("File operation failed!", 2 + 16, "Abort/Retry/Ignore Test")
+          If res = 3 Then
+              MsgBox "You clicked Abort!", 64, "Result"
+          ElseIf res = 4 Then
+              MsgBox "You clicked Retry!", 64, "Result"
+          ElseIf res = 5 Then
+              MsgBox "You clicked Ignore!", 64, "Result"
+          End If
+      End Sub
 
-        // Function to read VBS variable
-        function readVBSMessage() {
-            try {
-                if (typeof vbsMessage !== 'undefined') {
-                    return vbsMessage;
-                }
-                return "Read failed";
-            } catch (e) {
-                return "Read failed";
-            }
-        }
+      Sub BtnInputBox_OnClick()
+          Dim name
+          name = InputBox("Enter your name:", "Input", "User")
+          If name <> "" Then
+              MsgBox "Hello, " & name & "!", 64, "Welcome"
+          End If
+      End Sub
 
-        // Display final result - poll until ShowResult has set the innerHTML
-        function showFinalResult() {
-            var resultDiv = document.getElementById("demo-result");
-            var current = resultDiv.innerHTML;
+      Sub BtnSetVbs_OnClick()
+          sharedMessage = "Updated from VBScript!"
+          document.getElementById("sharedOutput").innerHTML = "VBS set: sharedMessage = " & sharedMessage
+      End Sub
 
-            if (current.indexOf("Waiting for JS display...") >= 0) {
-                var vbsMsg = readVBSMessage();
-                resultDiv.innerHTML = current.replace("Waiting for JS display...", vbsMsg);
-                clearInterval(pollTimer);
-            }
-        }
+      Sub BtnReadJs_OnClick()
+          MsgBox "JS variable: " & jsVar, 64, "From JS"
+      End Sub
 
-        // Poll every 100ms until VBS ShowResult has run and set the content
-        var pollTimer = setInterval(showFinalResult, 100);
+      Sub BtnSetJs_OnClick()
+          document.getElementById("sharedOutput").innerHTML = "JS variable is: " & jsVar
+      End Sub
 
-        // ===== Reporting a VBScript error =====
-        // A VBScript failure reaches the page as a real JavaScript error, which is the shape IE's script error
-        // reached it in, so `window.onerror` is where a page reports one.
-        //
-        // Where the script stopped is `line` and `column` on the error, which the engine fills from the statement
-        // it failed on and counts within the script block it was handed, not within the document. IE reported
-        // that position through the arguments of `window.onerror` rather than on the error object, and gave the
-        // page no column at all, so a page that wants either reads them here. Those same `window.onerror`
-        // arguments describe the JavaScript throw site, which for a VBScript failure is inside the engine.
-        //
-        // The stack needs no work from the page: the engine writes the head of it itself, in the reading
-        // `cscript` prints, because `error.stack` is an ordinary writable property and belongs to that one error.
-        // V8 does offer `Error.prepareStackTrace` for the same job, but it is a hook on the whole page and would
-        // rewrite the stack of every other error the page reports. Firefox has no such hook and keeps its throw
-        // position in the non-standard `lineNumber` and `columnNumber`, which are read only and say where
-        // JavaScript threw rather than where the VBScript stopped.
+      Sub BtnReadVbs_OnClick()
+          MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
+      End Sub
 
-        function codeText(number) {
-            if (typeof number !== 'number') return '(not reported)';
-            return '0x' + (number >>> 0).toString(16);
-        }
+      ' A Sub the error button calls. It fails on purpose, so a page can see what a VBScript failure looks like
+      ' from JavaScript.
+      Sub BtnRaiseError_OnClick()
+          Dim divisor, answer
+          divisor = 0
+          answer = 1 / divisor
+      End Sub
 
-        function positionText(error) {
-            if (error && typeof error.line === 'number') {
-                var column = typeof error.column === 'number' ? error.column : 0;
-                return 'line ' + error.line + ', column ' + column;
-            }
-            if (error && typeof error.lineNumber === 'number') {
-                return 'JavaScript line ' + error.lineNumber + ', column ' + (error.columnNumber || 0) + ' (Firefox)';
-            }
-            return 'not reported';
-        }
-
-        window.onerror = function (message, source, line, column, error) {
-            var parts = [
-                'Description:       ' + (error && error.description ? error.description : message),
-                'Code:              ' + codeText(error && error.number),
-                'VBScript position: ' + positionText(error),
-                'JavaScript site:   ' + source + ':' + line + ':' + column,
-                '',
-                'Stack:',
-                error && error.stack ? error.stack : '(not available)',
-            ];
-            document.getElementById('error-output').textContent = parts.join('\n');
-            return false;
-        };
+      Sub Window_OnLoad()
+      End Sub
     </script>
 
     <script type="text/vbscript">
-Option Explicit
+      ' ===== VBScript Section =====
+      Dim vbsMessage
+      vbsMessage = "Hello from VBS"
 
-Dim timerID
+      ' Function to read JS variable
+      Function ReadJSMessage()
+          On Error Resume Next
+          ReadJSMessage = window.jsMessage
+          If Err.Number <> 0 Then ReadJSMessage = "Read failed"
+      End Function
 
-' Main function: update clock display
-Sub UpdateClock()
-    Dim nowTime, hours, minutes, seconds, timeString
-    nowTime = Now()
+      ' Display result
+      Sub ShowResult()
+          Dim displayResult, jsMsg
+          jsMsg = ReadJSMessage()
+          displayResult = "VBS reads JS: " & jsMsg & "<br>"
+          displayResult = displayResult & "JS reads VBS: Waiting for JS display..." & "<br>"
+          document.getElementById("demo-result").innerHTML = displayResult
+      End Sub
 
-    hours = FormatTimePart(Hour(nowTime))
-    minutes = FormatTimePart(Minute(nowTime))
-    seconds = FormatTimePart(Second(nowTime))
+      ' Delayed execution to ensure JS is loaded
+      Sub Window_OnLoad()
+          window.setTimeout "ShowResult()", 100, "VBScript"
+          Call UpdateClock()
+          timerID = window.setInterval("UpdateClock", 1000, "VBScript")
+      End Sub
+    </script>
 
-    timeString = hours & ":" & minutes & ":" & seconds
-    document.getElementById("clock").innerHTML = timeString
-End Sub
+    <script type="text/javascript">
+      // ===== JavaScript Section =====
+      var jsMessage = 'Hello from JS';
 
-' Helper function: format time part (zero-pad)
-Function FormatTimePart(timePart)
-    If Len(timePart) = 1 Then
-        FormatTimePart = "0" & CStr(timePart)
-    Else
-        FormatTimePart = CStr(timePart)
-    End If
-End Function
+      // Function to read VBS variable
+      function readVBSMessage() {
+        try {
+          if (typeof vbsMessage !== 'undefined') {
+            return vbsMessage;
+          }
+          return 'Read failed';
+        } catch (e) {
+          return 'Read failed';
+        }
+      }
 
-</script>
+      // Display final result - poll until ShowResult has set the innerHTML
+      function showFinalResult() {
+        var resultDiv = document.getElementById('demo-result');
+        var current = resultDiv.innerHTML;
 
-</body>
+        if (current.indexOf('Waiting for JS display...') >= 0) {
+          var vbsMsg = readVBSMessage();
+          resultDiv.innerHTML = current.replace('Waiting for JS display...', vbsMsg);
+          clearInterval(pollTimer);
+        }
+      }
 
+      // Poll every 100ms until VBS ShowResult has run and set the content
+      var pollTimer = setInterval(showFinalResult, 100);
+
+      // ===== Reporting a VBScript error =====
+      // A VBScript failure reaches the page as a real JavaScript error, which is the shape IE's script error
+      // reached it in, so `window.onerror` is where a page reports one.
+      //
+      // Where the script stopped is `line` and `column` on the error, which the engine fills from the statement
+      // it failed on and counts within the script block it was handed, not within the document. IE reported
+      // that position through the arguments of `window.onerror` rather than on the error object, and gave the
+      // page no column at all, so a page that wants either reads them here. Those same `window.onerror`
+      // arguments describe the JavaScript throw site, which for a VBScript failure is inside the engine.
+      //
+      // The stack needs no work from the page: the engine writes the head of it itself, in the reading
+      // `cscript` prints, because `error.stack` is an ordinary writable property and belongs to that one error.
+      // V8 does offer `Error.prepareStackTrace` for the same job, but it is a hook on the whole page and would
+      // rewrite the stack of every other error the page reports. Firefox has no such hook and keeps its throw
+      // position in the non-standard `lineNumber` and `columnNumber`, which are read only and say where
+      // JavaScript threw rather than where the VBScript stopped.
+
+      function codeText(number) {
+        if (typeof number !== 'number') return '(not reported)';
+        return '0x' + (number >>> 0).toString(16);
+      }
+
+      function positionText(error) {
+        if (error && typeof error.line === 'number') {
+          var column = typeof error.column === 'number' ? error.column : 0;
+          return 'line ' + error.line + ', column ' + column;
+        }
+        if (error && typeof error.lineNumber === 'number') {
+          return (
+            'JavaScript line ' +
+            error.lineNumber +
+            ', column ' +
+            (error.columnNumber || 0) +
+            ' (Firefox)'
+          );
+        }
+        return 'not reported';
+      }
+
+      window.onerror = function (message, source, line, column, error) {
+        var parts = [
+          'Description:       ' + (error && error.description ? error.description : message),
+          'Code:              ' + codeText(error && error.number),
+          'VBScript position: ' + positionText(error),
+          'JavaScript site:   ' + source + ':' + line + ':' + column,
+          '',
+          'Stack:',
+          error && error.stack ? error.stack : '(not available)',
+        ];
+        document.getElementById('error-output').textContent = parts.join('\n');
+        return false;
+      };
+    </script>
+
+    <script type="text/vbscript">
+      Option Explicit
+
+      Dim timerID
+
+      ' Main function: update clock display
+      Sub UpdateClock()
+          Dim nowTime, hours, minutes, seconds, timeString
+          nowTime = Now()
+
+          hours = FormatTimePart(Hour(nowTime))
+          minutes = FormatTimePart(Minute(nowTime))
+          seconds = FormatTimePart(Second(nowTime))
+
+          timeString = hours & ":" & minutes & ":" & seconds
+          document.getElementById("clock").innerHTML = timeString
+      End Sub
+
+      ' Helper function: format time part (zero-pad)
+      Function FormatTimePart(timePart)
+          If Len(timePart) = 1 Then
+              FormatTimePart = "0" & CStr(timePart)
+          Else
+              FormatTimePart = CStr(timePart)
+          End If
+      End Function
+    </script>
+  </body>
 </html>

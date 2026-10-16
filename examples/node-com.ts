@@ -7,7 +7,7 @@ const activexModuleName = '@devscholar/node-ps1-dotnet/activex';
 const { ActiveXObject } = await import(activexModuleName).catch(() => {
   throw new Error(
     'This example requires the optional dependency @devscholar/node-ps1-dotnet. ' +
-    'Install it first with: npm install @devscholar/node-ps1-dotnet'
+      'Install it first with: npm install @devscholar/node-ps1-dotnet'
   );
 });
 

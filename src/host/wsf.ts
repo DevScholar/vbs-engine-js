@@ -61,7 +61,9 @@ function toBool(v: unknown): boolean | undefined {
   return undefined;
 }
 
-function parseRuntime(runtime: unknown): Pick<WsfJob, 'description' | 'example' | 'named' | 'unnamed'> {
+function parseRuntime(
+  runtime: unknown
+): Pick<WsfJob, 'description' | 'example' | 'named' | 'unnamed'> {
   if (runtime === null || typeof runtime !== 'object') {
     return { description: undefined, example: undefined, named: [], unnamed: [] };
   }

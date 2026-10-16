@@ -27,34 +27,34 @@ Create `index.html`:
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VBS Engine Browser Demo</title>
-</head>
-<body>
-  <h1>VBScript Engine Demo</h1>
-  <div id="output"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VBS Engine Browser Demo</title>
+  </head>
+  <body>
+    <h1>VBScript Engine Demo</h1>
+    <div id="output"></div>
 
-  <script type="module">
-    import { VbsEngine } from '@devscholar/vbs-engine-js';
+    <script type="module">
+      import { VbsEngine } from '@devscholar/vbs-engine-js';
 
-    const interpreter = new VbsEngine();
-    
-    const vbsCode = `
+      const interpreter = new VbsEngine();
+
+      const vbsCode = `
       Dim message
       message = "Hello from VBScript!"
       MsgBox message
     `;
 
-    try {
-      interpreter.executeStatement(vbsCode);
-      document.getElementById('output').textContent = 'VBScript executed successfully!';
-    } catch (error) {
-      document.getElementById('output').textContent = 'Error: ' + error.message;
-    }
-  </script>
-</body>
+      try {
+        interpreter.executeStatement(vbsCode);
+        document.getElementById('output').textContent = 'VBScript executed successfully!';
+      } catch (error) {
+        document.getElementById('output').textContent = 'Error: ' + error.message;
+      }
+    </script>
+  </body>
 </html>
 ```
 

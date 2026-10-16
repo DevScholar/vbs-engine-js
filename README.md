@@ -18,23 +18,23 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 
 ### Methods
 
-| Method | Description |
-|--------|-------------|
-| `addCode(code: string)` | Adds script code to the engine (function/class definitions) |
-| `executeStatement(statement: string)` | Executes a VBScript statement; captures errors in `engine.error` |
-| `executeStatementThrows(statement: string)` | Executes a statement and rethrows the error as a native JS `Error` with an HRESULT `number` (IE/WSH `catch` style). It also carries `description`, the VBScript `line` and `column` of the statement that failed, and a `stack` whose first line is the reading `cscript` prints, as in `(4, 3) Microsoft VBScript runtime error: Division by zero` |
-| `run(procedureName: string, ...args)` | Calls a function and returns the result |
-| `eval(expression: string)` | Evaluates an expression and returns the result |
-| `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |
-| `releaseGlobals()` | Ends a script: runs `Class_Terminate` for every class instance the script still holds, the way the end of a `cscript` script does. The engine that claimed host integration calls this by itself when its host ends (the process in Node, the page going away in a browser). A host that runs several scripts through one engine calls it between them |
-| `clearError()` | Clears the last error |
-| `destroy()` | Cleans up resources (browser mode) and takes back the engine's host end hook |
+| Method                                                           | Description                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `addCode(code: string)`                                          | Adds script code to the engine (function/class definitions)                                                                                                                                                                                                                                                                                            |
+| `executeStatement(statement: string)`                            | Executes a VBScript statement; captures errors in `engine.error`                                                                                                                                                                                                                                                                                       |
+| `executeStatementThrows(statement: string)`                      | Executes a statement and rethrows the error as a native JS `Error` with an HRESULT `number` (IE/WSH `catch` style). It also carries `description`, the VBScript `line` and `column` of the statement that failed, and a `stack` whose first line is the reading `cscript` prints, as in `(4, 3) Microsoft VBScript runtime error: Division by zero`    |
+| `run(procedureName: string, ...args)`                            | Calls a function and returns the result                                                                                                                                                                                                                                                                                                                |
+| `eval(expression: string)`                                       | Evaluates an expression and returns the result                                                                                                                                                                                                                                                                                                         |
+| `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript                                                                                                                                                                                                                                                                                                                |
+| `releaseGlobals()`                                               | Ends a script: runs `Class_Terminate` for every class instance the script still holds, the way the end of a `cscript` script does. The engine that claimed host integration calls this by itself when its host ends (the process in Node, the page going away in a browser). A host that runs several scripts through one engine calls it between them |
+| `clearError()`                                                   | Clears the last error                                                                                                                                                                                                                                                                                                                                  |
+| `destroy()`                                                      | Cleans up resources (browser mode) and takes back the engine's host end hook                                                                                                                                                                                                                                                                           |
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `error` | `VbsError \| null` | The last error that occurred, or null. Mirrors MSScriptControl's `Error` object: `number` (pure code), `description`, `source`, `line`, `column`, `text`, `helpFile`, `helpContext` |
+| Property | Type               | Description                                                                                                                                                                         |
+| -------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`  | `VbsError \| null` | The last error that occurred, or null. Mirrors MSScriptControl's `Error` object: `number` (pure code), `description`, `source`, `line`, `column`, `text`, `helpFile`, `helpContext` |
 
 ### Example Usage
 
@@ -58,20 +58,20 @@ engine.addCode(`
 
 // Call functions
 const product = engine.run('Multiply', 6, 7);
-console.log(product);  // 42
+console.log(product); // 42
 
 // Expose JavaScript objects
 const myApp = {
   name: 'MyApp',
   version: '1.0.0',
-  greet: (name: string) => `Hello, ${name}!`
+  greet: (name: string) => `Hello, ${name}!`,
 };
 engine.addObject('MyApp', myApp, true);
 
 // Use exposed object in VBScript
 engine.executeStatement('result = MyApp.greet("World")');
 const result = engine.eval('result');
-console.log(result);  // "Hello, World!"
+console.log(result); // "Hello, World!"
 
 // Error handling
 engine.executeStatement('x = CInt("not a number")');
@@ -142,41 +142,39 @@ engine.executeStatement(`
 > **Note:** COM/ActiveX requires Windows. On other platforms `CreateObject` returns a
 > placeholder object and `GetObject` returns `Nothing`.
 
-
-
 ## Engine Options
 
 ```typescript
 interface VbsEngineOptions {
-  mode?: 'general' | 'browser' | 'auto';  // Default: 'auto'
-  hostIntegration?: boolean;     // Default: true for the first engine in a process, false after
-  useJsError?: boolean;          // Default: true
-  injectGlobalThis?: boolean;    // Default: true
+  mode?: 'general' | 'browser' | 'auto'; // Default: 'auto'
+  hostIntegration?: boolean; // Default: true for the first engine in a process, false after
+  useJsError?: boolean; // Default: true
+  injectGlobalThis?: boolean; // Default: true
   injectVBArrayToGlobalThis?: boolean; // Default: true
-  maxExecutionTime?: number;     // Default: -1 (unlimited)
-  
+  maxExecutionTime?: number; // Default: -1 (unlimited)
+
   // Browser mode only:
-  parseScriptElement?: boolean;       // Default: true
+  parseScriptElement?: boolean; // Default: true
   parseInlineEventAttributes?: boolean; // Default: true
-  parseEventSubNames?: boolean;       // Default: true
-  parseVbsProtocol?: boolean;         // Default: true
-  overrideJsEvalFunctions?: boolean;  // Default: true
+  parseEventSubNames?: boolean; // Default: true
+  parseVbsProtocol?: boolean; // Default: true
+  overrideJsEvalFunctions?: boolean; // Default: true
 }
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `mode` | `'general' \| 'browser'` | `'auto'` | Engine mode. Auto-detects based on environment: `'browser'` in browser, `'general'` in Node.js. Use `'browser'` for web applications |
-| `hostIntegration` | `boolean` | first engine `true` | Whether the engine may own the host, as it does in IE or WSH. A host has one of these, so the first engine to ask claims it and every later engine is isolated and cannot ask: it does not own the document, install the `vbscript:` handler, replace the host's `eval` and timers, or publish its functions into the host global. It still reads host globals and still calls objects given to `addObject`. The engine that claims it also lets the script go when the host ends, running `Class_Terminate` there the way `cscript` does. Fixed at construction |
-| `useJsError` | `boolean` | `true` | How an error surfaces when the host runs script no JavaScript call asked for (an inline event attribute, a timer handler). `true` throws a real JavaScript error, which the page can catch; `false` leaves it in `engine.error`. `executeStatement` and `executeStatementThrows` are unaffected: the method called decides |
-| `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript. Reads of host globals are unaffected; this only decides whether the engine publishes its own functions and variables, and it is forced off for an isolated engine |
-| `injectVBArrayToGlobalThis` | `boolean` | `true` | Expose VBArray as `globalThis.VBArray` for legacy code compatibility |
-| `maxExecutionTime` | `number` | `-1` | Maximum script execution time in milliseconds. `-1` means unlimited |
-| `parseScriptElement` | `boolean` | `true` | Automatically process `<script type="text/vbscript">` tags (browser mode) |
-| `parseInlineEventAttributes` | `boolean` | `true` | Process inline event attributes like `onclick="vbscript:..."` (browser mode) |
-| `parseEventSubNames` | `boolean` | `true` | Auto-bind event handlers from Sub names like `Button1_OnClick` (browser mode) |
-| `parseVbsProtocol` | `boolean` | `true` | Handle `vbscript:` protocol in links (browser mode) |
-| `overrideJsEvalFunctions` | `boolean` | `true` | Override JS eval functions (`eval`,`setTimeout`,`setInterval`) to support VBScript (browser mode) |
+| Option                       | Type                     | Default             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                       | `'general' \| 'browser'` | `'auto'`            | Engine mode. Auto-detects based on environment: `'browser'` in browser, `'general'` in Node.js. Use `'browser'` for web applications                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `hostIntegration`            | `boolean`                | first engine `true` | Whether the engine may own the host, as it does in IE or WSH. A host has one of these, so the first engine to ask claims it and every later engine is isolated and cannot ask: it does not own the document, install the `vbscript:` handler, replace the host's `eval` and timers, or publish its functions into the host global. It still reads host globals and still calls objects given to `addObject`. The engine that claims it also lets the script go when the host ends, running `Class_Terminate` there the way `cscript` does. Fixed at construction |
+| `useJsError`                 | `boolean`                | `true`              | How an error surfaces when the host runs script no JavaScript call asked for (an inline event attribute, a timer handler). `true` throws a real JavaScript error, which the page can catch; `false` leaves it in `engine.error`. `executeStatement` and `executeStatementThrows` are unaffected: the method called decides                                                                                                                                                                                                                                       |
+| `injectGlobalThis`           | `boolean`                | `true`              | Enable IE-style global variable sharing between VBScript and JavaScript. Reads of host globals are unaffected; this only decides whether the engine publishes its own functions and variables, and it is forced off for an isolated engine                                                                                                                                                                                                                                                                                                                       |
+| `injectVBArrayToGlobalThis`  | `boolean`                | `true`              | Expose VBArray as `globalThis.VBArray` for legacy code compatibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `maxExecutionTime`           | `number`                 | `-1`                | Maximum script execution time in milliseconds. `-1` means unlimited                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `parseScriptElement`         | `boolean`                | `true`              | Automatically process `<script type="text/vbscript">` tags (browser mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `parseInlineEventAttributes` | `boolean`                | `true`              | Process inline event attributes like `onclick="vbscript:..."` (browser mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `parseEventSubNames`         | `boolean`                | `true`              | Auto-bind event handlers from Sub names like `Button1_OnClick` (browser mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `parseVbsProtocol`           | `boolean`                | `true`              | Handle `vbscript:` protocol in links (browser mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `overrideJsEvalFunctions`    | `boolean`                | `true`              | Override JS eval functions (`eval`,`setTimeout`,`setInterval`) to support VBScript (browser mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### Dates and locale
 
@@ -204,7 +202,7 @@ Dates are OLE Automation dates: a day count from 30 December 1899, with the time
 // General mode (Node.js or browser without auto-parsing)
 const engine = new VbsEngine({
   injectGlobalThis: true,
-  maxExecutionTime: 5000
+  maxExecutionTime: 5000,
 });
 
 // Browser mode (auto-parsing enabled)
@@ -212,7 +210,7 @@ const browserEngine = new VbsEngine({
   mode: 'browser',
   parseScriptElement: true,
   parseInlineEventAttributes: true,
-  parseEventSubNames: true
+  parseEventSubNames: true,
 });
 ```
 

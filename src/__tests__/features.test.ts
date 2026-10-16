@@ -779,7 +779,9 @@ describe('Ampersand before an h/o identifier', () => {
     ['oShell', 'x6'],
   ])('concatenates with the variable %s', (name, expected) => {
     const engine = new VbsEngine();
-    engine.executeStatement([`Dim ${name}`, `${name} = ${expected.slice(1)}`, `r = "x"&${name}`].join('\n'));
+    engine.executeStatement(
+      [`Dim ${name}`, `${name} = ${expected.slice(1)}`, `r = "x"&${name}`].join('\n')
+    );
     expect(engine.error).toBeNull();
     expect(engine._getVariable('r').value).toBe(expected);
   });
@@ -937,7 +939,12 @@ describe('Parenthesis-less member reads', () => {
 
   it.each<[string, string, string, string | number]>([
     ['calls a function read without parentheses', 'r = o.F', 'r', 3],
-    ['calls it as a comparison operand', 'If o.F <= 0 Then\n r = "le"\nElse\n r = "gt"\nEnd If', 'r', 'gt'],
+    [
+      'calls it as a comparison operand',
+      'If o.F <= 0 Then\n r = "le"\nElse\n r = "gt"\nEnd If',
+      'r',
+      'gt',
+    ],
     ['calls it as a concatenation operand', 'r = "n=" & o.F', 'r', 'n=3'],
     ['runs a Sub written as a bare statement', 'o.M', 'o.P', 99],
     ['calls through a nested member read', 'r = o.MakeInner.G', 'r', 8],
@@ -1038,7 +1045,9 @@ describe('Error number and position', () => {
 
   it('reports the line and column a parse failure stopped at', () => {
     const engine = new VbsEngine();
-    engine.executeStatement(['Dim x', 'x = 1', '', 'If 1 = 1 Then', '  x = )', 'End If'].join('\n'));
+    engine.executeStatement(
+      ['Dim x', 'x = 1', '', 'If 1 = 1 Then', '  x = )', 'End If'].join('\n')
+    );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.line).toBe(5);
     expect(engine.error!.column).toBe(7);
@@ -1102,7 +1111,7 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
 
   it('throws an HRESULT-bearing native Error for division by zero', () => {
     const engine = new VbsEngine();
-    let caught: Error & { number: number; description: string } | null = null;
+    let caught: (Error & { number: number; description: string }) | null = null;
     try {
       engine.executeStatementThrows('x = 1/0');
     } catch (e) {
@@ -1153,7 +1162,9 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     } catch (e) {
       caught = e as VbsHostError;
     }
-    expect(caught!.stack!.split('\n')[0]).toBe('(3, 1) Microsoft VBScript runtime error: Division by zero');
+    expect(caught!.stack!.split('\n')[0]).toBe(
+      '(3, 1) Microsoft VBScript runtime error: Division by zero'
+    );
   });
 
   // Script the host asked for, which nobody called for from JavaScript, has no caller to choose an outlet, so
@@ -1191,10 +1202,18 @@ describe('A host member that answers Nothing', () => {
     ['IsObject', 'r = IsObject(host.Image)', true],
     ['Is Nothing', 'r = host.Image Is Nothing', true],
     ['VarType', 'r = VarType(host.Image)', 9],
-    ['If ... Is Nothing', 'If host.Image Is Nothing Then\n r = "taken"\nElse\n r = "not taken"\nEnd If', 'taken'],
+    [
+      'If ... Is Nothing',
+      'If host.Image Is Nothing Then\n r = "taken"\nElse\n r = "not taken"\nEnd If',
+      'taken',
+    ],
     ['Set', 'Set x = host.Image\nr = x Is Nothing', true],
   ])('reads a property as Nothing: %s', (_label, code, expected) => {
-    const engine = engineWith({ get Image() { return NOTHING; } });
+    const engine = engineWith({
+      get Image() {
+        return NOTHING;
+      },
+    });
     engine.executeStatement(code);
     expect(engine.error).toBeNull();
     expect(engine.eval('r')).toBe(expected);
@@ -1208,7 +1227,11 @@ describe('A host member that answers Nothing', () => {
   });
 
   it('GUARD keeps null meaning Null', () => {
-    const engine = engineWith({ get Image() { return null; } });
+    const engine = engineWith({
+      get Image() {
+        return null;
+      },
+    });
     engine.executeStatement('r = TypeName(host.Image)');
     expect(engine.eval('r')).toBe('Null');
   });
@@ -1497,7 +1520,9 @@ describe('A date string as vbscript.dll reads it', () => {
 describe('DateValue and TimeValue take a date or a string only', () => {
   function errorNumber(locale: number, statement: string): number {
     const engine = new VbsEngine();
-    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\n${statement}\nen = Err.Number`);
+    engine.executeStatement(
+      `SetLocale ${locale}\nOn Error Resume Next\n${statement}\nen = Err.Number`
+    );
     return Number(engine.eval('en'));
   }
 

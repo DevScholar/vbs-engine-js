@@ -530,7 +530,8 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
       }
       if (lower === 'createobject' || lower === 'getobject') {
         return {
-          func: (...args: VbValue[]): VbValue => createOrGetObject(lower as 'createobject' | 'getobject', args),
+          func: (...args: VbValue[]): VbValue =>
+            createOrGetObject(lower as 'createobject' | 'getobject', args),
         };
       }
       if (lower === 'connectobject' || lower === 'disconnectobject') {
@@ -555,7 +556,8 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
     Interactive: env.interactive,
     CurrentDirectory: env.currentDirectory,
     Echo: (...a: unknown[]): void => echo(env.mode, a),
-    Quit: (code?: number): void => quit(code === undefined ? undefined : { type: 'Integer', value: code }),
+    Quit: (code?: number): void =>
+      quit(code === undefined ? undefined : { type: 'Integer', value: code }),
     Sleep: (ms: number): void => env.sleep(Math.max(0, Math.floor(Number(ms)))),
     CreateObject: (progid: string): unknown => {
       const g = (globalThis as Record<string, unknown>).ActiveXObject;
