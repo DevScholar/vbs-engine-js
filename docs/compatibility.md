@@ -655,25 +655,26 @@ by putting the failing statement on line 172 of the file and being told 172.
 
 What this engine's own thrown error looks like beside those, for a divide by zero:
 
-| What                         | This engine                           | IE 7 to 9                          | IE 10                              |
-| ---------------------------- | ------------------------------------- | ---------------------------------- | ---------------------------------- |
-| `number`                     | `0x800a000b`                          | `0x800a000b`                       | `0x800a000b`                       |
-| `description`, `message`     | both, equal, in English               | both, equal, localized by the host | both, equal, localized by the host |
-| `name`                       | `Error`, an own enumerable property   | `Error`, inherited                 | `Error`, inherited                 |
-| `line`, `column`             | the VBScript position, own            | absent                             | absent                             |
-| `stack`                      | own, headed by the `cscript` reading  | absent                             | the JavaScript frames              |
-| `Object.keys` and `for...in` | `name,number,description,line,column` | `message,description,number,name`  | `description,number,stack`         |
+| What                         | This engine                                 | IE 7 to 9                          | IE 10                              |
+| ---------------------------- | ------------------------------------------- | ---------------------------------- | ---------------------------------- |
+| `number`                     | `0x800a000b`                                | `0x800a000b`                       | `0x800a000b`                       |
+| `description`, `message`     | both, equal, in English                     | both, equal, localized by the host | both, equal, localized by the host |
+| `name`                       | `Error`, inherited                          | `Error`, inherited                 | `Error`, inherited                 |
+| `line`, `column`             | absent                                      | absent                             | absent                             |
+| `stack`                      | the host's own, enumerable                  | absent                             | the host's own, enumerable         |
+| `Object.keys` and `for...in` | `number,description,stack`                  | `message,description,number,name`  | `description,number,stack`         |
+| `hasOwnProperty`             | `number`, `description`, `message`, `stack` | `number`, `description`, `message` | the same four                      |
 
-So it is not a copy of any one document mode. It keeps what every mode has, and adds the two things the host
-never put on the object:
+So the thrown error is the shape document mode 10 handed JScript, and only that shape. It is not the later
+modes' shape either: 7 to 9 kept no stack at all, and every mode up to 10 left `name` to the prototype.
 
-- The position of the failing VBScript statement rides on the thrown error as `line` and `column`, counted
-  within the script block it was handed. The host gave a page no column at all, counted in the document, and
-  reported a line only through the arguments of `window.onerror`.
-- `stack` is headed by the `cscript` reading, as in `(4, 3) Microsoft VBScript runtime error: Division by zero`,
-  so a host that has no stack of its own, which is every mode up to 9, still has that reading.
+Two things the host never put on the object are deliberately still absent:
 
-The text stays English, as it is throughout this engine, where the host localizes it.
+- There is no `line` and no `column`. Internet Explorer reported the line of a failing script through the
+  arguments of `window.onerror`, and those arguments describe the JavaScript throw site, which for a VBScript
+  failure is inside the engine. The position is not lost: the MSScriptControl-style `engine.error` member carries
+  `line` and `column` beside the same fields, counted within the script block rather than within the document.
+- The text stays English, as it is throughout this engine, where the host localizes it.
 
 ---
 

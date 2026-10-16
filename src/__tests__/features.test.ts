@@ -1136,35 +1136,55 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
   });
 
-  // IE reported where a script failed through the arguments of `window.onerror`, not on the error object.
-  // Carrying the position on the error is what lets a page say which VBScript line failed, and lets a reporter
-  // take over the stack with it.
-  it('carries the position of the failing VBScript statement', () => {
+  // The shape is the one Internet Explorer handed JScript in document mode 10, read off an HTA: `name` comes
+  // from the prototype rather than being written on the error, `message` is JavaScript's own non-enumerable
+  // property, `description` and `number` are the engine's two additions, and there is nothing else at all. In
+  // particular there is no `line` and no `column`, which the host never put on the object: a page that wants the
+  // position reads `engine.error`, and the test below holds that the failure fills it.
+  it('hands a page the shape Internet Explorer handed JScript', () => {
     const engine = new VbsEngine();
+    const owns = (object: object, name: string): boolean =>
+      Object.prototype.hasOwnProperty.call(object, name);
     let caught: VbsHostError | null = null;
     try {
       engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
     } catch (e) {
       caught = e as VbsHostError;
     }
-    expect(caught!.line).toBe(3);
-    expect(caught!.column).toBe(1);
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught!.name).toBe('Error');
+    expect(caught!.number).toBe(-2146828277); // 0x800A000B
+    expect(caught!.description).toBe('Division by zero');
+    expect(caught!.message).toBe('Division by zero');
+
+    // Written by the engine, and so enumerable the way the host's own `description` and `number` were. The
+    // host listed its stack here too, so this one is enumerated as well. The order is the host's business, so
+    // only the set is compared: the host listed `description,number,stack` and this one sorts out as the same.
+    expect(Object.keys(caught!).sort()).toEqual(['description', 'number', 'stack']);
+    // JavaScript's own, so not enumerated, and inherited from `Error.prototype` rather than written.
+    expect(owns(caught!, 'message')).toBe(true);
+    expect(owns(caught!, 'name')).toBe(false);
+    // The host kept its stack as an own property, and this one is the host's own rather than a copy.
+    expect(owns(caught!, 'stack')).toBe(true);
+    expect(caught!.stack).toContain('Division by zero');
+    // The host gave a page no position on the error object, so there is none here.
+    expect(owns(caught!, 'line')).toBe(false);
+    expect(owns(caught!, 'column')).toBe(false);
+    expect((caught as unknown as Record<string, unknown>).lineNumber).toBeUndefined();
+    expect((caught as unknown as Record<string, unknown>).columnNumber).toBeUndefined();
   });
 
-  // `error.stack` is an ordinary writable own property, so the engine writes the head of it in the reading
-  // `cscript` prints instead of leaving a stack of its own internals first. V8's `Error.prepareStackTrace` would
-  // do the same job, but for every error in the page rather than this one, which is not a library's to take.
-  it('heads the stack with the position and the source cscript prints', () => {
+  // The position is not lost: it is on the MSScriptControl-style member, which the same failure fills.
+  it('carries the position of the failing statement on engine.error', () => {
     const engine = new VbsEngine();
-    let caught: VbsHostError | null = null;
     try {
       engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
-    } catch (e) {
-      caught = e as VbsHostError;
+    } catch {
+      /* expected */
     }
-    expect(caught!.stack!.split('\n')[0]).toBe(
-      '(3, 1) Microsoft VBScript runtime error: Division by zero'
-    );
+    expect(engine.error!.line).toBe(3);
+    expect(engine.error!.column).toBe(1);
   });
 
   // Script the host asked for, which nobody called for from JavaScript, has no caller to choose an outlet, so

@@ -239,38 +239,52 @@ function resolveMode(mode: VbsEngineMode | undefined): VbsEngineMode {
 }
 
 /**
- * The native `Error` a VBScript failure reaches a JavaScript caller as, which mirrors what IE handed JScript:
- * `instanceof Error`, `name === 'Error'`, `message` equal to `description`, and `number` as an HRESULT.
+ * The native `Error` a VBScript failure reaches a JavaScript caller as, which is the shape Internet Explorer
+ * handed JScript in document mode 10, measured on an HTA:
  *
- * `line` and `column` say where the failing VBScript statement began. IE reported that position through the
- * arguments of `window.onerror` rather than on the error object; carrying it here lets a page report a script
- * error the way the Windows Script Host does, and lets a reporter take over the stack.
+ * * `instanceof Error` is true, and `name` reads `Error`, inherited rather than an own property.
+ * * `number` is the HRESULT, `0x800a000b` for a division by zero, and `description` is the text.
+ * * `message` is that same text, as an own property JavaScript does not enumerate.
+ * * `stack` is whatever the host makes of it. The engine leaves it alone.
+ *
+ * Nothing else is on it. In particular there is no `line` and no `column`: Internet Explorer put no position on
+ * the error object and reported the line of a failing script through the arguments of `window.onerror` instead.
+ * A host that wants the position reads `engine.error`, which carries `line` and `column` beside these fields.
  */
 export interface VbsHostError extends Error {
   /** The VBScript error code as an HRESULT, for example 0x800a000b for a division by zero. */
   number: number;
   description: string;
-  line?: number;
-  column?: number;
 }
 
 /**
- * Puts the Windows Script Host's own reading of a failure at the head of the stack: the position, the source and
- * the description, the way `cscript` prints them, as in `(4, 3) Microsoft VBScript runtime error: Division by
- * zero`. A host that knows the file it ran can put the name in front; this engine is handed statements and not
- * a file, so the position stands alone.
- *
- * Writing `error.stack` is how the format is taken over. It is an ordinary writable own property, so this works
- * in every browser and touches this one error only. V8 also offers `Error.prepareStackTrace`, but that is a hook
- * on the whole page: it would rewrite the stack of every other error the host reports, which is not a library's
- * to do. Firefox has no such hook and keeps the throw position in the non-standard `lineNumber` and
- * `columnNumber` properties, which cannot be written.
+ * Internet Explorer's caught error kept its stack as an own property, and one a `for...in` walked over:
+ * measured on an HTA in document mode 10, `hasOwnProperty('stack')` is true and `for...in` lists
+ * `description,number,stack`, while the descriptor is an accessor. A host's own stack is an accessor too, and
+ * the only thing about it that differs is that it is not enumerated, so it is described and written back as
+ * enumerable. That leaves the getter the host installed in place, so the stack is still the host's own.
  */
-function withWindowsScriptHostPosition(stack: string, err: VbError): string {
-  if (err.line === undefined) return stack;
-  const position = `(${err.line}, ${err.column ?? 0})`;
-  const source = err.source || 'Microsoft VBScript runtime error';
-  return `${position} ${source}: ${err.description}\n${stack}`;
+function withEnumeratedStack<T extends Error>(hostError: T): T {
+  try {
+    const own = Object.getOwnPropertyDescriptor(hostError, 'stack');
+    if (own) {
+      Object.defineProperty(hostError, 'stack', { ...own, enumerable: true });
+      return hostError;
+    }
+    // A host that makes no own stack property gets a plain one, which is still better than no stack at all.
+    const stack = hostError.stack;
+    if (typeof stack === 'string') {
+      Object.defineProperty(hostError, 'stack', {
+        value: stack,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+  } catch {
+    // A host whose stack cannot be described keeps the one it made; nothing else about the error changes.
+  }
+  return hostError;
 }
 
 export class VbsEngine {
@@ -716,31 +730,25 @@ export class VbsEngine {
   }
 
   /**
-   * Convert a caught internal error into the IE/WSH-style native `Error` that a
-   * JavaScript host would see in its own `catch`. Mirrors JScript catching a
-   * VBScript runtime error: `instanceof Error`, `name === 'Error'`,
-   * `message === description`, and `number` as an HRESULT.
+   * Convert a caught internal error into the native `Error` a page caught off Internet Explorer in document
+   * mode 10. Measured on an HTA: `instanceof Error` is true, `name` reads `Error` because it is inherited,
+   * `number` is the HRESULT, `description` and `message` carry the text, and `stack` is the host's own.
    *
-   * The position of the failing VBScript statement rides along on `line` and `column`, which IE reported
-   * through the arguments of `window.onerror` rather than on the error object, and which `engine.error`
-   * carries under the same names.
+   * Nothing else goes on it, and in particular not `line` or `column`. Internet Explorer put no position on the
+   * object and reported the line of a failing script through the arguments of `window.onerror`, so a page that
+   * wants the position reads `engine.error`, which the same failure fills.
    */
   private toHostError(err: unknown): VbsHostError {
     if (err instanceof VbError) {
       const hostError = new Error(err.description) as VbsHostError;
-      hostError.name = 'Error';
       hostError.number = toHresult(err.number);
       hostError.description = err.description;
-      hostError.line = err.line;
-      hostError.column = err.column;
-      hostError.stack = withWindowsScriptHostPosition(String(hostError.stack), err);
-      return hostError;
+      return withEnumeratedStack(hostError);
     }
     const hostError = new Error(err instanceof Error ? err.message : String(err)) as VbsHostError;
-    hostError.name = 'Error';
     hostError.number = toHresult(-1);
     hostError.description = hostError.message;
-    return hostError;
+    return withEnumeratedStack(hostError);
   }
 
   private syncFunctionsToGlobalThis(): void {

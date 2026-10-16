@@ -8,7 +8,9 @@
     <!--[if !IE]> -->
     <script type="module">
       import { VbsEngine } from '../src/index.ts';
-      new VbsEngine({ mode: 'browser' });
+      // Kept where the error panel can reach it: the engine's own error member carries the position of a failing
+      // statement, which the thrown error does not, because the host's did not.
+      window.vbsEngine = new VbsEngine({ mode: 'browser' });
     </script>
     <!-- <![endif]-->
   </head>
@@ -204,36 +206,30 @@
       // A VBScript failure reaches the page as a real JavaScript error, which is the shape IE's script error
       // reached it in, so `window.onerror` is where a page reports one.
       //
-      // Where the script stopped is `line` and `column` on the error, which the engine fills from the statement
-      // it failed on and counts within the script block it was handed, not within the document. IE reported
-      // that position through the arguments of `window.onerror` rather than on the error object, and gave the
-      // page no column at all, so a page that wants either reads them here. Those same `window.onerror`
-      // arguments describe the JavaScript throw site, which for a VBScript failure is inside the engine.
+      // The error object is the shape Internet Explorer 10 handed JScript, and nothing more: `number` as an
+      // HRESULT, `description` and `message`, and the host's own `stack`. It carries no position, because the
+      // host put none there: Internet Explorer reported the line of a failing script through the arguments of
+      // `window.onerror`, and those arguments here describe the JavaScript throw site, which for a VBScript
+      // failure is inside the engine.
       //
-      // The stack needs no work from the page: the engine writes the head of it itself, in the reading
-      // `cscript` prints, because `error.stack` is an ordinary writable property and belongs to that one error.
-      // V8 does offer `Error.prepareStackTrace` for the same job, but it is a hook on the whole page and would
-      // rewrite the stack of every other error the page reports. Firefox has no such hook and keeps its throw
-      // position in the non-standard `lineNumber` and `columnNumber`, which are read only and say where
-      // JavaScript threw rather than where the VBScript stopped.
+      // The position is not lost. The engine's MSScriptControl-style `error` member carries `line` and `column`
+      // beside the same fields, counted within the script block rather than within the document, so the engine is
+      // kept in a variable for this panel to read.
 
       function codeText(number) {
         if (typeof number !== 'number') return '(not reported)';
         return '0x' + (number >>> 0).toString(16);
       }
 
-      function positionText(error) {
-        if (error && typeof error.line === 'number') {
-          var column = typeof error.column === 'number' ? error.column : 0;
-          return 'line ' + error.line + ', column ' + column;
-        }
-        if (error && typeof error.lineNumber === 'number') {
+      function positionText() {
+        var engineError = window.vbsEngine ? window.vbsEngine.error : null;
+        if (engineError && typeof engineError.line === 'number') {
           return (
-            'JavaScript line ' +
-            error.lineNumber +
+            'line ' +
+            engineError.line +
             ', column ' +
-            (error.columnNumber || 0) +
-            ' (Firefox)'
+            (typeof engineError.column === 'number' ? engineError.column : 0) +
+            ' (from engine.error, counted in the script block)'
           );
         }
         return 'not reported';
@@ -241,10 +237,16 @@
 
       window.onerror = function (message, source, line, column, error) {
         var parts = [
-          'Description:       ' + (error && error.description ? error.description : message),
-          'Code:              ' + codeText(error && error.number),
-          'VBScript position: ' + positionText(error),
-          'JavaScript site:   ' + source + ':' + line + ':' + column,
+          'The error object, which is what IE 10 handed JScript:',
+          '  description  ' + (error && error.description ? error.description : message),
+          '  number       ' + codeText(error && error.number),
+          '  message      ' + (error && error.message ? error.message : ''),
+          '  keys         ' + (error ? Object.keys(error).sort().join(',') : ''),
+          '',
+          'The position, which IE reported through window.onerror and this engine keeps on its error member:',
+          '  ' + positionText(),
+          '',
+          'The JavaScript throw site: ' + source + ':' + line + ':' + column,
           '',
           'Stack:',
           error && error.stack ? error.stack : '(not available)',
