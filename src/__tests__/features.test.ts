@@ -1137,16 +1137,27 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
   // is how a block Windows Script Host took out of a `.wsf` comes back as a line in the `.wsf` file.
   it('reports the script name and the line a host supplied', () => {
     const engine = new VbsEngine();
-    engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
-      name: 'C:\\work\\demo.wsf',
-      // Counted from zero, the way IActiveScriptParse::ParseScriptText takes its starting line, so two means the
-      // code's first line is the host script's third line.
-      startingLineNumber: 2,
-      columnOffset: 1,
-    });
+    // This engine stands for no host, because an earlier engine in this file claimed host integration, so it is
+    // the ScriptControl a program drives: that control raises the first failure it finds, and records it too.
+    let raised: Error | null = null;
+    try {
+      engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
+        name: 'C:\\work\\demo.wsf',
+        // Counted from zero, the way IActiveScriptParse::ParseScriptText takes its starting line, so two means
+        // the code's first line is the host script's third line.
+        startingLineNumber: 2,
+        columnOffset: 1,
+      });
+    } catch (error) {
+      raised = error as Error;
+    }
 
     // The block begins on the host's line 3, so its own third line is the file's line 5. This host reports columns
     // one further along than the code's own, and the engine holds them counted from zero besides.
+    expect(raised).not.toBeNull();
+    expect(raised!.message).toBe(
+      'C:\\work\\demo.wsf(5, 2) Microsoft VBScript runtime error: Division by zero'
+    );
     expect(engine.error!.line).toBe(5);
     expect(engine.error!.column).toBe(1);
     expect(engine.error!.description).toBe('Division by zero');

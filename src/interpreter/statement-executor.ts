@@ -37,6 +37,7 @@ import {
   VbErrorCodes,
   createVbError,
   createVbErrorFromHost,
+  isQuitSignal,
   VbArray,
   createVbArray,
   VbObjectInstance,
@@ -258,6 +259,9 @@ export class StatementExecutor {
         }
         throw error;
       }
+      // `WScript.Quit` unwinds the script rather than failing it, so it is passed on for the host to read the exit
+      // code from, and nothing about it is recorded as an error.
+      if (isQuitSignal(error)) throw error;
       const vbError = createVbErrorFromHost(error);
       stampPosition(vbError);
       this.context.setError(vbError);

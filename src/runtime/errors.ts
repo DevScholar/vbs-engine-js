@@ -195,3 +195,18 @@ export function createVbErrorFromHost(err: unknown): VbError {
   const message = err instanceof Error ? err.message : String(err);
   return createVbError(440, message);
 }
+
+/**
+ * Whether a thrown value is the signal `WScript.Quit` unwinds a script with, which is not a failure.
+ *
+ * The class lives with the host that throws it, and this reads it by name rather than importing it so that the
+ * engine's own layers do not depend on a host above them. The name is the one that class sets on itself, and the
+ * exit code it carries is what the host is to leave with.
+ */
+export function isQuitSignal(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    err.name === 'WScriptQuitSignal' &&
+    typeof (err as { exitCode?: unknown }).exitCode === 'number'
+  );
+}

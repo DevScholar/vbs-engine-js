@@ -93,9 +93,14 @@ describe('WScript host object', () => {
     const { env, out } = makeEnv();
     const { object, getQuitCode } = createWScript(env);
     inject(object);
-    engine.addCode('WScript.Echo "before"\nWScript.Quit 7\nWScript.Echo "after"');
+    // Quitting unwinds the script rather than failing it, so the signal reaches the host and whichever host
+    // catches it decides the exit code. Nothing about it is recorded as a failure.
+    expect(() =>
+      engine.addCode('WScript.Echo "before"\nWScript.Quit 7\nWScript.Echo "after"')
+    ).toThrowError(WScriptQuitSignal);
     expect(out.join('')).toBe('before\n');
     expect(getQuitCode()).toBe(7);
+    expect(engine.error).toBeNull();
   });
 
   it('Quit throws WScriptQuitSignal so the host can map it to an exit code', () => {

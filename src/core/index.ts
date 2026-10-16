@@ -4,7 +4,7 @@ import { Parser, globalParserCache } from '../parser/index.ts';
 import { Interpreter } from '../interpreter/index.ts';
 import type { VbValue } from '../runtime/index.ts';
 import { VbError, toHresult } from '../runtime/index.ts';
-import { VBS_COMPILE_SOURCE } from '../runtime/errors.ts';
+import { VBS_COMPILE_SOURCE, isQuitSignal } from '../runtime/errors.ts';
 import { formatWshErrorLine } from '../runtime/wsh-report.ts';
 import { jsToVb, vbToJs } from './conversion.ts';
 import { withLocaleState } from '../builtins/locale.ts';
@@ -499,6 +499,11 @@ export class VbsEngine {
    *   End Class
    * `);
    * ```
+   *
+   * A failure in the code is recorded in `error` either way. Whether it also raises depends on `hostIntegration`,
+   * which says whether this engine stands for a host: a host owns its failures and reports them itself, while an
+   * engine that stands for nothing is a control a program drives, and Microsoft's `ScriptControl`, which is what
+   * such an engine is, raises the failure to that program.
    */
   addCode(code: string, position?: VbsScriptPosition): void {
     if (position) this.rememberScriptPosition(position);
@@ -523,7 +528,12 @@ export class VbsEngine {
       this.interpreter.run(program);
       this.syncFunctionsToGlobalThis();
     } catch (err) {
-      this.handleError(err, standing);
+      this.handleFailure(err, standing);
+      // A host this engine stands for reports the failure and carries on with whatever comes next, which is what
+      // Internet Explorer does with a failing `<script>` block and what Windows Script Host does before it stops.
+      // An isolated engine stands for no host, so it is the `ScriptControl` a program drives, and that control
+      // raises the first failure it finds to the program that drove it.
+      if (!this.options.hostIntegration) throw this.toHostError(err);
     }
   }
 
@@ -543,7 +553,7 @@ export class VbsEngine {
     try {
       withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
-      this.handleError(err, statement);
+      this.handleFailure(err, statement);
     }
   }
 
@@ -572,7 +582,7 @@ export class VbsEngine {
     try {
       withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
-      this.handleError(err, statement);
+      this.handleFailure(err, statement);
       throw this.toHostError(err);
     }
   }
@@ -631,7 +641,7 @@ export class VbsEngine {
 
       return vbToJs(result);
     } catch (err) {
-      this.handleError(err);
+      this.handleFailure(err);
       return undefined;
     }
   }
@@ -699,7 +709,7 @@ export class VbsEngine {
         }
       }
     } catch (err) {
-      this.handleError(err);
+      this.handleFailure(err);
     }
   }
 
@@ -721,7 +731,7 @@ export class VbsEngine {
       const result = withLocaleState(this.localeState, () => this.interpreter.evaluate(expression));
       return vbToJs(result);
     } catch (err) {
-      this.handleError(err, expression);
+      this.handleFailure(err, expression);
       return undefined;
     }
   }
@@ -764,6 +774,18 @@ export class VbsEngine {
    */
   _getVariable(name: string): VbValue {
     return this.interpreter.getVariable(name);
+  }
+
+  /**
+   * Records a failure, or passes on a signal that is not one.
+   *
+   * `WScript.Quit` unwinds a script rather than failing it, so it reaches the host unchanged and the host decides
+   * the exit code. Something else the engine cannot describe, which is a throwable from outside the script, is
+   * recorded the way any other failure is.
+   */
+  private handleFailure(err: unknown, code?: string): void {
+    if (isQuitSignal(err)) throw err;
+    this.handleError(err, code);
   }
 
   private handleError(err: unknown, code?: string): void {

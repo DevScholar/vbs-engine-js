@@ -549,6 +549,11 @@ and the position. The exit code is the one `cscript` leaves as well: 1 for a fai
 failure in a `.vbs`, and 0 for a `.vbs` that failed while running. See
 [the failure a general host reports](#the-failure-a-general-host-reports).
 
+`WScript.Quit n` leaves `n` and prints nothing else, which is what `cscript` does: measured on a script that writes
+a line, quits with 3, and writes another, `cscript` printed the one line and left 3, with nothing on the error
+stream. Quitting unwinds a script rather than failing it, so the signal reaches the host and is not recorded as an
+error; a host that catches it reads the exit code from it.
+
 ### Windows Script File (`.wsf`)
 
 `run-script` parses `.wsf` files (via `fast-xml-parser`), supporting:
@@ -830,12 +835,14 @@ That is what `addCode` does when a host says nothing, so the default is the cont
 code came from somewhere else says so, and passes `startingLineNumber` the same way its host layer already counts
 it.
 
-Two more things the control does, both of them what its documentation describes, and only the first of which this
-engine does: it clears its `Error` object before it starts, as `Eval`, `ExecuteStatement` and `Reset` do; and it
-raises the first failure it finds, which is why that documentation recommends wrapping the call in
-`On Error Resume Next`. This engine records a failure in `engine.error` instead of raising it, which is what
-`executeStatement` does as well, and what a browser needs, since a failing `<script>` block is reported and the
-page carries on rather than the parser being thrown into.
+Two more things the control does, both of them what its documentation describes. It clears its `Error` object
+before it starts, as `Eval`, `ExecuteStatement` and `Reset` do, and this engine does the same. It also raises the
+first failure it finds, which its documentation answers with a recommendation to wrap the call in
+`On Error Resume Next`, and this engine raises the same way **unless it stands for a host**. A host owns its
+failures: Internet Explorer reports a failing `<script>` block and the page carries on, and Windows Script Host
+prints the failure and stops. An engine that stands for no host is the `ScriptControl` a program drives, so it
+raises to that program. `hostIntegration` is what says which of the two an engine is, and a failure is recorded in
+`error` either way, since the control does that too.
 
 ### What Windows Script Host does that this engine leaves to its host
 

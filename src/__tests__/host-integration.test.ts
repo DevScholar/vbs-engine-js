@@ -41,4 +41,20 @@ describe('Host integration is claimed once per process', () => {
     isolated.executeStatement('r = probe.value + Math.round(1.4)');
     expect(isolated.eval('r')).toBe(8);
   });
+
+  // The claim decides one more thing: whether a failure in added code is raised. An engine that stands for a host
+  // hands the failure to that host, which owns it, because Internet Explorer reports a failing `<script>` block and
+  // the page carries on. An engine that stands for no host is the `ScriptControl` a program drives, and that
+  // control raises the first failure it finds, which is why its own documentation answers with a recommendation to
+  // wrap the call in `On Error Resume Next`. The other half of this, an engine that does integrate, is held in
+  // `host-error-shape-browser.test.ts`, whose first engine claims the integration.
+  it('raises from addCode when the engine stands for no host', () => {
+    const isolated = new VbsEngine({ hostIntegration: false });
+    expect(() => isolated.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor')).toThrowError(
+      /Division by zero/
+    );
+    // The control records it as well as raising it, and so does this engine.
+    expect(isolated.error!.number).toBe(11);
+    expect(isolated.error!.line).toBe(3);
+  });
 });

@@ -69,12 +69,19 @@ describe('the error shape a browser hands a page', () => {
     // A browser host that names its code, and says where that code stands, still gets the description as the
     // message: Internet Explorer printed no line like the one Windows Script Host printed. The position reaches
     // `engine.error` either way, which is where a page reads it.
-    engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
-      name: 'C:\\work\\demo.vbs',
-      // Counted from zero, so three puts the code's first line on the script's fourth line and its failing third
-      // line on the sixth.
-      startingLineNumber: 3,
-    });
+    //
+    // This engine also stands for a host, because it is the first of this file and claimed the integration, so a
+    // failure in added code is recorded and not raised: a host owns its failures, and Internet Explorer reports a
+    // failing `<script>` block and carries on. The other half of that rule, an engine that stands for no host and
+    // raises, is held in `host-integration.test.ts`.
+    expect(() =>
+      engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
+        name: 'C:\\work\\demo.vbs',
+        // Counted from zero, so three puts the code's first line on the script's fourth line and its failing third
+        // line on the sixth.
+        startingLineNumber: 3,
+      })
+    ).not.toThrow();
     expect(engine.error!.line).toBe(6);
     let named = '';
     try {
