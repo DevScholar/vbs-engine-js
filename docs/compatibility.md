@@ -785,6 +785,39 @@ Where the code stands is the host's to say as well. `addCode` takes it, and appl
 way Windows Script Host tells the script engine a starting line number. A host that says nothing gets lines counted
 within the code it handed over.
 
+### Where the name and the line come from, and where they do not
+
+Microsoft's ScriptControl, whose `Error` object this engine's `error` member mirrors, offers neither. Measured by
+creating the control from a 32 bit `cscript` and asking it member by member:
+
+| Asked                                                                                               | Answered                                                                      |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Error.FileName`, `.Path`, `.Name`, `.LineNumber`, `.ColumnNumber`, `.Stack`                        | `438`, object does not support this property or method, for every one of them |
+| `AddCode(code, 5)` and `AddCode(code, name, 5)`                                                     | `450`, wrong number of arguments: `AddCode` takes the code and nothing else   |
+| `ScriptControl.FileName`, `.Path`                                                                   | `438` as well                                                                 |
+| `Error.Number`, `.Description`, `.Source`, `.Line`, `.Column`, `.Text`, `.HelpFile`, `.HelpContext` | all present, and the same eight the engine's member carries                   |
+
+The specification lists the `Error` object's members as `Clear`, `Column`, `Description`, `HelpContext`,
+`HelpFile`, `Line`, `Number`, `Source` and `Text`, which is exactly the set this engine's `error` member carries.
+So a control handed a piece of code can say where in that piece a failure was, and cannot say which file it came
+from, because it was never told.
+
+**The one part of that member set whose scale differs is the column.** The control reports a column counted from
+zero: measured with the failing statement at column 1, 3, 5 and 9 of its line, it answered 0, 2, 4 and 8, where
+`cscript` answered 1, 3, 5 and 9 for the same code. This engine's `error` member counts from one, the way both
+hosts that report a failure count, so the column in a report is ready to print. Read against the control's own
+object it is therefore one greater, which is the one place the mirror is not exact.
+
+The layer underneath is told. `IActiveScriptParse::ParseScriptText`, which is how a host hands script to
+`vbscript.dll`, takes `pstrItemName`, the name of the item the code belongs to, and `ulStartingLineNumber`, which
+Microsoft documents as a zero-based value for the line the parsing begins at. Windows Script Host fills the first
+with the script file and the second with where a block stands in it, which is how a failure in a `.wsf` comes back
+as a line in the `.wsf`. `addCode` takes its `startingLineNumber` counted from one instead, so that the number a
+host passes is the number a failure comes back with, which is the number both hosts print.
+
+That is what `addCode`'s position mirrors, so it is an extension of the ScriptControl member set and not an
+invention: the information exists at the engine layer, and no control above it had a way to pass it.
+
 ### What Windows Script Host does that this engine leaves to its host
 
 Measured with `cscript` on fifteen scripts: five plain ones, and ten `.wsf` jobs written in the shapes an author
