@@ -18,11 +18,11 @@ export function setupElementInlineEvents(engine: VbsEngine, element: Element): v
         const code = value.substring(9).trim();
 
         (element as unknown as Record<string, unknown>)[attrName] = (): void => {
-          try {
-            engine.executeHostScript(code);
-          } catch (error) {
-            console.error('VBScript event handler error:', error);
-          }
+          // `executeHostScript` is what decides how an error from script the host asked for surfaces: with
+          // `useJsError` it is a real JavaScript error, which is the shape IE's script error reaches the page
+          // in, and `window.onerror` sees it; without it the error waits in `engine.error`. A prefix of this
+          // module's own making told the page nothing and matched neither host.
+          engine.executeHostScript(code);
         };
       }
     }
@@ -100,12 +100,10 @@ export function setupNamedEventHandlers(
           existing.target.removeEventListener(eventType, existing.handler);
         }
 
+        // The Sub is called the way the host calls it, so an error it raises surfaces the same way an inline
+        // event attribute's error does rather than being swallowed into a console line of this module's own.
         const handler = (): void => {
-          try {
-            engine._getContext()?.functionRegistry.call(funcName, []);
-          } catch (error) {
-            console.error(`VBScript ${funcName} error:`, error);
-          }
+          engine.executeHostScript(funcName);
         };
 
         target.addEventListener(eventType, handler);

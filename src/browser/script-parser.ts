@@ -52,12 +52,10 @@ export function parseScriptElement(
   if (forAttr && eventAttr) {
     setupForEventScript(engine, forAttr, eventAttr, code);
   } else {
-    try {
-      engine.addCode(code);
-      onScriptRun?.();
-    } catch (error) {
-      console.error('Vbscript error:', error);
-    }
+    // `addCode` keeps a failure in `engine.error` instead of throwing, so there is nothing to catch here and
+    // no prefix for this module to invent.
+    engine.addCode(code);
+    onScriptRun?.();
   }
 }
 
@@ -72,12 +70,11 @@ export function setupForEventScript(
   const bindHandler = (): boolean => {
     const target = document.getElementById(targetId);
     if (target) {
+      // The handler's own text is script the host asked for, so it goes through `executeHostScript` and its
+      // error surfaces the way every other host run error does: a real JavaScript error when `useJsError` is
+      // on, otherwise a record in `engine.error`. `addCode` would have kept it in `engine.error` either way.
       const handler = (): void => {
-        try {
-          engine.addCode(code);
-        } catch (error) {
-          console.error('VBScript event handler error:', error);
-        }
+        engine.executeHostScript(code);
       };
       target.addEventListener(eventType, handler);
       return true;

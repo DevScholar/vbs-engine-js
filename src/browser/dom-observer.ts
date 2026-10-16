@@ -31,13 +31,10 @@ export function startObserver(
             if (forAttr && eventAttr) {
               setupForEventScript(engine, forAttr, eventAttr, code);
             } else {
-              try {
-                engine.addCode(code);
-                if (options.injectGlobalThis && options.parseEventSubNames) {
-                  setupNamedEventHandlers(engine, boundNamedHandlers);
-                }
-              } catch (error) {
-                console.error('Vbscript error:', error);
+              // `addCode` keeps a failure in `engine.error` instead of throwing, so nothing is caught here.
+              engine.addCode(code);
+              if (options.injectGlobalThis && options.parseEventSubNames) {
+                setupNamedEventHandlers(engine, boundNamedHandlers);
               }
             }
           }
@@ -57,13 +54,10 @@ export function startObserver(
                 if (forAttr && eventAttr) {
                   setupForEventScript(engine, forAttr, eventAttr, code);
                 } else {
-                  try {
-                    engine.addCode(code);
-                    if (options.injectGlobalThis && options.parseEventSubNames) {
-                      setupNamedEventHandlers(engine, boundNamedHandlers);
-                    }
-                  } catch (error) {
-                    console.error('Vbscript error:', error);
+                  // `addCode` keeps a failure in `engine.error` instead of throwing, so nothing is caught here.
+                  engine.addCode(code);
+                  if (options.injectGlobalThis && options.parseEventSubNames) {
+                    setupNamedEventHandlers(engine, boundNamedHandlers);
                   }
                 }
               }
