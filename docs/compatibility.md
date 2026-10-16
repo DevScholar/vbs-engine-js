@@ -613,6 +613,56 @@ engine difference, while the engine agreed with Windows all along.
 
 ---
 
+## The error a browser host hands a page
+
+A VBScript failure inside a browser reaches the page as a real JavaScript error, which is the shape the browser
+mode of `VbsEngine` reproduces. The reading below was taken with an HTA rather than with Internet Explorer
+itself: the automation object on a current Windows is created but answers every property with `0x800706B5`,
+"the interface is unknown", while an HTA is the same Trident engine in the same document modes and can write its
+own report. One HTA was built per document mode, and the reports are `mode-<n>-report.txt` in the temporary probe
+directory beside the pages that wrote them.
+
+What the document mode changes:
+
+| `X-UA-Compatible` | documentMode | VBScript | `ActiveXObject` | `addEventListener`, `JSON`, `Array.forEach` |
+|---|---|---|---|---|
+| `IE=7` | 7 | runs | there | no |
+| `IE=8` | 8 | runs | there | `JSON` and `querySelector` only |
+| `IE=9` | 9 | runs | there | all there |
+| `IE=10` | 10 | runs | there | all there, and a caught error carries a `stack` |
+| `IE=11`, `IE=edge` | 11 | **gone** | **gone** | all there |
+
+The highest mode that still runs VBScript is 10, and the lowest that has the modern DOM is 9, so a page that
+wants both VBScript and a modern debugger uses `IE=9` or `IE=10`. An HTA that names no mode gets 7.
+
+What a caught error looks like, for a divide by zero, in modes 7 to 10:
+
+| What | How it reads |
+|------|--------------|
+| `typeof` | `object` |
+| `instanceof Error` | `true` |
+| `name` | `Error`, and not an own enumerable property |
+| `number` | `-2146828277`, which is `0x800a000b` |
+| `description`, `message` | both present and equal, and localized by the host: `被零除` under a Chinese locale |
+| `line`, `column`, `lineNumber`, `columnNumber`, `fileName` | absent altogether, in every one of those modes |
+| `stack` | absent in 7 to 9; in 10 it is `Error` with the JavaScript frames |
+| `for...in` | `message,description,number,name` in 7 to 9, `description,number,stack` in 10 |
+
+`window.onerror` is passed exactly three arguments, `(message, url, line)`: no column and no error object. `url`
+is the document's own URL, and `line` is the line in the **document** rather than in the script block, measured
+by putting the failing statement on line 172 of the file and being told 172.
+
+Where this engine differs, on purpose:
+
+* The position of the failing VBScript statement rides on the thrown error as `line` and `column`, and it is
+  counted within the script block it was handed. The host gave a page no column at all and counted in the
+  document.
+* The head of `stack` is written the way `cscript` prints it, as in `(4, 3) Microsoft VBScript runtime error:
+  Division by zero`, so a host that has no stack of its own, which is every mode up to 9, still has that reading.
+* The text stays English, as it is throughout this engine, where the host localizes it.
+
+---
+
 ## Non-Standard Extensions
 
 These features are not part of the VBScript specification and do not exist in
@@ -677,6 +727,10 @@ matches `vbscript.dll`:
   itself is measured and followed: a script that calls `Execute "Exit Sub"` at its own level stops there.
 * **Parts of the `Err` object.** `Err.Source` has no test, `Err.Description` and `Err.HelpContext` have one
   each, and the arguments of `Err.Raise` are not compared.
+* **The error a browser host hands a page.** The section above says what Internet Explorer handed a page, read
+  off an HTA by hand, and the browser mode of this engine follows it. There is no comparison script for it: the
+  shape is a host's, not `vbscript.dll`'s, and the automation interface of Internet Explorer on a current
+  Windows cannot be read from outside anyway.
 * **The text of an error.** The probes compare the error number only, since the description is localized.
 * **COM and the host.** `RegExp`, `Scripting.Dictionary`, `Scripting.FileSystemObject` and `WScript.Shell` are
   out of scope for this engine, which the brief keeps to the `node-ps1-dotnet` project. `WScript` itself is
