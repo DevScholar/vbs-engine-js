@@ -242,6 +242,8 @@ export class VbsEngine {
   private interpreter: Interpreter;
   private options: Required<VbsEngineOptions>;
   private browserCleanup: (() => void) | null = null;
+  /** Removes the hook this engine installed for the end of its host, or null when it installed none. */
+  private hostEndCleanup: (() => void) | null = null;
   private lastError: VbsError | null = null;
   /** This engine's own locale, installed while its code runs (see withLocaleState). */
   private readonly localeState: LocaleState = { locale: null };
@@ -287,10 +289,53 @@ export class VbsEngine {
     if (this.options.mode === 'browser' && typeof window !== 'undefined') {
       this.initializeBrowserMode();
     }
+
+    this.installHostEndHook();
   }
 
   private initializeBrowserMode(): void {
     this.browserCleanup = initializeBrowserEngine(this, this.options);
+  }
+
+  /**
+   * Lets the script go when the host it stands for ends, which is what a script host does.
+   *
+   * Only the engine that claimed host integration installs this. That engine stands for the host, and a host
+   * has an end: `cscript` runs out of script and exits, and an instance the script never dropped has its
+   * `Class_Terminate` run at that moment. An isolated engine is a library the host drives, so it has no end of
+   * its own and the host calls `releaseGlobals()` itself.
+   *
+   * The host's end is the whole process in Node and the page going away in a browser. A page that goes into the
+   * back and forward cache is not ending, so it keeps its instances: `pagehide` says which of the two it is.
+   */
+  private installHostEndHook(): void {
+    if (!this.options.hostIntegration) return;
+
+    const release = () => {
+      try {
+        this.releaseGlobals();
+      } catch {
+        // The host is ending. A Terminate event that throws must not stop the host from ending, and there is
+        // no one left to hand the error to.
+      }
+    };
+
+    if (this.options.mode === 'browser' && typeof window !== 'undefined') {
+      const onPageHide = (event: { persisted?: boolean }) => {
+        if (event.persisted) return;
+        release();
+      };
+      window.addEventListener('pagehide', onPageHide);
+      this.hostEndCleanup = () => window.removeEventListener('pagehide', onPageHide);
+      return;
+    }
+
+    // A listener on the host's own end does not keep the host alive, and every statement a Terminate event
+    // runs is synchronous, which is all an exit handler may do.
+    if (typeof process !== 'undefined' && typeof process.on === 'function') {
+      process.on('exit', release);
+      this.hostEndCleanup = () => process.off('exit', release);
+    }
   }
 
   private setMaxExecutionTime(ms: number): void {
@@ -468,8 +513,9 @@ export class VbsEngine {
   /**
    * Ends a script, which runs the Terminate event of every class instance the script still holds.
    *
-   * A host that runs one whole script calls this when that script is over. `cscript` does the same: an instance
-   * a script never dropped has its `Class_Terminate` run as the script ends.
+   * The engine that claimed host integration does this by itself when its host ends: the process in Node, the
+   * page going away in a browser. A host that runs several scripts through one engine calls this between them,
+   * since the engine cannot tell where one script stopped and the next began.
    *
    * @example
    * ```typescript
@@ -557,11 +603,19 @@ export class VbsEngine {
   /**
    * Cleans up resources and restores any overridden browser functions.
    * Call this method when you no longer need the engine.
+   *
+   * It also takes back the hook this engine installed for the end of its host, so a destroyed engine has no
+   * Terminate events left to run. It does not release the script's own globals: that is `releaseGlobals()`, and
+   * a host that wants it before dropping the engine calls it first.
    */
   destroy(): void {
     if (this.browserCleanup) {
       this.browserCleanup();
       this.browserCleanup = null;
+    }
+    if (this.hostEndCleanup) {
+      this.hostEndCleanup();
+      this.hostEndCleanup = null;
     }
   }
 

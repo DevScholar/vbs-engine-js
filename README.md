@@ -26,9 +26,9 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 | `run(procedureName: string, ...args)` | Calls a function and returns the result |
 | `eval(expression: string)` | Evaluates an expression and returns the result |
 | `addObject(name: string, object: unknown, addMembers?: boolean)` | Exposes a JavaScript object to VBScript |
-| `releaseGlobals()` | Ends a script: runs `Class_Terminate` for every class instance the script still holds, the way the end of a `cscript` script does |
+| `releaseGlobals()` | Ends a script: runs `Class_Terminate` for every class instance the script still holds, the way the end of a `cscript` script does. The engine that claimed host integration calls this by itself when its host ends (the process in Node, the page going away in a browser). A host that runs several scripts through one engine calls it between them |
 | `clearError()` | Clears the last error |
-| `destroy()` | Cleans up resources (browser mode) |
+| `destroy()` | Cleans up resources (browser mode) and takes back the engine's host end hook |
 
 ### Properties
 
@@ -167,7 +167,7 @@ interface VbsEngineOptions {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `mode` | `'general' \| 'browser'` | `'auto'` | Engine mode. Auto-detects based on environment: `'browser'` in browser, `'general'` in Node.js. Use `'browser'` for web applications |
-| `hostIntegration` | `boolean` | first engine `true` | Whether the engine may own the host, as it does in IE or WSH. A host has one of these, so the first engine to ask claims it and every later engine is isolated and cannot ask: it does not own the document, install the `vbscript:` handler, replace the host's `eval` and timers, or publish its functions into the host global. It still reads host globals and still calls objects given to `addObject`. Fixed at construction |
+| `hostIntegration` | `boolean` | first engine `true` | Whether the engine may own the host, as it does in IE or WSH. A host has one of these, so the first engine to ask claims it and every later engine is isolated and cannot ask: it does not own the document, install the `vbscript:` handler, replace the host's `eval` and timers, or publish its functions into the host global. It still reads host globals and still calls objects given to `addObject`. The engine that claims it also lets the script go when the host ends, running `Class_Terminate` there the way `cscript` does. Fixed at construction |
 | `useJsError` | `boolean` | `true` | How an error surfaces when the host runs script no JavaScript call asked for (an inline event attribute, a timer handler). `true` throws a real JavaScript error, which the page can catch; `false` leaves it in `engine.error`. `executeStatement` and `executeStatementThrows` are unaffected: the method called decides |
 | `injectGlobalThis` | `boolean` | `true` | Enable IE-style global variable sharing between VBScript and JavaScript. Reads of host globals are unaffected; this only decides whether the engine publishes its own functions and variables, and it is forced off for an isolated engine |
 | `injectVBArrayToGlobalThis` | `boolean` | `true` | Expose VBArray as `globalThis.VBArray` for legacy code compatibility |
