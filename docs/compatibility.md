@@ -293,7 +293,7 @@ fresh cscript:
 | Source          | ✔️     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | HelpFile        | ✔️     | Read/write `String`, default `""` (no help source); only set when `Err.Raise` passes a helpfile argument. No `.hlp` loading — WinHelp was removed from modern Windows                                                                                                                                                                                                                                                                                                                   |
 | HelpContext     | ✔️     | Read/write `Long`, default `0` (no help source); only set when `Err.Raise` passes a helpcontext argument. No `.hlp` loading                                                                                                                                                                                                                                                                                                                                                             |
-| LastDllError    | ✔️     | Returns 0 (no DLL loader wired)                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| LastDllError    | ⚠️     | Not a member of `vbscript.dll`'s `Err` object at all: measured on a fresh `cscript`, reading it is error 438, the same as any other name that is not there. Kept as a VB6 extension, and it answers 0 because no DLL loader is wired                                                                                                                                                                                                                                                    |
 | Clear           | ✔️     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Raise           | ✔️     | Supports `number, source, description, helpfile, helpcontext`. It fills `Err` and then raises, so a script with no handler stops at that statement, measured on a fresh cscript: a script that writes a line, then `Err.Raise 4321, "a source", "a description"`, then another line prints the first line and `(4, 1) a source: a description`, and the line after it never runs. A handler is what keeps the script going, and the fields it filled are the ones the script then reads |
 
@@ -617,11 +617,16 @@ engine difference, while the engine agreed with Windows all along.
 ## The error a browser host hands a page
 
 A VBScript failure inside a browser reaches the page as a real JavaScript error, which is the shape the browser
-mode of `VbsEngine` reproduces. The reading below was taken with an HTA rather than with Internet Explorer
-itself: the automation object on a current Windows is created but answers every property with `0x800706B5`,
-"the interface is unknown", while an HTA is the same Trident engine in the same document modes and can write its
-own report. One HTA was built per document mode, and the reports are `mode-<n>-report.txt` in the temporary probe
-directory beside the pages that wrote them.
+mode of `VbsEngine` reproduces. The reading of the error object was taken with an HTA rather than with Internet
+Explorer itself: the automation object on a current Windows is created but answers every property with
+`0x800706B5`, "the interface is unknown", while an HTA is the same Trident engine in the same document modes and
+can write its own report. One HTA was built per document mode, and the reports are `mode-<n>-report.txt` in the
+temporary probe directory beside the pages that wrote them.
+
+The part a person reads was taken from Internet Explorer itself. Its automation object cannot be read back, but
+it still starts the browser and still navigates, and `Start-Process iexplore.exe` is redirected to Microsoft Edge
+on this Windows, where there is no VBScript at all. So the page was opened through the automation object and read
+off the F12 console by eye.
 
 What the document mode changes:
 
@@ -652,6 +657,52 @@ What a caught error looks like, for a divide by zero, in modes 7 to 10:
 `window.onerror` is passed exactly three arguments, `(message, url, line)`: no column and no error object. `url`
 is the document's own URL, and `line` is the line in the **document** rather than in the script block, measured
 by putting the failing statement on line 172 of the file and being told 172.
+
+### What a person reading the browser sees
+
+Measured in Internet Explorer 11 on Windows 11 with the page in document mode 8, on a page whose failing
+statements sat at written down lines. Nothing on that page cancelled an error. The F12 **Console** lists one
+failure as two lines:
+
+```
+SCRIPT11: 被零除
+ie8-vbs-errors.html (35,3)
+```
+
+The prefix is `SCRIPT` and the plain VBScript error number, not the HRESULT: a divide by zero is `SCRIPT11`, a
+missing member is `SCRIPT438`, a type mismatch is `SCRIPT13`, and `Err.Raise 4321` is `SCRIPT4321`. The
+description is localized by the host. The second line names the file and then the position in brackets.
+
+That position is the line **in the document**, counted from 1, and the column of the statement within that line.
+It is the same number the third argument of `window.onerror` carries: four failures placed on known lines were
+reported as 27, 36, 49 and 55, which is where those statements were.
+
+The classic error dialog shows one thing more. Microsoft documents it as:
+
+```
+Line:<LineNumber>
+Char:<CharacterNumber>
+Error:<ErrorMessage>
+Code: 0
+URL: http://Webserver/page.htm
+```
+
+`Char` is the only place a column was given a page; `window.onerror` was passed none at all.
+
+Nothing is added to the console for a failure that happened before the console was opened, so a failure while a
+page loads is read only if F12 was already open.
+
+### What VBScript itself could read
+
+Nothing. Measured on a fresh `cscript`, the `Err` object answers five members and nothing besides: `Number`,
+`Description`, `Source`, `HelpFile` and `HelpContext`. Every other name a script might reach for is error 438,
+"Object doesn't support this property or method": `Line`, `Column`, `LineNumber`, `ColumnNumber`, `FileName`,
+`StackTrace`, `Stack`, `CallStack`, `Procedure`, `Erl`, `Help` and `LastDllError`. `WScript` carries no stack
+either, and asking it for `StackTrace`, `Stack`, `CallStack`, `Line` or `Column` is 438 as well.
+
+So a VBScript program cannot look at where it was called from. The position exists only in what the host says at
+the moment it reports a failure, which is why this engine keeps it on `engine.error` rather than on the thrown
+error.
 
 What this engine's own thrown error looks like beside those, for a divide by zero:
 
