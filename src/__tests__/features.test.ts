@@ -1050,7 +1050,11 @@ describe('Error number and position', () => {
     );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.line).toBe(5);
-    expect(engine.error!.column).toBe(7);
+    // The column is counted from zero, the way Microsoft's ScriptControl counts it: the `)` stands at the seventh
+    // column of its line, so the engine answers six and a report prints seven.
+    expect(engine.error!.column).toBe(6);
+    // The text of the offending line is what a parse failure fills, and the control fills it in the same case.
+    expect(engine.error!.text).toBe('  x = )');
   });
 });
 
@@ -1059,9 +1063,11 @@ describe('Error number and position', () => {
 // ---------------------------------------------------------------------------
 // The indented case is the one that matters: it pins the COLUMN as the statement's own start,
 // not the start of the line and not the sub-expression inside it. For these two scripts cscript
-// //E:vbscript reports (5, 5) and (2, 1), which is what these assert. Because every enclosing
-// statement catches the same error again, only the innermost frame may stamp it - a later frame
-// overwriting would move the position out to the block and quietly pass a laxer test.
+// //E:vbscript reports (5, 5) and (2, 1), and the engine holds the same positions counted the way
+// ScriptControl counts the column, which is one less, so a report prints what cscript printed.
+// Because every enclosing statement catches the same error again, only the innermost frame may
+// stamp it - a later frame overwriting would move the position out to the block and quietly pass
+// a laxer test.
 describe('Runtime error position', () => {
   it('reports the failing statement, not the block around it', () => {
     const engine = new VbsEngine();
@@ -1070,14 +1076,14 @@ describe('Runtime error position', () => {
     );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.line).toBe(5);
-    expect(engine.error!.column).toBe(5);
+    expect(engine.error!.column).toBe(4);
   });
 
   it('reports a failure at the top level', () => {
     const engine = new VbsEngine();
     engine.executeStatement(['Dim x', 'x = 1/0'].join('\n'));
     expect(engine.error!.line).toBe(2);
-    expect(engine.error!.column).toBe(1);
+    expect(engine.error!.column).toBe(0);
   });
 });
 
@@ -1133,14 +1139,16 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     const engine = new VbsEngine();
     engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
       name: 'C:\\work\\demo.wsf',
-      startingLineNumber: 3,
+      // Counted from zero, the way IActiveScriptParse::ParseScriptText takes its starting line, so two means the
+      // code's first line is the host script's third line.
+      startingLineNumber: 2,
       columnOffset: 1,
     });
 
-    // The block begins on line 3 of the host's script, so its own third line is the file's line 5, and this host
-    // reports columns one further along than the code's own.
+    // The block begins on the host's line 3, so its own third line is the file's line 5. This host reports columns
+    // one further along than the code's own, and the engine holds them counted from zero besides.
     expect(engine.error!.line).toBe(5);
-    expect(engine.error!.column).toBe(2);
+    expect(engine.error!.column).toBe(1);
     expect(engine.error!.description).toBe('Division by zero');
 
     // The name stays with the host, while a starting line stays with the code it was given for.
@@ -1179,7 +1187,7 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
       /* expected */
     }
     expect(engine.error!.line).toBe(3);
-    expect(engine.error!.column).toBe(1);
+    expect(engine.error!.column).toBe(0);
   });
 
   // Script the host asked for, which nobody called for from JavaScript, has no caller to choose an outlet, so

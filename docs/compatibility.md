@@ -802,18 +802,19 @@ The specification lists the `Error` object's members as `Clear`, `Column`, `Desc
 So a control handed a piece of code can say where in that piece a failure was, and cannot say which file it came
 from, because it was never told.
 
-**The one part of that member set whose scale differs is the column.** The control reports a column counted from
-zero: measured with the failing statement at column 1, 3, 5 and 9 of its line, it answered 0, 2, 4 and 8, where
-`cscript` answered 1, 3, 5 and 9 for the same code. This engine's `error` member counts from one, the way both
-hosts that report a failure count, so the column in a report is ready to print. Read against the control's own
-object it is therefore one greater, which is the one place the mirror is not exact.
+**The column is counted from zero, the way the control counts it.** Measured with the failing statement at column
+1, 3, 5 and 9 of its line, the control answered 0, 2, 4 and 8, where `cscript` answered 1, 3, 5 and 9 for the same
+code. Measured again for a parse failure, on a line whose offending `)` stood at column 5: `cscript` printed
+`(2, 5)` and the control held line 2, column 4, with the offending line in `Text`. So this engine's `error` member
+counts the column from zero too, and every report it writes adds one, because both hosts that print count from one.
+Reading the member is therefore a direct comparison with the control's own object, and printing it takes one step.
 
 The layer underneath is told. `IActiveScriptParse::ParseScriptText`, which is how a host hands script to
 `vbscript.dll`, takes `pstrItemName`, the name of the item the code belongs to, and `ulStartingLineNumber`, which
 Microsoft documents as a zero-based value for the line the parsing begins at. Windows Script Host fills the first
 with the script file and the second with where a block stands in it, which is how a failure in a `.wsf` comes back
-as a line in the `.wsf`. `addCode` takes its `startingLineNumber` counted from one instead, so that the number a
-host passes is the number a failure comes back with, which is the number both hosts print.
+as a line in the `.wsf`. `addCode` takes its `startingLineNumber` counted from zero the same way, so a host passes
+the value its host layer already had.
 
 That is what `addCode`'s position mirrors, so it is an extension of the ScriptControl member set and not an
 invention: the information exists at the engine layer, and no control above it had a way to pass it.

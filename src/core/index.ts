@@ -42,9 +42,13 @@ function vbToJsAuto(value: VbValue): unknown {
 
 /**
  * The mode of operation for the VbsEngine.
- * - 'general': Standard mode for Node.js or custom environments
- * - 'browser': Browser mode with automatic DOM integration, event handling, etc.
- * - 'auto': Automatically detect environment (browser or general)
+ *
+ * - `'general'`: any environment other than a browser. It may be Node compatible, which is what it is developed
+ *   and measured in, but nothing about it is guaranteed to be there: the engine reads what it finds and works
+ *   without the rest. It stands for Windows Script Host, so a failure reads the way `cscript` printed one.
+ * - `'browser'`: a page, with automatic DOM integration, event handling, and the error shape Internet Explorer
+ *   handed a page.
+ * - `'auto'`: `'browser'` when there is a `window`, `'general'` otherwise.
  */
 export type VbsEngineMode = 'general' | 'browser' | 'auto';
 
@@ -131,14 +135,18 @@ export interface VbsScriptPosition {
    */
   name?: string;
   /**
-   * The line in that script the first line of this code stands on, counted from 1. Windows Script Host passes a
-   * block's own starting line, so a block that begins on line 3 of a `.wsf` reports the file's own lines.
+   * The line in that script the first line of this code stands on, counted from **zero** the way
+   * `IActiveScriptParse::ParseScriptText` takes its `ulStartingLineNumber`, which Microsoft documents as "a
+   * zero-based value that specifies which line the parsing will begin at". Zero puts the code's first line on the
+   * script's first line. Windows Script Host passes a block's own starting line, so a block that begins on the
+   * third line of a `.wsf` reports the file's own lines.
    */
   startingLineNumber?: number;
   /**
-   * Added to the column of every failure this code raises. Windows Script Host reports a block taken out of a
-   * `.wsf` one column further along than the same code in a `.vbs`, measured on four blocks whose statements
-   * stood at columns 1, 5, 1 and 9 in their lines and came back as 2, 6, 2 and 10.
+   * Added to the column of every failure this code raises, which is counted from zero the way `ScriptControl`
+   * counts it. Windows Script Host reports a block taken out of a `.wsf` one column further along than the same
+   * code in a `.vbs`, measured on four blocks whose statements stood at columns 1, 5, 1 and 9 in their lines and
+   * came back as 2, 6, 2 and 10.
    */
   columnOffset?: number;
 }
@@ -322,6 +330,8 @@ function withEnumeratedStack<T extends Error>(hostError: T): T {
  * on, and a space at the front of every line when the host reports columns further along than the code's own.
  * Both are how Windows Script Host positions a block it took out of a `.wsf`, and both leave the code's meaning
  * alone, since leading whitespace means nothing to a script.
+ *
+ * A starting line of zero, which is what a host that says nothing gets, stands the code where it already is.
  */
 function standingCode(code: string, position?: VbsScriptPosition): string {
   let standing = code;
@@ -335,10 +345,16 @@ function standingCode(code: string, position?: VbsScriptPosition): string {
       .join('\n');
   }
 
-  const startingLineNumber = position?.startingLineNumber ?? 1;
-  if (startingLineNumber > 1) standing = `${'\n'.repeat(startingLineNumber - 1)}${standing}`;
+  const startingLineNumber = position?.startingLineNumber ?? 0;
+  if (startingLineNumber > 0) standing = `${'\n'.repeat(startingLineNumber)}${standing}`;
 
   return standing;
+}
+
+/** The line of `code` at a one-based line number, or undefined when the line is not there. */
+function lineOfCode(code: string | undefined, line: number | undefined): string | undefined {
+  if (code === undefined || line === undefined || line < 1) return undefined;
+  return code.split('\n')[line - 1];
 }
 
 export class VbsEngine {
@@ -487,12 +503,11 @@ export class VbsEngine {
   addCode(code: string, position?: VbsScriptPosition): void {
     if (position) this.rememberScriptPosition(position);
     this.clearError();
+    // A starting line is applied by standing the code further down a page of its own, so every position the
+    // parser stamps is the line it stands on in the host's file. The code itself is unchanged: leading blank
+    // lines mean nothing to a script.
+    const standing = standingCode(code, position);
     try {
-      // A starting line is applied by standing the code further down a page of its own, so every position the
-      // parser stamps is the line it stands on in the host's file. The code itself is unchanged: leading blank
-      // lines mean nothing to a script.
-      const standing = standingCode(code, position);
-
       // Try to get from cache first
       let program = globalParserCache.get(standing);
 
@@ -508,7 +523,7 @@ export class VbsEngine {
       this.interpreter.run(program);
       this.syncFunctionsToGlobalThis();
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, standing);
     }
   }
 
@@ -528,7 +543,7 @@ export class VbsEngine {
     try {
       withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, statement);
     }
   }
 
@@ -557,7 +572,7 @@ export class VbsEngine {
     try {
       withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, statement);
       throw this.toHostError(err);
     }
   }
@@ -706,7 +721,7 @@ export class VbsEngine {
       const result = withLocaleState(this.localeState, () => this.interpreter.evaluate(expression));
       return vbToJs(result);
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, expression);
       return undefined;
     }
   }
@@ -751,7 +766,7 @@ export class VbsEngine {
     return this.interpreter.getVariable(name);
   }
 
-  private handleError(err: unknown): void {
+  private handleError(err: unknown, code?: string): void {
     if (!(err instanceof Error)) {
       this.lastError = { number: -1, description: String(err), source: '' };
       return;
@@ -781,18 +796,24 @@ export class VbsEngine {
 
     // A parse error carries the token it stopped on; a runtime error was stamped with its
     // statement's position on the way out. Either way VbsError's declared line and column can
-    // finally be filled instead of staying undefined.
+    // finally be filled instead of staying undefined. The line is counted from one, the column
+    // from zero, both the way Microsoft's ScriptControl counts them.
     const at =
       raised.token?.loc?.start ??
       (typeof raised.line === 'number'
         ? { line: raised.line, column: typeof raised.column === 'number' ? raised.column : 0 }
         : undefined);
 
+    // The text of the offending line is what `ScriptControl` fills for a parse failure and leaves empty for
+    // anything else, so the line the parser stopped on is read back out of the code that was handed over.
+    const text = raised.token ? lineOfCode(code, at?.line) : undefined;
+
     this.lastError = {
       number,
       description: err.message,
       source,
-      ...(at ? { line: at.line, column: at.column } : {}),
+      ...(at ? { line: at.line, column: Math.max(0, at.column - 1) } : {}),
+      ...(text !== undefined ? { text } : {}),
       ...(typeof raised.helpFile === 'string' ? { helpFile: raised.helpFile } : {}),
       ...(typeof raised.helpContext === 'number' ? { helpContext: raised.helpContext } : {}),
     };

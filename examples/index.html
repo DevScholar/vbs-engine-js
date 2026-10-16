@@ -224,12 +224,14 @@
       function positionText() {
         var engineError = window.vbsEngine ? window.vbsEngine.error : null;
         if (engineError && typeof engineError.line === 'number') {
+          // The engine counts the column from zero the way Microsoft's ScriptControl does, and Internet Explorer
+          // printed one counted from one, so the number shown here is that one.
           return (
             'line ' +
             engineError.line +
             ', column ' +
-            (typeof engineError.column === 'number' ? engineError.column : 0) +
-            ' (from engine.error, counted in the document, which is where Internet Explorer counted it)'
+            ((typeof engineError.column === 'number' ? engineError.column : 0) + 1) +
+            ' (line from engine.error, counted in the document the way Internet Explorer counted it; column shown the way Internet Explorer printed it, though engine.error counts it from zero)'
           );
         }
         return 'not reported';

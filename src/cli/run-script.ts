@@ -241,7 +241,7 @@ interface ScriptBlock {
   code: string;
   /** The file the failure is reported under, which is the `.wsf` or `.vbs` this host was pointed at. */
   name: string;
-  /** The line in that file the code begins on. */
+  /** The line in that file the code begins on, counted from zero the way the engine takes it. */
   startingLineNumber?: number;
   /** What this host adds to every column it reports, which a `.wsf` does and a `.vbs` does not. */
   columnOffset?: number;
@@ -277,7 +277,7 @@ function resolveSource(cli: CliOptions): {
         language: s.language,
         code: s.code,
         name: abs,
-        ...(found ? { startingLineNumber: found.line } : {}),
+        ...(found ? { startingLineNumber: found.line - 1 } : {}),
         columnOffset: WSF_COLUMN_OFFSET,
       };
     }

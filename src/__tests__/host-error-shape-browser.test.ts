@@ -71,7 +71,9 @@ describe('the error shape a browser hands a page', () => {
     // `engine.error` either way, which is where a page reads it.
     engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
       name: 'C:\\work\\demo.vbs',
-      startingLineNumber: 4,
+      // Counted from zero, so three puts the code's first line on the script's fourth line and its failing third
+      // line on the sixth.
+      startingLineNumber: 3,
     });
     expect(engine.error!.line).toBe(6);
     let named = '';

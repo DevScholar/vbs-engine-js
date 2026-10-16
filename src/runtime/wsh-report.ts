@@ -18,6 +18,12 @@
  * A host that never told the engine what its script is named gets the same line without that part, which is the
  * one piece the engine cannot work out for itself.
  *
+ * The column this reads is the engine's own, which is counted from zero to match Microsoft's `ScriptControl`,
+ * whose `Error` object the engine's `error` member mirrors. Both `cscript` and Internet Explorer print a column
+ * counted from one, so the line this function writes adds one to it. Measured: with the failing statement at
+ * column 1, 3, 5 and 9 of its line, a `ScriptControl` reports 0, 2, 4 and 8 where `cscript` reports 1, 3, 5 and 9,
+ * and both count the line from one.
+ *
  * @internal
  */
 
@@ -28,6 +34,7 @@ export interface WshFailure {
   source?: string;
   /** The line in the script, when the host said where the script's code began. */
   line?: number;
+  /** The column in that line, counted from zero, as the engine's own `error` member carries it. */
   column?: number;
 }
 
@@ -44,6 +51,8 @@ export function formatWshErrorLine(failure: WshFailure, scriptName?: string | nu
   // A failure with no line of its own, which the engine can raise before any script ran, has no position to show.
   if (typeof failure.line !== 'number') return described;
 
-  const column = typeof failure.column === 'number' ? failure.column : 1;
+  // The engine counts the column from zero the way `ScriptControl` does, and every host that prints counts from
+  // one, so the number this writes is the engine's own plus one.
+  const column = (typeof failure.column === 'number' ? failure.column : 0) + 1;
   return `${scriptName ?? ''}(${failure.line}, ${column}) ${described}`;
 }
