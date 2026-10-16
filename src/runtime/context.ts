@@ -113,10 +113,15 @@ export class VbContext {
   /**
    * Lets go of every value the script's own global scope holds, which is what the end of a script does.
    *
-   * The name stays where it is, holding Nothing, since a script that is still running can read it again: what
-   * goes is the instance's reference, so its Terminate event runs. Measured on a fresh cscript with
-   * `Class Probe / Private Sub Class_Terminate() / ... / End Class` and `Set probeOne = New Probe`, where the
-   * Terminate event of the one instance a script never dropped still runs as that script ends.
+   * Each global name stays where it is and keeps holding what it held. What goes is the reference, so an instance
+   * whose last reference this was runs its Terminate event and is marked terminated. A later read of the name
+   * answers that same instance and not Nothing, and letting it go a second time does nothing. A script that has
+   * ended has nothing left to read, so this only shows for a host that releases the globals and then carries on,
+   * which `VbsEngine.releaseGlobals()` lets it do.
+   *
+   * Measured on a fresh cscript with `Class Probe / Private Sub Class_Terminate() / ... / End Class` and
+   * `Set probeOne = New Probe`, where the Terminate event of the one instance a script never dropped still runs
+   * as that script ends.
    */
   releaseGlobals(): void {
     for (const variable of this.globalScope.getVariables()) {

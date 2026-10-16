@@ -33,6 +33,13 @@ describe('the end of the host', () => {
 
     expect(engine.eval('log')).toBe('terminate;');
 
+    // The name is still there and still answers the instance, which is now terminated, and not Nothing: a host
+    // that releases the globals and then carries on can read them. Letting the same value go again runs nothing.
+    expect(engine.eval('TypeName(held)')).toBe('Counter');
+    expect(engine.eval('held Is Nothing')).toBe(false);
+    process.emit('exit', 0);
+    expect(engine.eval('log')).toBe('terminate;');
+
     engine.destroy();
     expect(process.listenerCount('exit')).toBe(before);
   });
