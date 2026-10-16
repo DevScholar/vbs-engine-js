@@ -959,6 +959,28 @@ describe('Parenthesis-less member reads', () => {
     expect(engine.eval('r')).toBe(42);
   });
 
+  // A host function written as a whole statement is a procedure call, the same as it is inside an expression.
+  // Reading the member answers a host function either way, so only the call differs, and it used to be 438:
+  // the example page calls `window.setTimeout "code", 100, "VBScript"` and got
+  // `Object doesn't support this property or method: 'window.setTimeout'`.
+  it('calls a host function written as a statement', () => {
+    const engine = new VbsEngine();
+    const seen: unknown[] = [];
+    engine.addObject(
+      'hlObj',
+      {
+        Record: (text: unknown, delay: unknown) => {
+          seen.push(text, delay);
+          return 1;
+        },
+      },
+      true
+    );
+    engine.executeStatement('hlObj.Record "ShowResult()", 100');
+    expect(engine.error).toBeNull();
+    expect(seen).toEqual(['ShowResult()', 100]);
+  });
+
   it('GUARD leaves a plain host property alone', () => {
     const engine = new VbsEngine();
     engine.addObject('hlObj', { GetValue: () => 42, Name: 'x' }, true);

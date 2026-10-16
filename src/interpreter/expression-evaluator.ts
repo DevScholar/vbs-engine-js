@@ -712,8 +712,11 @@ export class ExpressionEvaluator {
       if (memberResult.type === 'Object' && memberResult.value !== null) {
         // A member that is no method but holds an object is a Sub call when the whole statement names it,
         // which a fresh cscript answers with 438 for `WScript.Arguments` and for `WScript.Arguments(0)` alike,
-        // where the same text inside an expression calls the object's default member.
-        if (statementCall && !isVbMethodObject(memberResult.value as VbObjectValueData)) {
+        // where the same text inside an expression calls the object's default member. A member that holds a
+        // host function is a procedure and is called, which is how `window.setTimeout "code", 100` reaches the
+        // host: reading the member answers the same thing either way, so only the call differs.
+        const memberValue = memberResult.value as VbObjectValueData;
+        if (statementCall && !isVbMethodObject(memberValue) && !isVbJsFunctionObject(memberValue)) {
           throw createVbError(
             VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
             `Object doesn't support this property or method: '${memberExpressionName(calleeExpr)}'`
