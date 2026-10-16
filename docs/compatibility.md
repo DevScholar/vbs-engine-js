@@ -76,7 +76,7 @@ This document tracks the compatibility between this VBScript engine implementati
 | Exit (Do/For/Sub/Function/Property) | ✔️ | |
 | With...End With | ✔️ | |
 | GoTo | ✔️ | With label support |
-| On Error | ✔️ | Resume Next, GoTo 0. Its reach is the procedure it stands in, measured on a fresh cscript: a handler set in a procedure is not in force in a procedure that one calls, and the handler the caller set is in force again once the call returns. So with the handler at script level, `y = 1 / 0` inside a Sub answers 11 and the Sub's own statements after it do not run, while the caller carries on at the statement after the call; and a handler a Function set for itself is gone once it returns, so a later failure at script level is not swallowed |
+| On Error | ✔️ | Resume Next, GoTo 0. Its reach is the procedure it stands in, measured on a fresh cscript: a handler set in a procedure is not in force in a procedure that one calls, and the handler the caller set is in force again once the call returns. So with the handler at script level, `y = 1 / 0` inside a Sub answers 11 and the Sub's own statements after it do not run, while the caller carries on at the statement after the call; and a handler a Function set for itself is gone once it returns, so a later failure at script level is not swallowed. Both statements also reset the `Err` object themselves, which the Err object's own documentation says and a fresh cscript shows: `Err.Raise 4321, "a source", "a description"` followed by another `On Error Resume Next` leaves `Err.Number` 0 with an empty `Source` and `Description` |
 | Resume | ✔️ | Partial implementation |
 
 ---

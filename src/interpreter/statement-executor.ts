@@ -1286,6 +1286,10 @@ export class StatementExecutor {
   private executeOnErrorHandlerStatement(node: VbOnErrorHandlerStatement): VbValue {
     if (node.action === 'resume_next') {
       this.context.onErrorResumeNext = true;
+      // The statement resets the Err object itself, and not only Err.Clear and On Error GoTo 0 do. Measured on
+      // a fresh cscript: after Err.Raise 4321, "a source", "a description", a second On Error Resume Next leaves
+      // Number 0 with an empty Source and Description, and the raise still reads 4321 before it.
+      this.context.clearError();
     } else if (node.action === 'goto_0') {
       this.context.onErrorResumeNext = false;
       this.context.clearError();

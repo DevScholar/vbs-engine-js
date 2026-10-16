@@ -206,3 +206,29 @@ x = 1 / 0`);
     expect(engine._getVariable('answer').value).toBe('handled');
   });
 });
+
+// ---------------------------------------------------------------------------
+// What On Error Resume Next does to Err
+// ---------------------------------------------------------------------------
+// Measured on a fresh cscript, and written in the Err object's own documentation: "The Err object's properties
+// are reset to zero or zero-length strings ("") after an On Error Resume Next statement." The statement resets
+// them itself, so a raise that a handler already dealt with does not stay in Err because a later handler
+// happens to be written.
+describe('what On Error Resume Next does to Err', () => {
+  it('resets Err itself, the way Err.Clear and On Error GoTo 0 do', () => {
+    const engine = new VbsEngine();
+    engine.executeStatement(`On Error Resume Next
+Err.Raise 4321, "a source", "a description"
+raised = CStr(Err.Number)
+raisedSource = Err.Source
+On Error Resume Next
+after = CStr(Err.Number)
+afterSource = Err.Source
+afterDescription = Err.Description`);
+    expect(engine._getVariable('raised').value).toBe('4321');
+    expect(engine._getVariable('raisedSource').value).toBe('a source');
+    expect(engine._getVariable('after').value).toBe('0');
+    expect(engine._getVariable('afterSource').value).toBe('');
+    expect(engine._getVariable('afterDescription').value).toBe('');
+  });
+});
