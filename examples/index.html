@@ -229,7 +229,7 @@
             engineError.line +
             ', column ' +
             (typeof engineError.column === 'number' ? engineError.column : 0) +
-            ' (from engine.error, counted in the script block)'
+            ' (from engine.error, counted in the document, which is where Internet Explorer counted it)'
           );
         }
         return 'not reported';

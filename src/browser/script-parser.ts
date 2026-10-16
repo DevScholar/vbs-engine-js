@@ -1,4 +1,5 @@
 import type { VbsEngine } from '../core/index.ts';
+import { withDocumentLineNumbers } from './document-lines.ts';
 
 export function isVbscriptElement(element: Element): boolean {
   const language = element.getAttribute('language');
@@ -13,10 +14,15 @@ export function isVbscriptElement(element: Element): boolean {
 }
 
 /**
- * Extract VBScript code from script element, handling HTML comment wrapping
- * Supports the legacy pattern: <!-- ... //-->
+ * What a script element holds, written the way the engine reads it, with the newlines that put its first line
+ * where the block's first line stands in the document. Internet Explorer reported a failure in an inline block at
+ * the line in the document, so a page that reads a failure from this engine sees the same number it would have
+ * seen from the browser. See `document-lines.ts` for how that line is worked out and what it cannot see.
+ *
+ * The legacy pattern `<!-- ... //-->` is undone first, since old pages wrapped their script that way to hide it
+ * from browsers that did not know the element.
  */
-function extractVbscriptCode(script: Element): string {
+export function extractVbscriptCode(script: Element): string {
   let code = script.textContent ?? '';
 
   // Trim whitespace
@@ -35,7 +41,7 @@ function extractVbscriptCode(script: Element): string {
     }
   }
 
-  return code;
+  return withDocumentLineNumbers(code, script);
 }
 
 export function parseScriptElement(

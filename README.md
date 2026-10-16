@@ -32,9 +32,9 @@ The `VbsEngine` class provides an API similar to Microsoft's MSScriptControl:
 
 ### Properties
 
-| Property | Type               | Description                                                                                                                                                                         |
-| -------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `error`  | `VbsError \| null` | The last error that occurred, or null. Mirrors MSScriptControl's `Error` object: `number` (pure code), `description`, `source`, `line`, `column`, `text`, `helpFile`, `helpContext` |
+| Property | Type               | Description                                                                                                                                                                                                                                                                                                                                                                |
+| -------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`  | `VbsError \| null` | The last error that occurred, or null. Mirrors MSScriptControl's `Error` object: `number` (pure code), `description`, `source`, `line`, `column`, `text`, `helpFile`, `helpContext`. Browser mode counts `line` in the document, which is where Internet Explorer counted it, and falls back to counting within the script block when it cannot work the document line out |
 
 ### Example Usage
 

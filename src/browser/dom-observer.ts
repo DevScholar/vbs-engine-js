@@ -1,5 +1,5 @@
 import type { VbsEngine } from '../core/index.ts';
-import { isVbscriptElement, setupForEventScript } from './script-parser.ts';
+import { extractVbscriptCode, isVbscriptElement, setupForEventScript } from './script-parser.ts';
 import { setupElementInlineEvents, setupNamedEventHandlers } from './event-handlers.ts';
 import type { BrowserRuntimeOptions } from './types.ts';
 import type { BoundNamedHandler } from './event-handlers.ts';
@@ -24,7 +24,7 @@ export function startObserver(
             element.tagName.toLowerCase() === 'script' &&
             isVbscriptElement(element)
           ) {
-            const code = element.textContent ?? '';
+            const code = extractVbscriptCode(element);
             const forAttr = element.getAttribute('for');
             const eventAttr = element.getAttribute('event');
 
@@ -47,7 +47,7 @@ export function startObserver(
             const scripts = element.querySelectorAll('script');
             scripts.forEach(script => {
               if (isVbscriptElement(script)) {
-                const code = script.textContent ?? '';
+                const code = extractVbscriptCode(script);
                 const forAttr = script.getAttribute('for');
                 const eventAttr = script.getAttribute('event');
 

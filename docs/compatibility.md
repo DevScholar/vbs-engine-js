@@ -724,8 +724,29 @@ Two things the host never put on the object are deliberately still absent:
 - There is no `line` and no `column`. Internet Explorer reported the line of a failing script through the
   arguments of `window.onerror`, and those arguments describe the JavaScript throw site, which for a VBScript
   failure is inside the engine. The position is not lost: the MSScriptControl-style `engine.error` member carries
-  `line` and `column` beside the same fields, counted within the script block rather than within the document.
+  `line` and `column` beside the same fields.
 - The text stays English, as it is throughout this engine, where the host localizes it.
+
+### Where `engine.error` counts its line
+
+Internet Explorer counted the line in the **document**, so a page that reads a failure from this engine is given
+the same number. Verified on the example page: the failing statement stands on line 135 of the HTML the server
+hands out, and the engine reports 135.
+
+A document does not keep its own line numbers, so the browser mode counts them from what it does keep. The
+element is looked for in `documentElement.innerHTML` by its own `outerHTML`, and the newlines before it are
+counted. The lines before the `<html>` tag are gone from the DOM, because the parser drops the whitespace there,
+so they are counted back from the doctype and the comments the document node still holds. Three things are taken
+to be so, and a page that breaks one of them is given a line that is short by the difference:
+
+- the doctype, each comment before `<html>`, and the `<html>` tag occupy one line each, with no blank line
+  between them,
+- the whitespace between the `<html>` tag and `<head>` is one newline,
+- and the block's text can be found in the written back document.
+
+Should any of that fail, the line falls back to being counted within the script block, which is what it always
+was. Node mode and `Execute` have no document to count in, so their positions stay counted within the script that
+was handed to them.
 
 ---
 
