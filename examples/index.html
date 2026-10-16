@@ -24,6 +24,12 @@
     <h2>JS/VBS Shared Variables</h2>
     <div id="demo-result"></div>
 
+    <h2>VBScript Error</h2>
+    <p>
+        <button id="btnRaiseError">Run a Sub that fails</button>
+    </p>
+    <pre id="error-output">(no error yet)</pre>
+
     <h2>Functions</h2>
     <div id="output"></div>
 
@@ -123,6 +129,14 @@
         MsgBox "VBS variable: " & sharedMessage, 64, "From VBS"
     End Sub
 
+    ' A Sub the error button calls. It fails on purpose, so a page can see what a VBScript failure looks like
+    ' from JavaScript.
+    Sub BtnRaiseError_OnClick()
+        Dim divisor, answer
+        divisor = 0
+        answer = 1 / divisor
+    End Sub
+
     Sub Window_OnLoad()
     End Sub
   </script>
@@ -187,6 +201,53 @@ End Sub
 
         // Poll every 100ms until VBS ShowResult has run and set the content
         var pollTimer = setInterval(showFinalResult, 100);
+
+        // ===== Reporting a VBScript error =====
+        // A VBScript failure reaches the page as a real JavaScript error, which is the shape IE's script error
+        // reached it in, so `window.onerror` is where a page reports one.
+        //
+        // Where the script stopped is `line` and `column` on the error, which the engine fills from the statement
+        // it failed on and counts within the script block it was handed, not within the document. IE reported
+        // that position through the arguments of `window.onerror` rather than on the error object, and gave the
+        // page no column at all, so a page that wants either reads them here. Those same `window.onerror`
+        // arguments describe the JavaScript throw site, which for a VBScript failure is inside the engine.
+        //
+        // The stack needs no work from the page: the engine writes the head of it itself, in the reading
+        // `cscript` prints, because `error.stack` is an ordinary writable property and belongs to that one error.
+        // V8 does offer `Error.prepareStackTrace` for the same job, but it is a hook on the whole page and would
+        // rewrite the stack of every other error the page reports. Firefox has no such hook and keeps its throw
+        // position in the non-standard `lineNumber` and `columnNumber`, which are read only and say where
+        // JavaScript threw rather than where the VBScript stopped.
+
+        function codeText(number) {
+            if (typeof number !== 'number') return '(not reported)';
+            return '0x' + (number >>> 0).toString(16);
+        }
+
+        function positionText(error) {
+            if (error && typeof error.line === 'number') {
+                var column = typeof error.column === 'number' ? error.column : 0;
+                return 'line ' + error.line + ', column ' + column;
+            }
+            if (error && typeof error.lineNumber === 'number') {
+                return 'JavaScript line ' + error.lineNumber + ', column ' + (error.columnNumber || 0) + ' (Firefox)';
+            }
+            return 'not reported';
+        }
+
+        window.onerror = function (message, source, line, column, error) {
+            var parts = [
+                'Description:       ' + (error && error.description ? error.description : message),
+                'Code:              ' + codeText(error && error.number),
+                'VBScript position: ' + positionText(error),
+                'JavaScript site:   ' + source + ':' + line + ':' + column,
+                '',
+                'Stack:',
+                error && error.stack ? error.stack : '(not available)',
+            ];
+            document.getElementById('error-output').textContent = parts.join('\n');
+            return false;
+        };
     </script>
 
     <script type="text/vbscript">
