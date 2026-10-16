@@ -18,6 +18,13 @@ describe('Host integration is claimed once per process', () => {
     const host = new VbsEngine();
     host.addCode('Function HostFn()\nHostFn = 42\nEnd Function');
     expect(typeof globals.HostFn).toBe('function');
+
+    // A variable is published under the name the script wrote, not the lower case name the engine looks names
+    // up with: JavaScript is case sensitive, so the two are different names on the host. Publishing the lower
+    // case one left `vbsMessage` undefined on the example page while `vbsmessage` held the value.
+    host.addCode('publishedMessage = "Hello from VBS"');
+    expect(globals.publishedMessage).toBe('Hello from VBS');
+    expect(globals.publishedmessage).toBeUndefined();
   });
 
   it('isolates every engine constructed after the claim is taken', () => {

@@ -732,20 +732,25 @@ export class VbsEngine {
     if (context.globalScope) {
       const allVars = context.globalScope.getAllVariables();
       for (const [, vbVar] of allVars) {
-        const originalName = vbVar.name;
-        if (originalName in (globalThis as Record<string, unknown>)) continue;
+        // `vbVar.name` is interned to lower case for the case insensitive lookup inside the engine, and
+        // `originalName` is the name the script wrote. The host gets the name the script wrote, since
+        // JavaScript is case sensitive: publishing the interned name put `vbsmessage` on the page where its
+        // own JavaScript read `vbsMessage`, so every read of a VBScript variable from the page came back
+        // undefined. The lookup below interns either way, so it takes the same name.
+        const publishedName = vbVar.originalName;
+        if (publishedName in (globalThis as Record<string, unknown>)) continue;
 
         try {
-          Object.defineProperty(globalThis, originalName, {
+          Object.defineProperty(globalThis, publishedName, {
             get() {
-              const variable = context.globalScope.get(originalName);
+              const variable = context.globalScope.get(publishedName);
               if (variable) {
                 return vbToJs(variable.value);
               }
               return undefined;
             },
             set(value: unknown) {
-              context.globalScope.set(originalName, jsToVb(value));
+              context.globalScope.set(publishedName, jsToVb(value));
             },
             configurable: true,
             enumerable: true,
@@ -753,7 +758,7 @@ export class VbsEngine {
         } catch {
           // Fallback: static copy for non-configurable properties
           if (vbVar.value && vbVar.value.type !== 'Empty') {
-            (globalThis as Record<string, unknown>)[originalName] = vbToJs(vbVar.value);
+            (globalThis as Record<string, unknown>)[publishedName] = vbToJs(vbVar.value);
           }
         }
       }
