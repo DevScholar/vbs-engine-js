@@ -1,5 +1,8 @@
 # VBSEngineJS
 
+> **Note:** this version is the last of the 1.x series. The API of version 2 will not be compatible with
+> version 1. There will be a long pre-release period before version 2 is officially released.
+
 A VBScript engine implemented in TypeScript, supporting VBScript code execution in browser and Node.js environments.
 
 ## Installation
