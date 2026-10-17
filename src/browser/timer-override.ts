@@ -1,9 +1,15 @@
-import type { VbsEngine } from '../core/index.ts';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { OriginalSetTimeout, OriginalSetInterval, TimerOverrideState } from './types.ts';
+import type { VbsEngine } from "../core/index.ts";
+// A block rather than a line, because the formatter decides how many lines this import takes.
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import type {
+  OriginalSetTimeout,
+  OriginalSetInterval,
+  TimerOverrideState,
+} from "./types.ts";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export function overrideTimers(engine: VbsEngine): TimerOverrideState {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return { originalSetTimeout: null, originalSetInterval: null };
   }
 
@@ -16,11 +22,12 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
     languageOrArg?: unknown,
     ...args: unknown[]
   ): ReturnType<typeof setTimeout> {
-    if (typeof handler === 'string') {
-      const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
-      const actualDelay = typeof delay === 'number' ? delay : 0;
+    if (typeof handler === "string") {
+      const language =
+        typeof languageOrArg === "string" ? languageOrArg.toLowerCase() : null;
+      const actualDelay = typeof delay === "number" ? delay : 0;
 
-      if (language === 'vbscript' || language === 'vbs') {
+      if (language === "vbscript" || language === "vbs") {
         return originalSetTimeout.call(
           window,
           () => {
@@ -31,7 +38,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
               engine.executeHostScript(handler);
             }
           },
-          actualDelay
+          actualDelay,
         );
       }
 
@@ -45,7 +52,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
             engine.executeHostScript(handler);
           }
         },
-        actualDelay
+        actualDelay,
       );
     }
 
@@ -53,7 +60,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
       window,
       handler as (...a: unknown[]) => void,
       delay as number | undefined,
-      ...[languageOrArg, ...args].filter(a => a !== undefined)
+      ...[languageOrArg, ...args].filter((a) => a !== undefined),
     );
   };
 
@@ -63,11 +70,12 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
     languageOrArg?: unknown,
     ...args: unknown[]
   ): ReturnType<typeof setInterval> {
-    if (typeof handler === 'string') {
-      const language = typeof languageOrArg === 'string' ? languageOrArg.toLowerCase() : null;
-      const actualDelay = typeof delay === 'number' ? delay : 0;
+    if (typeof handler === "string") {
+      const language =
+        typeof languageOrArg === "string" ? languageOrArg.toLowerCase() : null;
+      const actualDelay = typeof delay === "number" ? delay : 0;
 
-      if (language === 'vbscript' || language === 'vbs') {
+      if (language === "vbscript" || language === "vbs") {
         return originalSetInterval.call(
           window,
           () => {
@@ -78,7 +86,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
               engine.executeHostScript(handler);
             }
           },
-          actualDelay
+          actualDelay,
         );
       }
 
@@ -92,7 +100,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
             engine.executeHostScript(handler);
           }
         },
-        actualDelay
+        actualDelay,
       );
     }
 
@@ -100,7 +108,7 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
       window,
       handler as (...a: unknown[]) => void,
       delay as number | undefined,
-      ...[languageOrArg, ...args].filter(a => a !== undefined)
+      ...[languageOrArg, ...args].filter((a) => a !== undefined),
     );
   };
 
@@ -108,12 +116,14 @@ export function overrideTimers(engine: VbsEngine): TimerOverrideState {
 }
 
 export function restoreTimers(state: TimerOverrideState): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
   if (state.originalSetTimeout) {
-    (window as unknown as Record<string, unknown>).setTimeout = state.originalSetTimeout;
+    (window as unknown as Record<string, unknown>).setTimeout =
+      state.originalSetTimeout;
   }
   if (state.originalSetInterval) {
-    (window as unknown as Record<string, unknown>).setInterval = state.originalSetInterval;
+    (window as unknown as Record<string, unknown>).setInterval =
+      state.originalSetInterval;
   }
 }

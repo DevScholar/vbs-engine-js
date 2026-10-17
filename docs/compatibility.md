@@ -740,18 +740,23 @@ Two things the host never put on the object are deliberately still absent:
 ### Where `engine.error` counts its line
 
 Internet Explorer counted the line in the **document**, so a page that reads a failure from this engine is given
-the same number. Verified on the example page: the failing statement stands on line 135 of the HTML the server
-hands out, and the engine reports 135.
+the same number. Verified on the example page: the failing statement stands on line 139 of the HTML the server
+hands out, and the engine reports 139.
 
 A document does not keep its own line numbers, so the browser mode counts them from what it does keep. The
 element is looked for in `documentElement.innerHTML` by its own `outerHTML`, and the newlines before it are
 counted. The lines before the `<html>` tag are gone from the DOM, because the parser drops the whitespace there,
-so they are counted back from the doctype and the comments the document node still holds. Three things are taken
+so they are counted back from the doctype and the comments the document node still holds. Four things are taken
 to be so, and a page that breaks one of them is given a line that is short by the difference:
 
 - the doctype, each comment before `<html>`, and the `<html>` tag occupy one line each, with no blank line
   between them,
 - the whitespace between the `<html>` tag and `<head>` is one newline,
+- no tag is written across more than one line, because the browser writes a tag back out as one line, so the
+  newlines inside it are gone and every line under it comes out short. A formatter that wraps a long element does
+  exactly this: formatting the example page with the defaults split one button across five lines and left every
+  line under it reported three short, which is why that one button carries a `prettier-ignore` comment in front of
+  it,
 - and the block's text can be found in the written back document.
 
 Should any of that fail, the line falls back to being counted within the script block, which is what it always

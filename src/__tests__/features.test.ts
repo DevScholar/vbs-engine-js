@@ -1,61 +1,61 @@
-import { describe, it, expect } from 'vitest';
-import { VbsEngine } from '../index.ts';
+import { describe, it, expect } from "vitest";
+import { VbsEngine } from "../index.ts";
 
 // ---------------------------------------------------------------------------
 // VB6 Type Syntax (As Type in declarations and parameters)
 // ---------------------------------------------------------------------------
-describe('VB6 Type Syntax', () => {
-  it('Dim with As Integer initializes to 0', () => {
+describe("VB6 Type Syntax", () => {
+  it("Dim with As Integer initializes to 0", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim x As Integer');
-    expect(engine._getVariable('x').type).toBe('Integer');
-    expect(engine._getVariable('x').value).toBe(0);
+    engine.executeStatement("Dim x As Integer");
+    expect(engine._getVariable("x").type).toBe("Integer");
+    expect(engine._getVariable("x").value).toBe(0);
   });
 
-  it('Dim with As Long initializes to 0', () => {
+  it("Dim with As Long initializes to 0", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim x As Long');
-    expect(engine._getVariable('x').type).toBe('Long');
-    expect(engine._getVariable('x').value).toBe(0);
+    engine.executeStatement("Dim x As Long");
+    expect(engine._getVariable("x").type).toBe("Long");
+    expect(engine._getVariable("x").value).toBe(0);
   });
 
-  it('Dim with As String initializes to empty string', () => {
+  it("Dim with As String initializes to empty string", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim s As String');
-    expect(engine._getVariable('s').type).toBe('String');
-    expect(engine._getVariable('s').value).toBe('');
+    engine.executeStatement("Dim s As String");
+    expect(engine._getVariable("s").type).toBe("String");
+    expect(engine._getVariable("s").value).toBe("");
   });
 
-  it('Dim with As Boolean initializes to False', () => {
+  it("Dim with As Boolean initializes to False", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim b As Boolean');
-    expect(engine._getVariable('b').type).toBe('Boolean');
-    expect(engine._getVariable('b').value).toBe(false);
+    engine.executeStatement("Dim b As Boolean");
+    expect(engine._getVariable("b").type).toBe("Boolean");
+    expect(engine._getVariable("b").value).toBe(false);
   });
 
-  it('Dim with As Double initializes to 0', () => {
+  it("Dim with As Double initializes to 0", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim d As Double');
-    expect(engine._getVariable('d').type).toBe('Double');
-    expect(engine._getVariable('d').value).toBe(0);
+    engine.executeStatement("Dim d As Double");
+    expect(engine._getVariable("d").type).toBe("Double");
+    expect(engine._getVariable("d").value).toBe(0);
   });
 
-  it('Dim with As Byte initializes to 0', () => {
+  it("Dim with As Byte initializes to 0", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim b As Byte');
-    expect(engine._getVariable('b').type).toBe('Byte');
-    expect(engine._getVariable('b').value).toBe(0);
+    engine.executeStatement("Dim b As Byte");
+    expect(engine._getVariable("b").type).toBe("Byte");
+    expect(engine._getVariable("b").value).toBe(0);
   });
 
-  it('Dim with As Object initializes to Nothing', () => {
+  it("Dim with As Object initializes to Nothing", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Set obj = Nothing');
-    const v = engine._getVariable('obj');
-    expect(v.type).toBe('Object');
+    engine.executeStatement("Set obj = Nothing");
+    const v = engine._getVariable("obj");
+    expect(v.type).toBe("Object");
     expect(v.value).toBeNull();
   });
 
-  it('Function with typed parameter and return type parses correctly', () => {
+  it("Function with typed parameter and return type parses correctly", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Function Add(ByVal a As Integer, ByVal b As Integer) As Long
@@ -63,10 +63,10 @@ describe('VB6 Type Syntax', () => {
       End Function
       result = Add(3, 4)
     `);
-    expect(engine._getVariable('result').value).toBe(7);
+    expect(engine._getVariable("result").value).toBe(7);
   });
 
-  it('Sub with typed parameters works', () => {
+  it("Sub with typed parameters works", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Sub Greet(ByVal name As String)
@@ -74,10 +74,10 @@ describe('VB6 Type Syntax', () => {
       End Sub
       Greet("World")
     `);
-    expect(engine._getVariable('greeting').value).toBe('Hello World');
+    expect(engine._getVariable("greeting").value).toBe("Hello World");
   });
 
-  it('Property Get with As Type parses correctly', () => {
+  it("Property Get with As Type parses correctly", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Class Counter
@@ -93,15 +93,15 @@ describe('VB6 Type Syntax', () => {
       c.Count = 5
       result = c.Count
     `);
-    expect(engine._getVariable('result').value).toBe(5);
+    expect(engine._getVariable("result").value).toBe(5);
   });
 });
 
 // ---------------------------------------------------------------------------
 // VB6 Enums
 // ---------------------------------------------------------------------------
-describe('VB6 Enums', () => {
-  it('Enum members are declared as constants with auto-increment from 0', () => {
+describe("VB6 Enums", () => {
+  it("Enum members are declared as constants with auto-increment from 0", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Enum Color
@@ -110,12 +110,12 @@ describe('VB6 Enums', () => {
         Blue
       End Enum
     `);
-    expect(engine._getVariable('Red').value).toBe(0);
-    expect(engine._getVariable('Green').value).toBe(1);
-    expect(engine._getVariable('Blue').value).toBe(2);
+    expect(engine._getVariable("Red").value).toBe(0);
+    expect(engine._getVariable("Green").value).toBe(1);
+    expect(engine._getVariable("Blue").value).toBe(2);
   });
 
-  it('Enum members with explicit values', () => {
+  it("Enum members with explicit values", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Enum Status
@@ -124,12 +124,12 @@ describe('VB6 Enums', () => {
         Inactive = 30
       End Enum
     `);
-    expect(engine._getVariable('Pending').value).toBe(10);
-    expect(engine._getVariable('Active').value).toBe(20);
-    expect(engine._getVariable('Inactive').value).toBe(30);
+    expect(engine._getVariable("Pending").value).toBe(10);
+    expect(engine._getVariable("Active").value).toBe(20);
+    expect(engine._getVariable("Inactive").value).toBe(30);
   });
 
-  it('Enum auto-increment after explicit value', () => {
+  it("Enum auto-increment after explicit value", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Enum Priority
@@ -139,13 +139,13 @@ describe('VB6 Enums', () => {
         Critical
       End Enum
     `);
-    expect(engine._getVariable('Low').value).toBe(0);
-    expect(engine._getVariable('Medium').value).toBe(10);
-    expect(engine._getVariable('High').value).toBe(11);
-    expect(engine._getVariable('Critical').value).toBe(12);
+    expect(engine._getVariable("Low").value).toBe(0);
+    expect(engine._getVariable("Medium").value).toBe(10);
+    expect(engine._getVariable("High").value).toBe(11);
+    expect(engine._getVariable("Critical").value).toBe(12);
   });
 
-  it('Enum values can be used in expressions', () => {
+  it("Enum values can be used in expressions", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Enum Direction
@@ -156,10 +156,10 @@ describe('VB6 Enums', () => {
       End Enum
       heading = East + 45
     `);
-    expect(engine._getVariable('heading').value).toBe(135);
+    expect(engine._getVariable("heading").value).toBe(135);
   });
 
-  it('Enum values can be used in Select Case', () => {
+  it("Enum values can be used in Select Case", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Enum Fruit
@@ -177,10 +177,10 @@ describe('VB6 Enums', () => {
           result = "cherry"
       End Select
     `);
-    expect(engine._getVariable('result').value).toBe('banana');
+    expect(engine._getVariable("result").value).toBe("banana");
   });
 
-  it('Public Enum is accessible globally', () => {
+  it("Public Enum is accessible globally", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Public Enum Weekday2
@@ -190,24 +190,24 @@ describe('VB6 Enums', () => {
       End Enum
       day = Wed
     `);
-    expect(engine._getVariable('day').value).toBe(3);
+    expect(engine._getVariable("day").value).toBe(3);
   });
 });
 
 // ---------------------------------------------------------------------------
 // VB6 Collection
 // ---------------------------------------------------------------------------
-describe('VB6 Collection', () => {
-  it('New Collection creates an empty collection', () => {
+describe("VB6 Collection", () => {
+  it("New Collection creates an empty collection", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
       result = col.Count
     `);
-    expect(engine._getVariable('result').value).toBe(0);
+    expect(engine._getVariable("result").value).toBe(0);
   });
 
-  it('Collection.Add increases Count', () => {
+  it("Collection.Add increases Count", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -215,10 +215,10 @@ describe('VB6 Collection', () => {
       col.Add "Beta"
       result = col.Count
     `);
-    expect(engine._getVariable('result').value).toBe(2);
+    expect(engine._getVariable("result").value).toBe(2);
   });
 
-  it('Collection.Item with 1-based index', () => {
+  it("Collection.Item with 1-based index", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -229,12 +229,12 @@ describe('VB6 Collection', () => {
       r2 = col.Item(2)
       r3 = col.Item(3)
     `);
-    expect(engine._getVariable('r1').value).toBe('First');
-    expect(engine._getVariable('r2').value).toBe('Second');
-    expect(engine._getVariable('r3').value).toBe('Third');
+    expect(engine._getVariable("r1").value).toBe("First");
+    expect(engine._getVariable("r2").value).toBe("Second");
+    expect(engine._getVariable("r3").value).toBe("Third");
   });
 
-  it('Collection.Add with string key allows Item lookup by key', () => {
+  it("Collection.Add with string key allows Item lookup by key", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -245,12 +245,12 @@ describe('VB6 Collection', () => {
       r2 = col.Item("UK")
       r3 = col.Item("DE")
     `);
-    expect(engine._getVariable('r1').value).toBe('Paris');
-    expect(engine._getVariable('r2').value).toBe('London');
-    expect(engine._getVariable('r3').value).toBe('Berlin');
+    expect(engine._getVariable("r1").value).toBe("Paris");
+    expect(engine._getVariable("r2").value).toBe("London");
+    expect(engine._getVariable("r3").value).toBe("Berlin");
   });
 
-  it('Collection.Remove by index', () => {
+  it("Collection.Remove by index", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -262,12 +262,12 @@ describe('VB6 Collection', () => {
       r1 = col.Item(1)
       r2 = col.Item(2)
     `);
-    expect(engine._getVariable('result').value).toBe(2);
-    expect(engine._getVariable('r1').value).toBe('A');
-    expect(engine._getVariable('r2').value).toBe('C');
+    expect(engine._getVariable("result").value).toBe(2);
+    expect(engine._getVariable("r1").value).toBe("A");
+    expect(engine._getVariable("r2").value).toBe("C");
   });
 
-  it('Collection.Remove by key', () => {
+  it("Collection.Remove by key", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -277,11 +277,11 @@ describe('VB6 Collection', () => {
       result = col.Count
       r1 = col.Item(1)
     `);
-    expect(engine._getVariable('result').value).toBe(1);
-    expect(engine._getVariable('r1').value).toBe('London');
+    expect(engine._getVariable("result").value).toBe(1);
+    expect(engine._getVariable("r1").value).toBe("London");
   });
 
-  it('For Each iterates all Collection items', () => {
+  it("For Each iterates all Collection items", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -293,10 +293,10 @@ describe('VB6 Collection', () => {
         total = total + item
       Next
     `);
-    expect(engine._getVariable('total').value).toBe(60);
+    expect(engine._getVariable("total").value).toBe(60);
   });
 
-  it('Collection stores mixed types', () => {
+  it("Collection stores mixed types", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Set col = New Collection
@@ -307,9 +307,9 @@ describe('VB6 Collection', () => {
       s = col.Item(2)
       b = col.Item(3)
     `);
-    expect(engine._getVariable('n').value).toBe(42);
-    expect(engine._getVariable('s').value).toBe('hello');
-    expect(engine._getVariable('b').value).toBe(true);
+    expect(engine._getVariable("n").value).toBe(42);
+    expect(engine._getVariable("s").value).toBe("hello");
+    expect(engine._getVariable("b").value).toBe(true);
   });
 
   it('TypeName of Collection is "Collection"', () => {
@@ -318,105 +318,105 @@ describe('VB6 Collection', () => {
       Set col = New Collection
       result = TypeName(col)
     `);
-    expect(engine._getVariable('result').value).toBe('Collection');
+    expect(engine._getVariable("result").value).toBe("Collection");
   });
 });
 
 // ---------------------------------------------------------------------------
 // VBA7 LongLong type and 64-bit integer support
 // ---------------------------------------------------------------------------
-describe('VBA7 LongLong type', () => {
-  it('Dim with As LongLong initializes to BigInt(0)', () => {
+describe("VBA7 LongLong type", () => {
+  it("Dim with As LongLong initializes to BigInt(0)", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim x As LongLong');
-    const v = engine._getVariable('x');
-    expect(v.type).toBe('LongLong');
+    engine.executeStatement("Dim x As LongLong");
+    const v = engine._getVariable("x");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(0));
   });
 
-  it('CLngLng converts integer to LongLong', () => {
+  it("CLngLng converts integer to LongLong", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = CLngLng(42)');
-    const v = engine._getVariable('x');
-    expect(v.type).toBe('LongLong');
+    engine.executeStatement("x = CLngLng(42)");
+    const v = engine._getVariable("x");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(42));
   });
 
-  it('CLngLng converts string to LongLong', () => {
+  it("CLngLng converts string to LongLong", () => {
     const engine = new VbsEngine();
     engine.executeStatement('x = CLngLng("9223372036854775807")');
-    const v = engine._getVariable('x');
-    expect(v.type).toBe('LongLong');
-    expect(v.value).toBe(BigInt('9223372036854775807'));
+    const v = engine._getVariable("x");
+    expect(v.type).toBe("LongLong");
+    expect(v.value).toBe(BigInt("9223372036854775807"));
   });
 
-  it('CLngLng converts negative value', () => {
+  it("CLngLng converts negative value", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = CLngLng(-100)');
-    const v = engine._getVariable('x');
-    expect(v.type).toBe('LongLong');
+    engine.executeStatement("x = CLngLng(-100)");
+    const v = engine._getVariable("x");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(-100));
   });
 
-  it('LongLong + LongLong = LongLong', () => {
+  it("LongLong + LongLong = LongLong", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(1000000000)
       b = CLngLng(2000000000)
       c = a + b
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('LongLong');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(3000000000));
   });
 
-  it('LongLong - LongLong = LongLong', () => {
+  it("LongLong - LongLong = LongLong", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(5000000000)
       b = CLngLng(3000000000)
       c = a - b
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('LongLong');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(2000000000));
   });
 
-  it('LongLong * LongLong = LongLong', () => {
+  it("LongLong * LongLong = LongLong", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(1000000)
       b = CLngLng(1000000)
       c = a * b
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('LongLong');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(1000000000000));
   });
 
-  it('LongLong + Integer = LongLong', () => {
+  it("LongLong + Integer = LongLong", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(9000000000)
       c = a + 1
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('LongLong');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(9000000001));
   });
 
-  it('LongLong + Double promotes to Double', () => {
+  it("LongLong + Double promotes to Double", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(100)
       c = a + 1.5
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('Double');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("Double");
     expect(v.value).toBeCloseTo(101.5);
   });
 
-  it('LongLong comparison works', () => {
+  it("LongLong comparison works", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(9000000000)
@@ -424,54 +424,54 @@ describe('VBA7 LongLong type', () => {
       If a = b Then eq = True Else eq = False
       If CLngLng(1) < CLngLng(2) Then lt = True Else lt = False
     `);
-    expect(engine._getVariable('eq').value).toBe(true);
-    expect(engine._getVariable('lt').value).toBe(true);
+    expect(engine._getVariable("eq").value).toBe(true);
+    expect(engine._getVariable("lt").value).toBe(true);
   });
 
-  it('VarType of LongLong is 20', () => {
+  it("VarType of LongLong is 20", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = VarType(CLngLng(0))');
-    expect(engine._getVariable('x').value).toBe(20);
+    engine.executeStatement("x = VarType(CLngLng(0))");
+    expect(engine._getVariable("x").value).toBe(20);
   });
 
   it('TypeName of LongLong is "LongLong"', () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = TypeName(CLngLng(0))');
-    expect(engine._getVariable('x').value).toBe('LongLong');
+    engine.executeStatement("x = TypeName(CLngLng(0))");
+    expect(engine._getVariable("x").value).toBe("LongLong");
   });
 
-  it('CStr converts LongLong to string', () => {
+  it("CStr converts LongLong to string", () => {
     const engine = new VbsEngine();
     engine.executeStatement('x = CStr(CLngLng("9223372036854775807"))');
-    expect(engine._getVariable('x').value).toBe('9223372036854775807');
+    expect(engine._getVariable("x").value).toBe("9223372036854775807");
   });
 
-  it('LongLong integer division (\\)', () => {
+  it("LongLong integer division (\\)", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       a = CLngLng(10000000000)
       b = CLngLng(3)
       c = a \\ b
     `);
-    const v = engine._getVariable('c');
-    expect(v.type).toBe('LongLong');
+    const v = engine._getVariable("c");
+    expect(v.type).toBe("LongLong");
     expect(v.value).toBe(BigInt(3333333333));
   });
 
-  it('64-bit range: max LongLong via string', () => {
+  it("64-bit range: max LongLong via string", () => {
     const engine = new VbsEngine();
     engine.executeStatement('x = CLngLng("9223372036854775807")');
-    const v = engine._getVariable('x');
-    expect(v.type).toBe('LongLong');
-    expect(v.value).toBe(BigInt('9223372036854775807'));
+    const v = engine._getVariable("x");
+    expect(v.type).toBe("LongLong");
+    expect(v.value).toBe(BigInt("9223372036854775807"));
   });
 });
 
 // ---------------------------------------------------------------------------
 // VB6 User-Defined Types (Type...End Type)
 // ---------------------------------------------------------------------------
-describe('VB6 User-Defined Types', () => {
-  it('Type declaration and Dim creates instance with default-initialized fields', () => {
+describe("VB6 User-Defined Types", () => {
+  it("Type declaration and Dim creates instance with default-initialized fields", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Point
@@ -480,16 +480,17 @@ describe('VB6 User-Defined Types', () => {
       End Type
       Dim p As Point
     `);
-    const p = engine._getVariable('p');
-    expect(p.type).toBe('Object');
-    const instance = p.value as import('../runtime/class-registry.ts').VbObjectInstance;
-    expect(instance.getProperty('X').type).toBe('Integer');
-    expect(instance.getProperty('X').value).toBe(0);
-    expect(instance.getProperty('Y').type).toBe('Integer');
-    expect(instance.getProperty('Y').value).toBe(0);
+    const p = engine._getVariable("p");
+    expect(p.type).toBe("Object");
+    const instance =
+      p.value as import("../runtime/class-registry.ts").VbObjectInstance;
+    expect(instance.getProperty("X").type).toBe("Integer");
+    expect(instance.getProperty("X").value).toBe(0);
+    expect(instance.getProperty("Y").type).toBe("Integer");
+    expect(instance.getProperty("Y").value).toBe(0);
   });
 
-  it('Field access and assignment', () => {
+  it("Field access and assignment", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Point
@@ -501,10 +502,10 @@ describe('VB6 User-Defined Types', () => {
       p.Y = 20
       result = p.X + p.Y
     `);
-    expect(engine._getVariable('result').value).toBe(30);
+    expect(engine._getVariable("result").value).toBe(30);
   });
 
-  it('String and Boolean fields', () => {
+  it("String and Boolean fields", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Person
@@ -517,14 +518,15 @@ describe('VB6 User-Defined Types', () => {
       per.Active = True
       per.Age = 30
     `);
-    const per = engine._getVariable('per');
-    const instance = per.value as import('../runtime/class-registry.ts').VbObjectInstance;
-    expect(instance.getProperty('Name').value).toBe('Alice');
-    expect(instance.getProperty('Active').value).toBe(true);
-    expect(instance.getProperty('Age').value).toBe(30);
+    const per = engine._getVariable("per");
+    const instance =
+      per.value as import("../runtime/class-registry.ts").VbObjectInstance;
+    expect(instance.getProperty("Name").value).toBe("Alice");
+    expect(instance.getProperty("Active").value).toBe(true);
+    expect(instance.getProperty("Age").value).toBe(30);
   });
 
-  it('Multiple independent instances', () => {
+  it("Multiple independent instances", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Point
@@ -536,15 +538,15 @@ describe('VB6 User-Defined Types', () => {
       a.X = 1
       b.X = 99
     `);
-    const a = engine._getVariable('a')
-      .value as import('../runtime/class-registry.ts').VbObjectInstance;
-    const b = engine._getVariable('b')
-      .value as import('../runtime/class-registry.ts').VbObjectInstance;
-    expect(a.getProperty('X').value).toBe(1);
-    expect(b.getProperty('X').value).toBe(99);
+    const a = engine._getVariable("a")
+      .value as import("../runtime/class-registry.ts").VbObjectInstance;
+    const b = engine._getVariable("b")
+      .value as import("../runtime/class-registry.ts").VbObjectInstance;
+    expect(a.getProperty("X").value).toBe(1);
+    expect(b.getProperty("X").value).toBe(99);
   });
 
-  it('Fields default to type-appropriate zero values', () => {
+  it("Fields default to type-appropriate zero values", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Defaults
@@ -555,15 +557,15 @@ describe('VB6 User-Defined Types', () => {
       End Type
       Dim d As Defaults
     `);
-    const instance = engine._getVariable('d')
-      .value as import('../runtime/class-registry.ts').VbObjectInstance;
-    expect(instance.getProperty('N').value).toBe(0);
-    expect(instance.getProperty('S').value).toBe('');
-    expect(instance.getProperty('B').value).toBe(false);
-    expect(instance.getProperty('D').value).toBe(0);
+    const instance = engine._getVariable("d")
+      .value as import("../runtime/class-registry.ts").VbObjectInstance;
+    expect(instance.getProperty("N").value).toBe(0);
+    expect(instance.getProperty("S").value).toBe("");
+    expect(instance.getProperty("B").value).toBe(false);
+    expect(instance.getProperty("D").value).toBe(0);
   });
 
-  it('UDT used in Sub parameter (ByRef)', () => {
+  it("UDT used in Sub parameter (ByRef)", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Type Vec
@@ -581,8 +583,8 @@ describe('VB6 User-Defined Types', () => {
       rx = v.X
       ry = v.Y
     `);
-    expect(engine._getVariable('rx').value).toBe(6);
-    expect(engine._getVariable('ry').value).toBe(8);
+    expect(engine._getVariable("rx").value).toBe(6);
+    expect(engine._getVariable("ry").value).toBe(8);
   });
 });
 
@@ -593,12 +595,12 @@ describe('VB6 User-Defined Types', () => {
 // property that matters here: a statement led by a keyword that is never recognised as an
 // assignment still parses - as a comparison - and then discards its value, leaving the variable
 // unwritten with nothing raised. A parse-only assertion cannot tell that apart from a real fix.
-describe('Keyword-named variables', () => {
+describe("Keyword-named variables", () => {
   it.each<[string, number]>([
-    ['Step', 4],
-    ['Error', 7],
-    ['Object', 9],
-  ])('assigns to %s and reads the value back', (word, value) => {
+    ["Step", 4],
+    ["Error", 7],
+    ["Object", 9],
+  ])("assigns to %s and reads the value back", (word, value) => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim ${word}
@@ -607,7 +609,7 @@ describe('Keyword-named variables', () => {
     expect(engine._getVariable(word).value).toBe(value);
   });
 
-  it('takes the branch the stored value selects', () => {
+  it("takes the branch the stored value selects", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim Step
@@ -618,7 +620,7 @@ describe('Keyword-named variables', () => {
         taken = "no"
       End If
     `);
-    expect(engine._getVariable('taken').value).toBe('yes');
+    expect(engine._getVariable("taken").value).toBe("yes");
   });
 });
 
@@ -629,8 +631,8 @@ describe('Keyword-named variables', () => {
 // `a() = v` is NOT the same thing - there it raises a runtime Type mismatch - so the negative
 // case below is as much a part of this fix as the positive ones: the point is to admit the
 // member form without also admitting the identifier form.
-describe('Empty-parenthesis assignment targets', () => {
-  it('assigns to a public field written with empty parentheses', () => {
+describe("Empty-parenthesis assignment targets", () => {
+  it("assigns to a public field written with empty parentheses", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Class C
@@ -641,10 +643,10 @@ describe('Empty-parenthesis assignment targets', () => {
       o.P() = 5
       r = o.P
     `);
-    expect(engine._getVariable('r').value).toBe(5);
+    expect(engine._getVariable("r").value).toBe(5);
   });
 
-  it('assigns through a Property Let written with empty parentheses', () => {
+  it("assigns through a Property Let written with empty parentheses", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Class C
@@ -661,10 +663,10 @@ describe('Empty-parenthesis assignment targets', () => {
       o.P() = 5
       r = o.P
     `);
-    expect(engine._getVariable('r').value).toBe(10);
+    expect(engine._getVariable("r").value).toBe(10);
   });
 
-  it('still refuses empty parentheses on a plain variable', () => {
+  it("still refuses empty parentheses on a plain variable", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim a
@@ -683,18 +685,18 @@ describe('Empty-parenthesis assignment targets', () => {
 // into one - or that keeps only the first, as this one did - still passes a single-cell check,
 // because writing and reading agree with each other on the wrong cell. Two cells that differ only
 // in the order of their subscripts must hold different values.
-describe('Multi-dimensional array assignment', () => {
-  it('writes and reads a two-dimensional element', () => {
+describe("Multi-dimensional array assignment", () => {
+  it("writes and reads a two-dimensional element", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim a(3,3)
       a(1,2) = 7
       r = a(1,2)
     `);
-    expect(engine._getVariable('r').value).toBe(7);
+    expect(engine._getVariable("r").value).toBe(7);
   });
 
-  it('keeps transposed cells apart', () => {
+  it("keeps transposed cells apart", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim a(3,3)
@@ -703,28 +705,28 @@ describe('Multi-dimensional array assignment', () => {
       r1 = a(1,2)
       r2 = a(2,1)
     `);
-    expect(engine._getVariable('r1').value).toBe(7);
-    expect(engine._getVariable('r2').value).toBe(9);
+    expect(engine._getVariable("r1").value).toBe(7);
+    expect(engine._getVariable("r2").value).toBe(9);
   });
 
-  it('writes and reads a three-dimensional element', () => {
+  it("writes and reads a three-dimensional element", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim b(2,2,2)
       b(1,0,1) = 5
       r = b(1,0,1)
     `);
-    expect(engine._getVariable('r').value).toBe(5);
+    expect(engine._getVariable("r").value).toBe(5);
   });
 
-  it('leaves the single-subscript write alone', () => {
+  it("leaves the single-subscript write alone", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Dim a(3)
       a(2) = 4
       r = a(2)
     `);
-    expect(engine._getVariable('r').value).toBe(4);
+    expect(engine._getVariable("r").value).toBe(4);
   });
 });
 
@@ -736,23 +738,23 @@ describe('Multi-dimensional array assignment', () => {
 // the end of a line in this file would not survive the formatter, and the test would quietly stop
 // testing anything. The failure being pinned is silent - the statement simply ends at the
 // underscore and the continued half is dropped, with nothing raised.
-describe('Line continuation', () => {
+describe("Line continuation", () => {
   it.each<[string, string]>([
-    ['no trailing whitespace', 'a = "x" & _'],
-    ['a trailing space', 'a = "x" & _ '],
-    ['a trailing tab', 'a = "x" & _\t'],
-    ['trailing spaces and tabs', 'a = "x" & _ \t '],
-  ])('continues the statement with %s', (_label, firstLine) => {
+    ["no trailing whitespace", 'a = "x" & _'],
+    ["a trailing space", 'a = "x" & _ '],
+    ["a trailing tab", 'a = "x" & _\t'],
+    ["trailing spaces and tabs", 'a = "x" & _ \t '],
+  ])("continues the statement with %s", (_label, firstLine) => {
     const engine = new VbsEngine();
-    engine.executeStatement(['Dim a', firstLine, '"1"'].join('\n'));
+    engine.executeStatement(["Dim a", firstLine, '"1"'].join("\n"));
     expect(engine.error).toBeNull();
-    expect(engine._getVariable('a').value).toBe('x1');
+    expect(engine._getVariable("a").value).toBe("x1");
   });
 
-  it('leaves an underscore inside an identifier alone', () => {
+  it("leaves an underscore inside an identifier alone", () => {
     const engine = new VbsEngine();
-    engine.executeStatement(['Dim a_b', 'a_b = 5'].join('\n'));
-    expect(engine._getVariable('a_b').value).toBe(5);
+    engine.executeStatement(["Dim a_b", "a_b = 5"].join("\n"));
+    expect(engine._getVariable("a_b").value).toBe(5);
   });
 });
 
@@ -763,30 +765,32 @@ describe('Line continuation', () => {
 // ambiguity in favour of the literal whenever a digit of the base follows, so widening the
 // concatenation case must not cost `&hFF` - and `"x"&h1` stays a literal there even where a
 // variable h1 exists, which is why no row claims otherwise.
-describe('Ampersand before an h/o identifier', () => {
+describe("Ampersand before an h/o identifier", () => {
   it.each<[string, string, number]>([
-    ['hex', 'r = &hFF', 255],
-    ['octal with a prefix', 'r = &o17', 15],
-    ['bare octal', 'r = &100', 64],
-  ])('still reads a %s literal', (_label, source, value) => {
+    ["hex", "r = &hFF", 255],
+    ["octal with a prefix", "r = &o17", 15],
+    ["bare octal", "r = &100", 64],
+  ])("still reads a %s literal", (_label, source, value) => {
     const engine = new VbsEngine();
     engine.executeStatement(source);
-    expect(engine._getVariable('r').value).toBe(value);
+    expect(engine._getVariable("r").value).toBe(value);
   });
 
   it.each<[string, string]>([
-    ['hl', 'x7'],
-    ['oShell', 'x6'],
-  ])('concatenates with the variable %s', (name, expected) => {
+    ["hl", "x7"],
+    ["oShell", "x6"],
+  ])("concatenates with the variable %s", (name, expected) => {
     const engine = new VbsEngine();
     engine.executeStatement(
-      [`Dim ${name}`, `${name} = ${expected.slice(1)}`, `r = "x"&${name}`].join('\n')
+      [`Dim ${name}`, `${name} = ${expected.slice(1)}`, `r = "x"&${name}`].join(
+        "\n",
+      ),
     );
     expect(engine.error).toBeNull();
-    expect(engine._getVariable('r').value).toBe(expected);
+    expect(engine._getVariable("r").value).toBe(expected);
   });
 
-  it('concatenates with a member call on such an identifier', () => {
+  it("concatenates with a member call on such an identifier", () => {
     const engine = new VbsEngine();
     engine.executeStatement(`
       Class C
@@ -798,7 +802,7 @@ describe('Ampersand before an h/o identifier', () => {
       Set hlObj = New C
       r = "Nr: "&hlObj.M()
     `);
-    expect(engine._getVariable('r').value).toBe('Nr: 3');
+    expect(engine._getVariable("r").value).toBe("Nr: 3");
   });
 });
 
@@ -809,24 +813,28 @@ describe('Ampersand before an h/o identifier', () => {
 // line"), and so does this parser, so the last case pins that the widening stopped where the
 // language stops. Its wording is not asserted - the two engines disagree on the message and
 // only agree on the verdict.
-describe('Colon before the end of a single-line If', () => {
+describe("Colon before the end of a single-line If", () => {
   it.each<[string, string, number]>([
-    ['End If', 'If 1 = 1 Then : x = 1 : End If', 1],
-    ['Else', 'If 1 = 2 Then : x = 1 : Else : x = 2 : End If', 2],
-    ['a doubled colon', 'If 1 = 1 Then :: x = 1 :: End If', 1],
-    ['an empty body', 'If 1 = 1 Then : End If', 0],
-    ['no colon at all', 'If 1 = 1 Then x = 1', 1],
-  ])('parses a colon before %s', (_label, source, expected) => {
+    ["End If", "If 1 = 1 Then : x = 1 : End If", 1],
+    ["Else", "If 1 = 2 Then : x = 1 : Else : x = 2 : End If", 2],
+    ["a doubled colon", "If 1 = 1 Then :: x = 1 :: End If", 1],
+    ["an empty body", "If 1 = 1 Then : End If", 0],
+    ["no colon at all", "If 1 = 1 Then x = 1", 1],
+  ])("parses a colon before %s", (_label, source, expected) => {
     const engine = new VbsEngine();
-    engine.executeStatement(['Dim x', 'x = 0', source].join('\n'));
+    engine.executeStatement(["Dim x", "x = 0", source].join("\n"));
     expect(engine.error).toBeNull();
-    expect(engine._getVariable('x').value).toBe(expected);
+    expect(engine._getVariable("x").value).toBe(expected);
   });
 
-  it('still refuses ElseIf after a colon', () => {
+  it("still refuses ElseIf after a colon", () => {
     const engine = new VbsEngine();
     engine.executeStatement(
-      ['Dim x', 'x = 0', 'If 1 = 2 Then : x = 1 : ElseIf 1 = 1 Then : x = 3 : End If'].join('\n')
+      [
+        "Dim x",
+        "x = 0",
+        "If 1 = 2 Then : x = 1 : ElseIf 1 = 1 Then : x = 3 : End If",
+      ].join("\n"),
     );
     expect(engine.error).not.toBeNull();
   });
@@ -840,20 +848,31 @@ describe('Colon before the end of a single-line If', () => {
 // body once even when the condition is false from the start, so "no condition" and "condition
 // false" cannot be collapsed into the same answer. Every case terminates on its own - an
 // unconditional loop with no Exit Do would hang the suite rather than fail it.
-describe('Do loops', () => {
+describe("Do loops", () => {
   it.each<[string, string, number]>([
-    ['unconditional, left by Exit Do', 'Do\n n = n + 1\n If n >= 3 Then Exit Do\nLoop', 3],
-    ['Do While, pre-test', 'Do While n < 4\n n = n + 1\nLoop', 4],
-    ['Do Until, pre-test', 'Do Until n >= 4\n n = n + 1\nLoop', 4],
-    ['Loop While, post-test', 'Do\n n = n + 1\nLoop While n < 4', 4],
-    ['Loop Until, post-test', 'Do\n n = n + 1\nLoop Until n >= 4', 4],
-    ['post-test with a false condition, one pass', 'Do\n n = n + 1\nLoop While 1 = 2', 1],
-  ])('runs the body the right number of times: %s', (_label, body, expected) => {
-    const engine = new VbsEngine();
-    engine.executeStatement(['Dim n', 'n = 0', body].join('\n'));
-    expect(engine.error).toBeNull();
-    expect(engine._getVariable('n').value).toBe(expected);
-  });
+    [
+      "unconditional, left by Exit Do",
+      "Do\n n = n + 1\n If n >= 3 Then Exit Do\nLoop",
+      3,
+    ],
+    ["Do While, pre-test", "Do While n < 4\n n = n + 1\nLoop", 4],
+    ["Do Until, pre-test", "Do Until n >= 4\n n = n + 1\nLoop", 4],
+    ["Loop While, post-test", "Do\n n = n + 1\nLoop While n < 4", 4],
+    ["Loop Until, post-test", "Do\n n = n + 1\nLoop Until n >= 4", 4],
+    [
+      "post-test with a false condition, one pass",
+      "Do\n n = n + 1\nLoop While 1 = 2",
+      1,
+    ],
+  ])(
+    "runs the body the right number of times: %s",
+    (_label, body, expected) => {
+      const engine = new VbsEngine();
+      engine.executeStatement(["Dim n", "n = 0", body].join("\n"));
+      expect(engine.error).toBeNull();
+      expect(engine._getVariable("n").value).toBe(expected);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -868,31 +887,31 @@ describe('Do loops', () => {
 // tempting to "repair" that by snapping the scaled value back to its decimal reading. VBScript
 // does not: it answers 1.01 for Round(1.015, 2), which is the binary value rounding down, not
 // the 1.02 a decimal reading gives. These rows fail against that well-meant extra step.
-describe('Round', () => {
+describe("Round", () => {
   it.each<[string, number]>([
-    ['Round(0.5)', 0],
-    ['Round(1.5)', 2],
-    ['Round(2.5)', 2],
-    ['Round(3.5)', 4],
-    ['Round(-0.5)', 0],
-    ['Round(-1.5)', -2],
-    ['Round(-2.5)', -2],
-    ['Round(0.125, 2)', 0.12],
-    ['Round(0.135, 2)', 0.14],
-    ['Round(2.675, 2)', 2.68],
-    ['Round(1.2345, 3)', 1.234],
-    ['Round(7.7, 0)', 8],
-    ['Round(1.005, 2)', 1],
-    ['Round(1.015, 2)', 1.01],
-    ['Round(1.025, 2)', 1.02],
-    ['Round(8.835, 2)', 8.84],
-    ['Round(2.4)', 2],
-    ['Round(2.6)', 3],
-    ['Round(-2.6)', -3],
-  ])('%s', (expression, expected) => {
+    ["Round(0.5)", 0],
+    ["Round(1.5)", 2],
+    ["Round(2.5)", 2],
+    ["Round(3.5)", 4],
+    ["Round(-0.5)", 0],
+    ["Round(-1.5)", -2],
+    ["Round(-2.5)", -2],
+    ["Round(0.125, 2)", 0.12],
+    ["Round(0.135, 2)", 0.14],
+    ["Round(2.675, 2)", 2.68],
+    ["Round(1.2345, 3)", 1.234],
+    ["Round(7.7, 0)", 8],
+    ["Round(1.005, 2)", 1],
+    ["Round(1.015, 2)", 1.01],
+    ["Round(1.025, 2)", 1.02],
+    ["Round(8.835, 2)", 8.84],
+    ["Round(2.4)", 2],
+    ["Round(2.6)", 3],
+    ["Round(-2.6)", -3],
+  ])("%s", (expression, expected) => {
     const engine = new VbsEngine();
     engine.executeStatement(`r = ${expression}`);
-    expect(engine._getVariable('r').value).toBe(expected);
+    expect(engine._getVariable("r").value).toBe(expected);
   });
 });
 
@@ -910,89 +929,89 @@ describe('Round', () => {
 //
 // The four guards are the other half: a plain property must NOT be called, and a member that
 // already has parentheses - with or without arguments - must keep reaching the real call path.
-describe('Parenthesis-less member reads', () => {
+describe("Parenthesis-less member reads", () => {
   const CLASSES = [
-    'Class Inner',
-    '  Public Function G()',
-    '    G = 8',
-    '  End Function',
-    'End Class',
-    'Class C',
-    '  Public P',
-    '  Public Function F()',
-    '    F = 3',
-    '  End Function',
-    '  Public Function Add(a)',
-    '    Add = a + 1',
-    '  End Function',
-    '  Public Sub M()',
-    '    P = 99',
-    '  End Sub',
-    '  Public Function MakeInner()',
-    '    Set MakeInner = New Inner',
-    '  End Function',
-    'End Class',
-    'Dim o',
-    'Set o = New C',
-    'o.P = 5',
-  ].join('\n');
+    "Class Inner",
+    "  Public Function G()",
+    "    G = 8",
+    "  End Function",
+    "End Class",
+    "Class C",
+    "  Public P",
+    "  Public Function F()",
+    "    F = 3",
+    "  End Function",
+    "  Public Function Add(a)",
+    "    Add = a + 1",
+    "  End Function",
+    "  Public Sub M()",
+    "    P = 99",
+    "  End Sub",
+    "  Public Function MakeInner()",
+    "    Set MakeInner = New Inner",
+    "  End Function",
+    "End Class",
+    "Dim o",
+    "Set o = New C",
+    "o.P = 5",
+  ].join("\n");
 
   it.each<[string, string, string, string | number]>([
-    ['calls a function read without parentheses', 'r = o.F', 'r', 3],
+    ["calls a function read without parentheses", "r = o.F", "r", 3],
     [
-      'calls it as a comparison operand',
+      "calls it as a comparison operand",
       'If o.F <= 0 Then\n r = "le"\nElse\n r = "gt"\nEnd If',
-      'r',
-      'gt',
+      "r",
+      "gt",
     ],
-    ['calls it as a concatenation operand', 'r = "n=" & o.F', 'r', 'n=3'],
-    ['runs a Sub written as a bare statement', 'o.M', 'o.P', 99],
-    ['calls through a nested member read', 'r = o.MakeInner.G', 'r', 8],
-    ['GUARD leaves a plain property alone', 'r = o.P', 'r', 5],
-    ['GUARD keeps arguments reaching the call', 'r = o.Add(4)', 'r', 5],
-    ['GUARD keeps the parenthesised form working', 'r = o.F()', 'r', 3],
-  ])('%s', (_label, tail, read, expected) => {
+    ["calls it as a concatenation operand", 'r = "n=" & o.F', "r", "n=3"],
+    ["runs a Sub written as a bare statement", "o.M", "o.P", 99],
+    ["calls through a nested member read", "r = o.MakeInner.G", "r", 8],
+    ["GUARD leaves a plain property alone", "r = o.P", "r", 5],
+    ["GUARD keeps arguments reaching the call", "r = o.Add(4)", "r", 5],
+    ["GUARD keeps the parenthesised form working", "r = o.F()", "r", 3],
+  ])("%s", (_label, tail, read, expected) => {
     const engine = new VbsEngine();
     engine.executeStatement(`${CLASSES}\n${tail}`);
     expect(engine.error).toBeNull();
     expect(engine.eval(read)).toBe(expected);
   });
 
-  it('calls a host function exposed through addObject', () => {
+  it("calls a host function exposed through addObject", () => {
     const engine = new VbsEngine();
-    engine.addObject('hlObj', { GetValue: () => 42, Name: 'x' }, true);
-    engine.executeStatement('r = hlObj.GetValue');
+    engine.addObject("hlObj", { GetValue: () => 42, Name: "x" }, true);
+    engine.executeStatement("r = hlObj.GetValue");
     expect(engine.error).toBeNull();
-    expect(engine.eval('r')).toBe(42);
+    expect(engine.eval("r")).toBe(42);
   });
 
   // A host function written as a whole statement is a procedure call, the same as it is inside an expression.
   // Reading the member answers a host function either way, so only the call differs, and it used to be 438:
   // the example page calls `window.setTimeout "code", 100, "VBScript"` and got
   // `Object doesn't support this property or method: 'window.setTimeout'`.
-  it('calls a host function written as a statement', () => {
+  it("calls a host function written as a statement", () => {
     const engine = new VbsEngine();
     const seen: unknown[] = [];
     engine.addObject(
-      'hlObj',
+      "hlObj",
       {
         Record: (text: unknown, delay: unknown) => {
           seen.push(text, delay);
           return 1;
         },
       },
-      true
+      true,
     );
     engine.executeStatement('hlObj.Record "ShowResult()", 100');
     expect(engine.error).toBeNull();
-    expect(seen).toEqual(['ShowResult()', 100]);
+    expect(seen).toEqual(["ShowResult()", 100]);
   });
 
-  it('GUARD leaves a plain host property alone', () => {
+  it("GUARD leaves a plain host property alone", () => {
     const engine = new VbsEngine();
-    engine.addObject('hlObj', { GetValue: () => 42, Name: 'x' }, true);
-    engine.executeStatement('r = hlObj.Name');
-    expect(engine.eval('r')).toBe('x');
+    engine.addObject("hlObj", { GetValue: () => 42, Name: "x" }, true);
+    engine.executeStatement("r = hlObj.Name");
+    expect(engine.eval("r")).toBe("x");
   });
 });
 
@@ -1003,10 +1022,10 @@ describe('Parenthesis-less member reads', () => {
 // phrase it this way either. It is about a message that fits every call in a ninety-line
 // procedure body being no help in finding which one failed. Both throw sites already hold the
 // name, so the test asserts it reaches the description and nothing about the wording around it.
-describe('Invalid procedure call names its target', () => {
-  it('names an identifier that could not be called', () => {
+describe("Invalid procedure call names its target", () => {
+  it("names an identifier that could not be called", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Dim v\nv = 1\nv 1, 2');
+    engine.executeStatement("Dim v\nv = 1\nv 1, 2");
     expect(engine.error).not.toBeNull();
     expect(engine.error!.description).toContain("'v'");
   });
@@ -1014,12 +1033,14 @@ describe('Invalid procedure call names its target', () => {
   // A member a class does not have is error 438 rather than an invalid procedure call, measured on a fresh
   // cscript: `o.Nope 1`, `o.Nope()` and `result = o.Nope` are all 438 for a class instance. The description
   // still names the member, which is what a script needs to find the line that asked for it.
-  it('names the member a class does not have', () => {
+  it("names the member a class does not have", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Class C\nEnd Class\nDim o\nSet o = New C\no.Nope 1');
+    engine.executeStatement(
+      "Class C\nEnd Class\nDim o\nSet o = New C\no.Nope 1",
+    );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.number).toBe(438);
-    expect(engine.error!.description).toContain('Nope');
+    expect(engine.error!.description).toContain("Nope");
   });
 });
 
@@ -1030,23 +1051,23 @@ describe('Invalid procedure call names its target', () => {
 // error occurred". Every error answered -1 with neither, although the engine's own VbErrorCodes
 // table already held the right codes. The numbers below are the real engine's (cscript
 // //E:vbscript on Windows), and so is the position: for the same script it reports (5, 7).
-describe('Error number and position', () => {
+describe("Error number and position", () => {
   it.each<[string, string, number]>([
-    ['type mismatch', 'x = CInt("abc")', 13],
-    ['division by zero', 'x = 1/0', 11],
-    ['object required', 'Dim o\nx = o.Foo', 424],
-    ['a value that is not callable', 'Dim v\nv = 1\nv 1, 2', 13],
-  ])('reports %s as its real VBScript code', (_label, source, code) => {
+    ["type mismatch", 'x = CInt("abc")', 13],
+    ["division by zero", "x = 1/0", 11],
+    ["object required", "Dim o\nx = o.Foo", 424],
+    ["a value that is not callable", "Dim v\nv = 1\nv 1, 2", 13],
+  ])("reports %s as its real VBScript code", (_label, source, code) => {
     const engine = new VbsEngine();
     engine.executeStatement(source);
     expect(engine.error).not.toBeNull();
     expect(engine.error!.number).toBe(code);
   });
 
-  it('reports the line and column a parse failure stopped at', () => {
+  it("reports the line and column a parse failure stopped at", () => {
     const engine = new VbsEngine();
     engine.executeStatement(
-      ['Dim x', 'x = 1', '', 'If 1 = 1 Then', '  x = )', 'End If'].join('\n')
+      ["Dim x", "x = 1", "", "If 1 = 1 Then", "  x = )", "End If"].join("\n"),
     );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.line).toBe(5);
@@ -1054,7 +1075,7 @@ describe('Error number and position', () => {
     // column of its line, so the engine answers six and a report prints seven.
     expect(engine.error!.column).toBe(6);
     // The text of the offending line is what a parse failure fills, and the control fills it in the same case.
-    expect(engine.error!.text).toBe('  x = )');
+    expect(engine.error!.text).toBe("  x = )");
   });
 });
 
@@ -1068,20 +1089,27 @@ describe('Error number and position', () => {
 // Because every enclosing statement catches the same error again, only the innermost frame may
 // stamp it - a later frame overwriting would move the position out to the block and quietly pass
 // a laxer test.
-describe('Runtime error position', () => {
-  it('reports the failing statement, not the block around it', () => {
+describe("Runtime error position", () => {
+  it("reports the failing statement, not the block around it", () => {
     const engine = new VbsEngine();
     engine.executeStatement(
-      ['Dim x', 'x = 1', '', 'If 1 = 1 Then', '    x = CInt("abc")', 'End If'].join('\n')
+      [
+        "Dim x",
+        "x = 1",
+        "",
+        "If 1 = 1 Then",
+        '    x = CInt("abc")',
+        "End If",
+      ].join("\n"),
     );
     expect(engine.error).not.toBeNull();
     expect(engine.error!.line).toBe(5);
     expect(engine.error!.column).toBe(4);
   });
 
-  it('reports a failure at the top level', () => {
+  it("reports a failure at the top level", () => {
     const engine = new VbsEngine();
-    engine.executeStatement(['Dim x', 'x = 1/0'].join('\n'));
+    engine.executeStatement(["Dim x", "x = 1/0"].join("\n"));
     expect(engine.error!.line).toBe(2);
     expect(engine.error!.column).toBe(0);
   });
@@ -1091,58 +1119,60 @@ describe('Runtime error position', () => {
 // The MSScriptControl-style error surface (engine.error) vs the IE/WSH-style
 // thrown native Error (executeStatementThrows)
 // ---------------------------------------------------------------------------
-describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
-  it('stamps the localized source on a runtime error', () => {
+describe("Error surfaces (ScriptControl member vs thrown host Error)", () => {
+  it("stamps the localized source on a runtime error", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = 1/0');
-    expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
+    engine.executeStatement("x = 1/0");
+    expect(engine.error!.source).toBe("Microsoft VBScript runtime error");
     expect(engine.error!.number).toBe(11);
   });
 
-  it('stamps the compile source on a parse error', () => {
+  it("stamps the compile source on a parse error", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('x = )');
+    engine.executeStatement("x = )");
     expect(engine.error).not.toBeNull();
   });
 
-  it('surfaces Err.Raise help file and context back to the script', () => {
+  it("surfaces Err.Raise help file and context back to the script", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('On Error Resume Next');
+    engine.executeStatement("On Error Resume Next");
     engine.executeStatement('Err.Raise 5, "Src", "Desc", "x.hlp", 3');
-    engine.executeStatement('a = Err.HelpFile');
-    engine.executeStatement('b = Err.HelpContext');
-    expect(engine._getVariable('a').value).toBe('x.hlp');
-    expect(engine._getVariable('b').value).toBe(3);
+    engine.executeStatement("a = Err.HelpFile");
+    engine.executeStatement("b = Err.HelpContext");
+    expect(engine._getVariable("a").value).toBe("x.hlp");
+    expect(engine._getVariable("b").value).toBe(3);
   });
 
-  it('throws an HRESULT-bearing native Error for division by zero', () => {
+  it("throws an HRESULT-bearing native Error for division by zero", () => {
     const engine = new VbsEngine();
     let caught: (Error & { number: number; description: string }) | null = null;
     try {
-      engine.executeStatementThrows('x = 1/0');
+      engine.executeStatementThrows("x = 1/0");
     } catch (e) {
       caught = e as Error & { number: number; description: string };
     }
     expect(caught).not.toBeNull();
     expect(caught).toBeInstanceOf(Error);
-    expect(caught!.name).toBe('Error');
+    expect(caught!.name).toBe("Error");
     expect(caught!.number).toBe(-2146828277); // 0x800A000B
-    expect(caught!.description).toBe('Division by zero');
+    expect(caught!.description).toBe("Division by zero");
     // The general environment stands for Windows Script Host, which put no error object in front of anyone and
     // printed one line instead. A host that never named its script gets that line without the name.
-    expect(caught!.message).toBe('(1, 1) Microsoft VBScript runtime error: Division by zero');
+    expect(caught!.message).toBe(
+      "(1, 1) Microsoft VBScript runtime error: Division by zero",
+    );
   });
 
   // The name is the host's, and so is where its code stands: what the host says is what the report shows, which
   // is how a block Windows Script Host took out of a `.wsf` comes back as a line in the `.wsf` file.
-  it('reports the script name and the line a host supplied', () => {
+  it("reports the script name and the line a host supplied", () => {
     const engine = new VbsEngine();
     // This engine stands for no host, because an earlier engine in this file claimed host integration, so it is
     // the ScriptControl a program drives: that control raises the first failure it finds, and records it too.
     let raised: Error | null = null;
     try {
-      engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
-        name: 'C:\\work\\demo.wsf',
+      engine.addCode("Dim divisor\n  divisor = 0\nx = 1 / divisor", {
+        name: "C:\\work\\demo.wsf",
         // Counted from zero, the way IActiveScriptParse::ParseScriptText takes its starting line, so two means
         // the code's first line is the host script's third line.
         startingLineNumber: 2,
@@ -1156,25 +1186,25 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
     // one further along than the code's own, and the engine holds them counted from zero besides.
     expect(raised).not.toBeNull();
     expect(raised!.message).toBe(
-      'C:\\work\\demo.wsf(5, 2) Microsoft VBScript runtime error: Division by zero'
+      "C:\\work\\demo.wsf(5, 2) Microsoft VBScript runtime error: Division by zero",
     );
     expect(engine.error!.line).toBe(5);
     expect(engine.error!.column).toBe(1);
-    expect(engine.error!.description).toBe('Division by zero');
+    expect(engine.error!.description).toBe("Division by zero");
 
     // The name stays with the host, while a starting line stays with the code it was given for.
-    let message = '';
+    let message = "";
     try {
-      engine.executeStatementThrows('x = 1 / divisor');
+      engine.executeStatementThrows("x = 1 / divisor");
     } catch (error) {
       message = (error as Error).message;
     }
     expect(message).toBe(
-      'C:\\work\\demo.wsf(1, 1) Microsoft VBScript runtime error: Division by zero'
+      "C:\\work\\demo.wsf(1, 1) Microsoft VBScript runtime error: Division by zero",
     );
   });
 
-  it('still populates engine.error even when throwing', () => {
+  it("still populates engine.error even when throwing", () => {
     const engine = new VbsEngine();
     try {
       engine.executeStatementThrows('x = CInt("abc")');
@@ -1182,7 +1212,7 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
       /* expected */
     }
     expect(engine.error!.number).toBe(13);
-    expect(engine.error!.source).toBe('Microsoft VBScript runtime error');
+    expect(engine.error!.source).toBe("Microsoft VBScript runtime error");
   });
 
   // The shape a browser hands a page is a different one, the one Internet Explorer handed JScript in document
@@ -1190,10 +1220,12 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
   // browser host, so the file that tests it has to be the one whose first engine claims host integration.
 
   // The position is not lost: it is on the MSScriptControl-style member, which the same failure fills.
-  it('carries the position of the failing statement on engine.error', () => {
+  it("carries the position of the failing statement on engine.error", () => {
     const engine = new VbsEngine();
     try {
-      engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
+      engine.executeStatementThrows(
+        "Dim divisor\n  divisor = 0\nx = 1 / divisor",
+      );
     } catch {
       /* expected */
     }
@@ -1204,14 +1236,14 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
   // Script the host asked for, which nobody called for from JavaScript, has no caller to choose an outlet, so
   // `useJsError` chooses: a real error the page's `window.onerror` sees, the way IE reported a script error, or
   // a record in `engine.error` alone.
-  it('sends a host run failure to the page, or to engine.error when the option says so', () => {
+  it("sends a host run failure to the page, or to engine.error when the option says so", () => {
     const throwing = new VbsEngine();
-    throwing.addCode('Sub Boom()\n  x = 1 / 0\nEnd Sub');
-    expect(() => throwing.executeHostScript('Boom')).toThrow();
+    throwing.addCode("Sub Boom()\n  x = 1 / 0\nEnd Sub");
+    expect(() => throwing.executeHostScript("Boom")).toThrow();
 
     const quiet = new VbsEngine({ useJsError: false });
-    quiet.addCode('Sub Boom()\n  x = 1 / 0\nEnd Sub');
-    expect(() => quiet.executeHostScript('Boom')).not.toThrow();
+    quiet.addCode("Sub Boom()\n  x = 1 / 0\nEnd Sub");
+    expect(() => quiet.executeHostScript("Boom")).not.toThrow();
     expect(quiet.error!.number).toBe(11);
   });
 });
@@ -1222,27 +1254,27 @@ describe('Error surfaces (ScriptControl member vs thrown host Error)', () => {
 // A host has no other way to say "no object": null already means Null. The expected
 // answers were read off vbscript.dll through a COM property that holds Nothing
 // (Scripting.Dictionary.Item after d.Add "k", Nothing).
-describe('A host member that answers Nothing', () => {
-  const NOTHING = Symbol.for('Nothing');
+describe("A host member that answers Nothing", () => {
+  const NOTHING = Symbol.for("Nothing");
 
   function engineWith(host: object): VbsEngine {
     const engine = new VbsEngine();
-    engine.addObject('host', host, true);
+    engine.addObject("host", host, true);
     return engine;
   }
 
   it.each<[string, string, unknown]>([
-    ['TypeName', 'r = TypeName(host.Image)', 'Nothing'],
-    ['IsObject', 'r = IsObject(host.Image)', true],
-    ['Is Nothing', 'r = host.Image Is Nothing', true],
-    ['VarType', 'r = VarType(host.Image)', 9],
+    ["TypeName", "r = TypeName(host.Image)", "Nothing"],
+    ["IsObject", "r = IsObject(host.Image)", true],
+    ["Is Nothing", "r = host.Image Is Nothing", true],
+    ["VarType", "r = VarType(host.Image)", 9],
     [
-      'If ... Is Nothing',
+      "If ... Is Nothing",
       'If host.Image Is Nothing Then\n r = "taken"\nElse\n r = "not taken"\nEnd If',
-      'taken',
+      "taken",
     ],
-    ['Set', 'Set x = host.Image\nr = x Is Nothing', true],
-  ])('reads a property as Nothing: %s', (_label, code, expected) => {
+    ["Set", "Set x = host.Image\nr = x Is Nothing", true],
+  ])("reads a property as Nothing: %s", (_label, code, expected) => {
     const engine = engineWith({
       get Image() {
         return NOTHING;
@@ -1250,24 +1282,24 @@ describe('A host member that answers Nothing', () => {
     });
     engine.executeStatement(code);
     expect(engine.error).toBeNull();
-    expect(engine.eval('r')).toBe(expected);
+    expect(engine.eval("r")).toBe(expected);
   });
 
-  it('reads a method result as Nothing', () => {
+  it("reads a method result as Nothing", () => {
     const engine = engineWith({ Find: () => NOTHING });
     engine.executeStatement('Set x = host.Find("k")\nr = x Is Nothing');
     expect(engine.error).toBeNull();
-    expect(engine.eval('r')).toBe(true);
+    expect(engine.eval("r")).toBe(true);
   });
 
-  it('GUARD keeps null meaning Null', () => {
+  it("GUARD keeps null meaning Null", () => {
     const engine = engineWith({
       get Image() {
         return null;
       },
     });
-    engine.executeStatement('r = TypeName(host.Image)');
-    expect(engine.eval('r')).toBe('Null');
+    engine.executeStatement("r = TypeName(host.Image)");
+    expect(engine.eval("r")).toBe("Null");
   });
 });
 
@@ -1276,21 +1308,23 @@ describe('A host member that answers Nothing', () => {
 // ---------------------------------------------------------------------------
 // vbscript.dll names an object reference that holds nothing "Nothing", not "Object";
 // VarType stays 9 either way.
-describe('TypeName of Nothing', () => {
+describe("TypeName of Nothing", () => {
   it.each<[string, string]>([
-    ['a variable set to Nothing', 'Set x = Nothing\nr = TypeName(x)'],
-    ['the literal', 'r = TypeName(Nothing)'],
+    ["a variable set to Nothing", "Set x = Nothing\nr = TypeName(x)"],
+    ["the literal", "r = TypeName(Nothing)"],
   ])('names %s "Nothing"', (_label, code) => {
     const engine = new VbsEngine();
     engine.executeStatement(code);
     expect(engine.error).toBeNull();
-    expect(engine.eval('r')).toBe('Nothing');
+    expect(engine.eval("r")).toBe("Nothing");
   });
 
-  it('GUARD still names a live object by its class', () => {
+  it("GUARD still names a live object by its class", () => {
     const engine = new VbsEngine();
-    engine.executeStatement('Class C\nEnd Class\nSet x = New C\nr = TypeName(x)');
-    expect(engine.eval('r')).toBe('C');
+    engine.executeStatement(
+      "Class C\nEnd Class\nSet x = New C\nr = TypeName(x)",
+    );
+    expect(engine.eval("r")).toBe("C");
   });
 });
 
@@ -1301,7 +1335,7 @@ describe('TypeName of Nothing', () => {
 // OLE Automation date: CStr writes the locale's short date and long time, leaving out the date on day 0
 // (30 December 1899) and the time at midnight. A comparison with a string literal compares that text, so a
 // host's empty date (day 0) equals "00:00:00"; a comparison with a number compares the OLE day count.
-describe('Dates as VBScript writes, reads and compares them', () => {
+describe("Dates as VBScript writes, reads and compares them", () => {
   const hostDates = {
     Blank: new Date(1899, 11, 30),
     Stamp: new Date(2026, 8, 29, 10, 30, 0),
@@ -1311,69 +1345,69 @@ describe('Dates as VBScript writes, reads and compares them', () => {
 
   function answer(locale: number, expression: string): unknown {
     const engine = new VbsEngine();
-    engine.addObject('host', hostDates, true);
+    engine.addObject("host", hostDates, true);
     try {
       engine.executeStatement(`SetLocale ${locale}\nr = (${expression})`);
       expect(engine.error).toBeNull();
-      return engine.eval('r');
+      return engine.eval("r");
     } finally {
-      engine.executeStatement('SetLocale 1033');
+      engine.executeStatement("SetLocale 1033");
     }
   }
 
   it.each<[string, unknown]>([
     ['host.Blank = "00:00:00"', true],
-    ['host.Blank = 0', true],
+    ["host.Blank = 0", true],
     ['host.Blank = "30.12.1899"', false],
-    ['CStr(host.Blank)', '00:00:00'],
-    ['host.Blank & ""', '00:00:00'],
+    ["CStr(host.Blank)", "00:00:00"],
+    ['host.Blank & ""', "00:00:00"],
     ['CStr(host.Blank) <> "00:00:00"', false],
     ['host.Stamp = "29.09.2026 10:30:00"', true],
     ['host.Stamp > "1.1.2027"', true],
-    ['CStr(host.Stamp)', '29.09.2026 10:30:00'],
-    ['CStr(host.Day)', '29.09.2026'],
-    ['host.Day = 46294', true],
-    ['CDbl(host.Stamp)', 46294.4375],
-    ['CStr(CDate("29.09.2026 10:30:00"))', '29.09.2026 10:30:00'],
-    ['CStr(CDate("00:00:00"))', '00:00:00'],
+    ["CStr(host.Stamp)", "29.09.2026 10:30:00"],
+    ["CStr(host.Day)", "29.09.2026"],
+    ["host.Day = 46294", true],
+    ["CDbl(host.Stamp)", 46294.4375],
+    ['CStr(CDate("29.09.2026 10:30:00"))', "29.09.2026 10:30:00"],
+    ['CStr(CDate("00:00:00"))', "00:00:00"],
     ['CDate("00:00:00") = host.Blank', true],
-    ['CStr(CDate("29.09.2026"))', '29.09.2026'],
+    ['CStr(CDate("29.09.2026"))', "29.09.2026"],
     ['CDbl(CDate("10:30:00"))', 0.4375],
-    ['CStr(CDate("2026-09-29 10:30"))', '29.09.2026 10:30:00'],
-    ['CStr(CDate("29.9.26"))', '29.09.2026'],
-    ['CStr(CDate("9/29/2026"))', '29.09.2026'],
-    ['CStr(CDate(1.5))', '31.12.1899 12:00:00'],
+    ['CStr(CDate("2026-09-29 10:30"))', "29.09.2026 10:30:00"],
+    ['CStr(CDate("29.9.26"))', "29.09.2026"],
+    ['CStr(CDate("9/29/2026"))', "29.09.2026"],
+    ["CStr(CDate(1.5))", "31.12.1899 12:00:00"],
     ['IsDate("29.09.2026")', true],
     ['IsDate("00:00:00")', true],
     ['IsDate("abc")', false],
-    ['CStr(TimeSerial(10, 30, 0))', '10:30:00'],
-    ['CDbl(TimeSerial(10, 30, 0))', 0.4375],
-    ['CStr(TimeValue("29.09.2026 10:30:00"))', '10:30:00'],
-    ['CStr(DateValue("29.09.2026 10:30:00"))', '29.09.2026'],
-    ['CStr(DateValue("29.9.2026"))', '29.09.2026'],
+    ["CStr(TimeSerial(10, 30, 0))", "10:30:00"],
+    ["CDbl(TimeSerial(10, 30, 0))", 0.4375],
+    ['CStr(TimeValue("29.09.2026 10:30:00"))', "10:30:00"],
+    ['CStr(DateValue("29.09.2026 10:30:00"))', "29.09.2026"],
+    ['CStr(DateValue("29.9.2026"))', "29.09.2026"],
     ['InStr(CStr(Time), ".") > 0', false],
-  ])('German (1031): %s', (expression, expected) => {
+  ])("German (1031): %s", (expression, expected) => {
     expect(answer(1031, expression)).toBe(expected);
   });
 
   it.each<[string, unknown]>([
-    ['CStr(host.Blank)', '12:00:00 AM'],
+    ["CStr(host.Blank)", "12:00:00 AM"],
     ['host.Blank = "12:00:00 AM"', true],
     ['host.Blank = "00:00:00"', false],
-    ['CStr(host.Stamp)', '9/29/2026 10:30:00 AM'],
-    ['CStr(host.Afternoon)', '9/29/2026 2:05:09 PM'],
-    ['CStr(host.Day)', '9/29/2026'],
-    ['CStr(CDate("10:30:00"))', '10:30:00 AM'],
-    ['CStr(CDate("2026-09-29 10:30"))', '9/29/2026 10:30:00 AM'],
-    ['CStr(CDate(1.5))', '12/31/1899 12:00:00 PM'],
+    ["CStr(host.Stamp)", "9/29/2026 10:30:00 AM"],
+    ["CStr(host.Afternoon)", "9/29/2026 2:05:09 PM"],
+    ["CStr(host.Day)", "9/29/2026"],
+    ['CStr(CDate("10:30:00"))', "10:30:00 AM"],
+    ['CStr(CDate("2026-09-29 10:30"))', "9/29/2026 10:30:00 AM"],
+    ["CStr(CDate(1.5))", "12/31/1899 12:00:00 PM"],
     ['IsDate("9/29/2026")', true],
     ['IsDate("29.09.2026")', false],
     ['IsDate("2026-09-29")', true],
-  ])('US English (1033): %s', (expression, expected) => {
+  ])("US English (1033): %s", (expression, expected) => {
     expect(answer(1033, expression)).toBe(expected);
   });
 
-  it('raises a type mismatch for a string that is no date', () => {
+  it("raises a type mismatch for a string that is no date", () => {
     const engine = new VbsEngine();
     engine.executeStatement('x = CDate("abc")');
     expect(engine.error?.number).toBe(13);
@@ -1385,12 +1419,14 @@ describe('Dates as VBScript writes, reads and compares them', () => {
 // ---------------------------------------------------------------------------
 // Every answer below was read off vbscript.dll (cscript //E:vbscript) under the locale named in the test.
 // CDate and IsDate now share one parser, so IsDate can no longer answer False about a string CDate takes.
-describe('A date string as vbscript.dll reads it', () => {
+describe("A date string as vbscript.dll reads it", () => {
   function answer(locale: number, expression: string): unknown {
     const engine = new VbsEngine();
-    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`);
+    engine.executeStatement(
+      `SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`,
+    );
     if (engine.error) return `error ${engine.error.number}`;
-    return engine.eval('r');
+    return engine.eval("r");
   }
 
   function isDate(locale: number, text: string): unknown {
@@ -1402,30 +1438,30 @@ describe('A date string as vbscript.dll reads it', () => {
     const engine = new VbsEngine();
     engine.executeStatement(
       `SetLocale ${locale}\nOn Error Resume Next\nd = CDate(${JSON.stringify(text)})\n` +
-        `r = Year(d) & "/" & Month(d) & "/" & Day(d)`
+        `r = Year(d) & "/" & Month(d) & "/" & Day(d)`,
     );
-    return String(engine.eval('r'));
+    return String(engine.eval("r"));
   }
 
   const monthNameCases: [number, string, boolean][] = [
-    [1033, '1 Jan 2026', true],
-    [1033, 'January 1, 2026', true],
-    [1033, '1 Janu 2026', true],
-    [1033, '1 Ja 2026', false],
-    [1033, '1 Janx 2026', false],
-    [1031, '1 Januar 2026', true],
-    [1031, '1 JANUAR 2026', true],
-    [1031, '1 January 2026', false],
-    [1031, '1 Mar 2026', false],
-    [1031, '1 März 2026', true],
-    [1036, '1 janvier 2026', true],
-    [1036, '1 févr. 2026', true],
-    [1036, '1 January 2026', false],
-    [1049, '1 янв 2026', true],
-    [1049, '1 января 2026', true],
-    [1049, '1 Jan 2026', false],
-    [2052, '1 Jan 2026', true],
-    [2052, '1 一月 2026', false],
+    [1033, "1 Jan 2026", true],
+    [1033, "January 1, 2026", true],
+    [1033, "1 Janu 2026", true],
+    [1033, "1 Ja 2026", false],
+    [1033, "1 Janx 2026", false],
+    [1031, "1 Januar 2026", true],
+    [1031, "1 JANUAR 2026", true],
+    [1031, "1 January 2026", false],
+    [1031, "1 Mar 2026", false],
+    [1031, "1 März 2026", true],
+    [1036, "1 janvier 2026", true],
+    [1036, "1 févr. 2026", true],
+    [1036, "1 January 2026", false],
+    [1049, "1 янв 2026", true],
+    [1049, "1 января 2026", true],
+    [1049, "1 Jan 2026", false],
+    [2052, "1 Jan 2026", true],
+    [2052, "1 一月 2026", false],
   ];
 
   for (const [locale, text, expected] of monthNameCases) {
@@ -1435,15 +1471,15 @@ describe('A date string as vbscript.dll reads it', () => {
   }
 
   const rejectedCases: [number, string][] = [
-    [1033, 'Tue Sep 29 2026'],
-    [1033, '2026-09-29T10:30:00'],
-    [1033, '2026-09-29T10:30:00Z'],
-    [1033, '29.09.2026'],
-    [1033, '24:00'],
-    [1033, '10:60'],
-    [1033, 'abc'],
-    [1033, ''],
-    [1042, '29.9.26'],
+    [1033, "Tue Sep 29 2026"],
+    [1033, "2026-09-29T10:30:00"],
+    [1033, "2026-09-29T10:30:00Z"],
+    [1033, "29.09.2026"],
+    [1033, "24:00"],
+    [1033, "10:60"],
+    [1033, "abc"],
+    [1033, ""],
+    [1042, "29.9.26"],
   ];
 
   for (const [locale, text] of rejectedCases) {
@@ -1454,18 +1490,18 @@ describe('A date string as vbscript.dll reads it', () => {
 
   const currentYear = new Date().getFullYear();
   const valueCases: [number, string, unknown][] = [
-    [1033, 'CStr(CDate("Jan 2026"))', '1/1/2026'],
+    [1033, 'CStr(CDate("Jan 2026"))', "1/1/2026"],
     [1033, 'CStr(CDate("1 Jan"))', `1/1/${currentYear}`],
-    [1033, 'CStr(CDate("1 Jan 26"))', '1/1/2026'],
-    [1031, 'CStr(CDate("1 Jan 26"))', '01.01.2026'],
+    [1033, 'CStr(CDate("1 Jan 26"))', "1/1/2026"],
+    [1031, 'CStr(CDate("1 Jan 26"))', "01.01.2026"],
     [1033, 'CStr(CDate("1/2"))', `1/2/${currentYear}`],
     [1031, 'CStr(CDate("1/2"))', `01.02.${currentYear}`],
     [1033, 'CStr(CDate("13/1"))', `1/13/${currentYear}`],
-    [1033, 'CStr(CDate("13:30 PM"))', '1:30:00 PM'],
-    [1031, 'CStr(CDate("13:30 PM"))', '13:30:00'],
-    [1033, 'CStr(CDate("0:30 PM"))', '12:30:00 PM'],
-    [1033, 'CStr(CDate("12:30 AM"))', '12:30:00 AM'],
-    [1033, 'CStr(CDate("Sep 29 2026 10:30 PM"))', '9/29/2026 10:30:00 PM'],
+    [1033, 'CStr(CDate("13:30 PM"))', "1:30:00 PM"],
+    [1031, 'CStr(CDate("13:30 PM"))', "13:30:00"],
+    [1033, 'CStr(CDate("0:30 PM"))', "12:30:00 PM"],
+    [1033, 'CStr(CDate("12:30 AM"))', "12:30:00 AM"],
+    [1033, 'CStr(CDate("Sep 29 2026 10:30 PM"))', "9/29/2026 10:30:00 PM"],
   ];
 
   for (const [locale, expression, expected] of valueCases) {
@@ -1477,21 +1513,21 @@ describe('A date string as vbscript.dll reads it', () => {
   // The day a string stands for, where CStr would also show CLDR's month padding rather than Windows'
   // bare month (see the note on the separator and padding below).
   const parsedCases: [number, string, string][] = [
-    [2052, '1 Jan 26', '2001/1/26'],
-    [2052, '9/29/2026', '2026/9/29'],
-    [2052, '29/09/2026', '2026/9/29'],
-    [1041, '9/29/26', '2026/9/29'],
-    [1042, '1 Jan 26', '2001/1/26'],
-    [1028, '9/29/2026', '2026/9/29'],
-    [1038, '9/29/26', '2026/9/29'],
-    [1031, 'Sep 29 2026 10:30 PM', '2026/9/29'],
+    [2052, "1 Jan 26", "2001/1/26"],
+    [2052, "9/29/2026", "2026/9/29"],
+    [2052, "29/09/2026", "2026/9/29"],
+    [1041, "9/29/26", "2026/9/29"],
+    [1042, "1 Jan 26", "2001/1/26"],
+    [1028, "9/29/2026", "2026/9/29"],
+    [1038, "9/29/26", "2026/9/29"],
+    [1031, "Sep 29 2026 10:30 PM", "2026/9/29"],
     // The locale's own date markers rather than separators (measured: vbscript.dll reads all of these).
-    [2052, '2026年9月29日', '2026/9/29'],
-    [1028, '2026年9月29日', '2026/9/29'],
-    [1041, '2026年9月29日', '2026/9/29'],
-    [1042, '2026年9月29日', '2026/9/29'],
-    [1042, '2026년 9월 29일', '2026/9/29'],
-    [2052, '2026年9月29日 10:30', '2026/9/29'],
+    [2052, "2026年9月29日", "2026/9/29"],
+    [1028, "2026年9月29日", "2026/9/29"],
+    [1041, "2026年9月29日", "2026/9/29"],
+    [1042, "2026年9月29日", "2026/9/29"],
+    [1042, "2026년 9월 29일", "2026/9/29"],
+    [2052, "2026年9月29日 10:30", "2026/9/29"],
   ];
 
   for (const [locale, text, expected] of parsedCases) {
@@ -1503,15 +1539,15 @@ describe('A date string as vbscript.dll reads it', () => {
   // Each locale reads its own markers, plus the ideographic form: Korean reads "2026年9月29日" as well
   // as "2026년 9월 29일", while Chinese and Japanese read only the ideographic one.
   const markerCases: [number, string, boolean][] = [
-    [2052, '2026年9月29日', true],
-    [1028, '2026年9月29日', true],
-    [1041, '2026年9月29日', true],
-    [1042, '2026年9月29日', true],
-    [1042, '2026년 9월 29일', true],
-    [2052, '2026년 9월 29일', false],
-    [1041, '2026년 9월 29일', false],
-    [1033, '2026年9月29日', false],
-    [1031, '2026年9月29日', false],
+    [2052, "2026年9月29日", true],
+    [1028, "2026年9月29日", true],
+    [1041, "2026年9月29日", true],
+    [1042, "2026年9月29日", true],
+    [1042, "2026년 9월 29일", true],
+    [2052, "2026년 9월 29일", false],
+    [1041, "2026년 9월 29일", false],
+    [1033, "2026年9月29日", false],
+    [1031, "2026年9月29日", false],
   ];
 
   for (const [locale, text, expected] of markerCases) {
@@ -1520,23 +1556,53 @@ describe('A date string as vbscript.dll reads it', () => {
     });
   }
 
-  it('still pads the month where Windows pads it', () => {
-    expect(answer(1031, 'CStr(CDate("Sep 29 2026 10:30 PM"))')).toBe('29.09.2026 22:30:00');
+  it("still pads the month where Windows pads it", () => {
+    expect(answer(1031, 'CStr(CDate("Sep 29 2026 10:30 PM"))')).toBe(
+      "29.09.2026 22:30:00",
+    );
   });
 
   // CStr now comes from Windows NLS, shipped as data, so these are the strings vbscript.dll itself
   // prints. Measured with cscript for 5 January 2026 09:05:00 (single-digit day, month and hour, so
   // padding cannot hide) and for 29 September 2026 10:30:00.
   const cstrCases: [number, string, string][] = [
-    [2052, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026/1/5 9:05:00'],
-    [1028, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026/1/5 上午 09:05:00'],
-    [1042, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026-01-05 오전 9:05:00'],
-    [1049, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '05.01.2026 9:05:00'],
-    [1031, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '05.01.2026 09:05:00'],
-    [1033, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '1/5/2026 9:05:00 AM'],
-    [1038, 'CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))', '2026. 01. 05. 9:05:00'],
-    [2052, 'CStr(CDate(46294.4375))', '2026/9/29 10:30:00'],
-    [1042, 'CStr(CDate(46294.4375))', '2026-09-29 오전 10:30:00'],
+    [
+      2052,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "2026/1/5 9:05:00",
+    ],
+    [
+      1028,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "2026/1/5 上午 09:05:00",
+    ],
+    [
+      1042,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "2026-01-05 오전 9:05:00",
+    ],
+    [
+      1049,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "05.01.2026 9:05:00",
+    ],
+    [
+      1031,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "05.01.2026 09:05:00",
+    ],
+    [
+      1033,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "1/5/2026 9:05:00 AM",
+    ],
+    [
+      1038,
+      "CStr(CDate(DateSerial(2026, 1, 5) + TimeSerial(9, 5, 0)))",
+      "2026. 01. 05. 9:05:00",
+    ],
+    [2052, "CStr(CDate(46294.4375))", "2026/9/29 10:30:00"],
+    [1042, "CStr(CDate(46294.4375))", "2026-09-29 오전 10:30:00"],
   ];
 
   for (const [locale, expression, expected] of cstrCases) {
@@ -1551,31 +1617,33 @@ describe('A date string as vbscript.dll reads it', () => {
 // ---------------------------------------------------------------------------
 // vbscript.dll answers a type mismatch for a number, a Boolean or Empty here even though CDate reads
 // them, and error 94 for Null.
-describe('DateValue and TimeValue take a date or a string only', () => {
+describe("DateValue and TimeValue take a date or a string only", () => {
   function errorNumber(locale: number, statement: string): number {
     const engine = new VbsEngine();
     engine.executeStatement(
-      `SetLocale ${locale}\nOn Error Resume Next\n${statement}\nen = Err.Number`
+      `SetLocale ${locale}\nOn Error Resume Next\n${statement}\nen = Err.Number`,
     );
-    return Number(engine.eval('en'));
+    return Number(engine.eval("en"));
   }
 
   function answer(locale: number, expression: string): unknown {
     const engine = new VbsEngine();
-    engine.executeStatement(`SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`);
-    return engine.error ? `error ${engine.error.number}` : engine.eval('r');
+    engine.executeStatement(
+      `SetLocale ${locale}\nOn Error Resume Next\nr = (${expression})`,
+    );
+    return engine.error ? `error ${engine.error.number}` : engine.eval("r");
   }
 
   const rejected: [string, number][] = [
-    ['x = DateValue(0)', 13],
-    ['x = DateValue(46294.4375)', 13],
-    ['x = DateValue(True)', 13],
-    ['x = DateValue(Empty)', 13],
-    ['x = TimeValue(0)', 13],
-    ['x = TimeValue(True)', 13],
-    ['x = DateValue(Null)', 94],
-    ['x = TimeValue(Null)', 94],
-    ['x = CDate(Null)', 94],
+    ["x = DateValue(0)", 13],
+    ["x = DateValue(46294.4375)", 13],
+    ["x = DateValue(True)", 13],
+    ["x = DateValue(Empty)", 13],
+    ["x = TimeValue(0)", 13],
+    ["x = TimeValue(True)", 13],
+    ["x = DateValue(Null)", 94],
+    ["x = TimeValue(Null)", 94],
+    ["x = CDate(Null)", 94],
   ];
 
   for (const [statement, expected] of rejected) {
@@ -1587,39 +1655,41 @@ describe('DateValue and TimeValue take a date or a string only', () => {
   // Which types these two accept is a type rule, not locale data: measured on a Chinese Windows, the
   // same tuple comes back for all 133 locales. German and Chinese agree here even though the two
   // disagree about which *strings* are dates, so this guards the claim in the #6 review comment.
-  it('answers the same under every locale', () => {
-    const expected = '13|13|13|94|13|13|94|0';
+  it("answers the same under every locale", () => {
+    const expected = "13|13|13|94|13|13|94|0";
     for (const locale of [1031, 2052, 1033, 1049]) {
       const answers = [
-        errorNumber(locale, 'x = DateValue(0)'),
-        errorNumber(locale, 'x = DateValue(True)'),
-        errorNumber(locale, 'x = DateValue(Empty)'),
-        errorNumber(locale, 'x = DateValue(Null)'),
-        errorNumber(locale, 'x = TimeValue(0)'),
-        errorNumber(locale, 'x = TimeValue(True)'),
-        errorNumber(locale, 'x = TimeValue(Null)'),
-        errorNumber(locale, 'x = CDate(0)'),
-      ].join('|');
+        errorNumber(locale, "x = DateValue(0)"),
+        errorNumber(locale, "x = DateValue(True)"),
+        errorNumber(locale, "x = DateValue(Empty)"),
+        errorNumber(locale, "x = DateValue(Null)"),
+        errorNumber(locale, "x = TimeValue(0)"),
+        errorNumber(locale, "x = TimeValue(True)"),
+        errorNumber(locale, "x = TimeValue(Null)"),
+        errorNumber(locale, "x = CDate(0)"),
+      ].join("|");
       expect(answers, `locale ${locale}`).toBe(expected);
     }
   });
 
-  it('reads CDate(True) as day -1 and IsDate as False, under every locale', () => {
+  it("reads CDate(True) as day -1 and IsDate as False, under every locale", () => {
     for (const locale of [1031, 2052, 1033, 1049]) {
       const engine = new VbsEngine();
       engine.executeStatement(
         `SetLocale ${locale}\nOn Error Resume Next\nx = CDate(True)\n` +
-          `r = (CDbl(x) = -1) & "|" & IsDate(0) & "|" & IsDate(True) & "|" & IsDate(Empty) & "|" & IsDate(Null)`
+          `r = (CDbl(x) = -1) & "|" & IsDate(0) & "|" & IsDate(True) & "|" & IsDate(Empty) & "|" & IsDate(Null)`,
       );
-      expect(engine.eval('r'), `locale ${locale}`).toBe('True|False|False|False|False');
+      expect(engine.eval("r"), `locale ${locale}`).toBe(
+        "True|False|False|False|False",
+      );
     }
   });
 
-  it('still reads a date and a string', () => {
-    expect(answer(1033, 'CStr(DateValue(CDate(1)))')).toBe('12/31/1899');
-    expect(answer(1033, 'CStr(TimeValue(CDate(1.5)))')).toBe('12:00:00 PM');
-    expect(answer(1033, 'CStr(DateValue("10:30:00"))')).toBe('12:00:00 AM');
-    expect(answer(1031, 'CStr(DateValue("10:30:00"))')).toBe('00:00:00');
+  it("still reads a date and a string", () => {
+    expect(answer(1033, "CStr(DateValue(CDate(1)))")).toBe("12/31/1899");
+    expect(answer(1033, "CStr(TimeValue(CDate(1.5)))")).toBe("12:00:00 PM");
+    expect(answer(1033, 'CStr(DateValue("10:30:00"))')).toBe("12:00:00 AM");
+    expect(answer(1031, 'CStr(DateValue("10:30:00"))')).toBe("00:00:00");
   });
 });
 
@@ -1628,31 +1698,33 @@ describe('DateValue and TimeValue take a date or a string only', () => {
 // ---------------------------------------------------------------------------
 // The locale used to be one module-level variable, so SetLocale in one engine was visible to every
 // other engine in the process, and to every engine created afterwards.
-describe('Two engines in one process hold their own locale', () => {
-  it('keeps a fresh engine on the host locale after another engine called SetLocale', () => {
+describe("Two engines in one process hold their own locale", () => {
+  it("keeps a fresh engine on the host locale after another engine called SetLocale", () => {
     const before = new VbsEngine();
-    before.executeStatement('r = GetLocale()');
-    const hostLocale = before.eval('r');
+    before.executeStatement("r = GetLocale()");
+    const hostLocale = before.eval("r");
 
     const german = new VbsEngine();
-    german.executeStatement('SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))');
-    expect(german.eval('r')).toBe('05.01.2026');
+    german.executeStatement("SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))");
+    expect(german.eval("r")).toBe("05.01.2026");
 
     const after = new VbsEngine();
-    after.executeStatement('r = GetLocale()');
-    expect(after.eval('r')).toBe(hostLocale);
+    after.executeStatement("r = GetLocale()");
+    expect(after.eval("r")).toBe(hostLocale);
   });
 
-  it('lets each engine keep reading its own locale', () => {
+  it("lets each engine keep reading its own locale", () => {
     const english = new VbsEngine();
-    english.executeStatement('SetLocale 1033\nr = CStr(DateSerial(2026, 1, 5))');
-    expect(english.eval('r')).toBe('1/5/2026');
+    english.executeStatement(
+      "SetLocale 1033\nr = CStr(DateSerial(2026, 1, 5))",
+    );
+    expect(english.eval("r")).toBe("1/5/2026");
 
     const german = new VbsEngine();
-    german.executeStatement('SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))');
-    expect(german.eval('r')).toBe('05.01.2026');
+    german.executeStatement("SetLocale 1031\nr = CStr(DateSerial(2026, 1, 5))");
+    expect(german.eval("r")).toBe("05.01.2026");
 
-    english.executeStatement('r = CStr(DateSerial(2026, 1, 5))');
-    expect(english.eval('r')).toBe('1/5/2026');
+    english.executeStatement("r = CStr(DateSerial(2026, 1, 5))");
+    expect(english.eval("r")).toBe("1/5/2026");
   });
 });

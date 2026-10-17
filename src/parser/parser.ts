@@ -1,8 +1,8 @@
-import type { Program } from '../ast/index.ts';
-import type { Token } from '../lexer/index.ts';
-import { Lexer } from '../lexer/index.ts';
-import { ParserState } from './parser-state.ts';
-import { StatementParser } from './statement-parser.ts';
+import type { Program } from "../ast/index.ts";
+import type { Token } from "../lexer/index.ts";
+import { Lexer } from "../lexer/index.ts";
+import { ParserState } from "./parser-state.ts";
+import { StatementParser } from "./statement-parser.ts";
 
 export interface ParserOptions {
   source?: string;
@@ -31,9 +31,9 @@ export class Parser {
     const lastToken = this.state.current;
 
     return {
-      type: 'Program',
+      type: "Program",
       body,
-      sourceType: 'script',
+      sourceType: "script",
       loc: {
         start: { line: 1, column: 0 },
         end: lastToken.loc.end,

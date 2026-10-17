@@ -1,4 +1,4 @@
-import type { VbValue } from '../runtime/index.ts';
+import type { VbValue } from "../runtime/index.ts";
 
 interface VbMatch {
   firstIndex: number;
@@ -16,27 +16,27 @@ interface VbRegExpState {
 
 function createMatchObject(match: VbMatch): VbValue {
   return {
-    type: 'Object',
+    type: "Object",
     value: {
-      classInfo: { name: 'Match' },
+      classInfo: { name: "Match" },
       getProperty: (name: string): VbValue => {
         const lowerName = name.toLowerCase();
-        if (lowerName === 'firstindex') {
-          return { type: 'Long', value: match.firstIndex };
+        if (lowerName === "firstindex") {
+          return { type: "Long", value: match.firstIndex };
         }
-        if (lowerName === 'length') {
-          return { type: 'Long', value: match.length };
+        if (lowerName === "length") {
+          return { type: "Long", value: match.length };
         }
-        if (lowerName === 'value') {
-          return { type: 'String', value: match.value };
+        if (lowerName === "value") {
+          return { type: "String", value: match.value };
         }
-        return { type: 'Empty', value: undefined };
+        return { type: "Empty", value: undefined };
       },
       hasProperty: (name: string): boolean => {
         const lowerName = name.toLowerCase();
-        return ['firstindex', 'length', 'value'].includes(lowerName);
+        return ["firstindex", "length", "value"].includes(lowerName);
       },
-      getPropertyNames: (): string[] => ['FirstIndex', 'Length', 'Value'],
+      getPropertyNames: (): string[] => ["FirstIndex", "Length", "Value"],
     },
   };
 }
@@ -44,26 +44,26 @@ function createMatchObject(match: VbMatch): VbValue {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function createSubMatchesObject(subMatches: string[]): VbValue {
   return {
-    type: 'Object',
+    type: "Object",
     value: {
-      classInfo: { name: 'SubMatches' },
+      classInfo: { name: "SubMatches" },
       getProperty: (name: string): VbValue => {
         const index = parseInt(name, 10);
         if (!isNaN(index) && index >= 0 && index < subMatches.length) {
-          return { type: 'String', value: subMatches[index] ?? '' };
+          return { type: "String", value: subMatches[index] ?? "" };
         }
-        return { type: 'Empty', value: undefined };
+        return { type: "Empty", value: undefined };
       },
       hasProperty: (name: string): boolean => {
         const index = parseInt(name, 10);
         return !isNaN(index) && index >= 0 && index < subMatches.length;
       },
       hasMethod: (name: string): boolean => {
-        return name.toLowerCase() === 'count';
+        return name.toLowerCase() === "count";
       },
       getMethod: (name: string): { func: (...args: VbValue[]) => VbValue } => {
-        if (name.toLowerCase() === 'count') {
-          return { func: () => ({ type: 'Long', value: subMatches.length }) };
+        if (name.toLowerCase() === "count") {
+          return { func: () => ({ type: "Long", value: subMatches.length }) };
         }
         throw new Error(`Unknown SubMatches method: ${name}`);
       },
@@ -75,36 +75,36 @@ function createMatchesCollection(matches: VbMatch[]): VbValue {
   const matchObjects = matches.map(createMatchObject);
 
   return {
-    type: 'Object',
+    type: "Object",
     value: {
-      classInfo: { name: 'Matches' },
+      classInfo: { name: "Matches" },
       getProperty: (name: string): VbValue => {
         const index = parseInt(name, 10);
         if (!isNaN(index) && index >= 0 && index < matchObjects.length) {
-          return matchObjects[index] ?? { type: 'Empty', value: undefined };
+          return matchObjects[index] ?? { type: "Empty", value: undefined };
         }
-        return { type: 'Empty', value: undefined };
+        return { type: "Empty", value: undefined };
       },
       hasProperty: (name: string): boolean => {
         const index = parseInt(name, 10);
         return !isNaN(index) && index >= 0 && index < matchObjects.length;
       },
       hasMethod: (name: string): boolean => {
-        return name.toLowerCase() === 'count' || name.toLowerCase() === 'item';
+        return name.toLowerCase() === "count" || name.toLowerCase() === "item";
       },
       getMethod: (name: string): { func: (...args: VbValue[]) => VbValue } => {
         const lowerName = name.toLowerCase();
-        if (lowerName === 'count') {
-          return { func: () => ({ type: 'Long', value: matches.length }) };
+        if (lowerName === "count") {
+          return { func: () => ({ type: "Long", value: matches.length }) };
         }
-        if (lowerName === 'item') {
+        if (lowerName === "item") {
           return {
             func: (index: VbValue): VbValue => {
               const idx = Math.floor(Number(index.value ?? 0));
               if (idx >= 0 && idx < matchObjects.length) {
-                return matchObjects[idx] ?? { type: 'Empty', value: undefined };
+                return matchObjects[idx] ?? { type: "Empty", value: undefined };
               }
-              return { type: 'Empty', value: undefined };
+              return { type: "Empty", value: undefined };
             },
           };
         }
@@ -116,79 +116,82 @@ function createMatchesCollection(matches: VbMatch[]): VbValue {
 
 function createRegExpObject(state: VbRegExpState): VbValue {
   return {
-    type: 'Object',
+    type: "Object",
     value: {
-      classInfo: { name: 'RegExp' },
+      classInfo: { name: "RegExp" },
       regexpState: state,
       getProperty: (name: string): VbValue => {
         const lowerName = name.toLowerCase();
-        if (lowerName === 'pattern') {
-          return { type: 'String', value: state.pattern };
+        if (lowerName === "pattern") {
+          return { type: "String", value: state.pattern };
         }
-        if (lowerName === 'global') {
-          return { type: 'Boolean', value: state.global };
+        if (lowerName === "global") {
+          return { type: "Boolean", value: state.global };
         }
-        if (lowerName === 'ignorecase') {
-          return { type: 'Boolean', value: state.ignoreCase };
+        if (lowerName === "ignorecase") {
+          return { type: "Boolean", value: state.ignoreCase };
         }
-        if (lowerName === 'multiline') {
-          return { type: 'Boolean', value: state.multiline };
+        if (lowerName === "multiline") {
+          return { type: "Boolean", value: state.multiline };
         }
-        return { type: 'Empty', value: undefined };
+        return { type: "Empty", value: undefined };
       },
       setProperty: (name: string, value: VbValue): void => {
         const lowerName = name.toLowerCase();
-        if (lowerName === 'pattern') {
-          state.pattern = String(value.value ?? '');
-        } else if (lowerName === 'global') {
+        if (lowerName === "pattern") {
+          state.pattern = String(value.value ?? "");
+        } else if (lowerName === "global") {
           state.global = Boolean(value.value);
-        } else if (lowerName === 'ignorecase') {
+        } else if (lowerName === "ignorecase") {
           state.ignoreCase = Boolean(value.value);
-        } else if (lowerName === 'multiline') {
+        } else if (lowerName === "multiline") {
           state.multiline = Boolean(value.value);
         }
       },
       hasProperty: (name: string): boolean => {
         const lowerName = name.toLowerCase();
-        return ['pattern', 'global', 'ignorecase', 'multiline'].includes(lowerName);
+        return ["pattern", "global", "ignorecase", "multiline"].includes(
+          lowerName,
+        );
       },
       hasMethod: (name: string): boolean => {
-        return ['execute', 'test', 'replace'].includes(name.toLowerCase());
+        return ["execute", "test", "replace"].includes(name.toLowerCase());
       },
       getMethod: (name: string): { func: (...args: VbValue[]) => VbValue } => {
         const lowerName = name.toLowerCase();
 
-        if (lowerName === 'test') {
+        if (lowerName === "test") {
           return {
             func: (sourceString: VbValue): VbValue => {
-              const source = String(sourceString.value ?? '');
+              const source = String(sourceString.value ?? "");
               if (!state.pattern) {
-                return { type: 'Boolean', value: false };
+                return { type: "Boolean", value: false };
               }
               try {
-                const flags = (state.ignoreCase ? 'i' : '') + (state.multiline ? 'm' : '');
+                const flags =
+                  (state.ignoreCase ? "i" : "") + (state.multiline ? "m" : "");
                 const regex = new RegExp(state.pattern, flags);
                 const result = regex.test(source);
-                return { type: 'Boolean', value: result };
+                return { type: "Boolean", value: result };
               } catch {
-                return { type: 'Boolean', value: false };
+                return { type: "Boolean", value: false };
               }
             },
           };
         }
 
-        if (lowerName === 'execute') {
+        if (lowerName === "execute") {
           return {
             func: (sourceString: VbValue): VbValue => {
-              const source = String(sourceString.value ?? '');
+              const source = String(sourceString.value ?? "");
               if (!state.pattern) {
                 return createMatchesCollection([]);
               }
               try {
                 const flags =
-                  (state.ignoreCase ? 'i' : '') +
-                  (state.multiline ? 'm' : '') +
-                  (state.global ? 'g' : '');
+                  (state.ignoreCase ? "i" : "") +
+                  (state.multiline ? "m" : "") +
+                  (state.global ? "g" : "");
                 const regex = new RegExp(state.pattern, flags);
                 const matches: VbMatch[] = [];
                 let match;
@@ -198,7 +201,7 @@ function createRegExpObject(state: VbRegExpState): VbValue {
                     firstIndex: match.index,
                     length: match[0].length,
                     value: match[0],
-                    subMatches: match.slice(1).map(m => m ?? ''),
+                    subMatches: match.slice(1).map((m) => m ?? ""),
                   });
 
                   if (!state.global) {
@@ -214,24 +217,24 @@ function createRegExpObject(state: VbRegExpState): VbValue {
           };
         }
 
-        if (lowerName === 'replace') {
+        if (lowerName === "replace") {
           return {
             func: (sourceString: VbValue, replaceString: VbValue): VbValue => {
-              const source = String(sourceString.value ?? '');
-              const replace = String(replaceString.value ?? '');
+              const source = String(sourceString.value ?? "");
+              const replace = String(replaceString.value ?? "");
               if (!state.pattern) {
-                return { type: 'String', value: source };
+                return { type: "String", value: source };
               }
               try {
                 const flags =
-                  (state.ignoreCase ? 'i' : '') +
-                  (state.multiline ? 'm' : '') +
-                  (state.global ? 'g' : '');
+                  (state.ignoreCase ? "i" : "") +
+                  (state.multiline ? "m" : "") +
+                  (state.global ? "g" : "");
                 const regex = new RegExp(state.pattern, flags);
                 const result = source.replace(regex, replace);
-                return { type: 'String', value: result };
+                return { type: "String", value: result };
               } catch {
-                return { type: 'String', value: source };
+                return { type: "String", value: source };
               }
             },
           };
@@ -244,21 +247,25 @@ function createRegExpObject(state: VbRegExpState): VbValue {
 }
 
 export function registerRegExp(context: {
-  functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void };
-  classRegistry: { registerClass: (name: string, creator: () => VbValue) => void };
+  functionRegistry: {
+    register: (name: string, func: (...args: VbValue[]) => VbValue) => void;
+  };
+  classRegistry: {
+    registerClass: (name: string, creator: () => VbValue) => void;
+  };
 }): void {
-  context.classRegistry.registerClass('RegExp', () => {
+  context.classRegistry.registerClass("RegExp", () => {
     return createRegExpObject({
-      pattern: '',
+      pattern: "",
       global: false,
       ignoreCase: false,
       multiline: false,
     });
   });
 
-  context.functionRegistry.register('RegExp', (): VbValue => {
+  context.functionRegistry.register("RegExp", (): VbValue => {
     return createRegExpObject({
-      pattern: '',
+      pattern: "",
       global: false,
       ignoreCase: false,
       multiline: false,

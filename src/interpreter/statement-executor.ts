@@ -23,8 +23,8 @@ import type {
   VbTypeStatement,
   Expression,
   VbGotoStatement,
-} from '../ast/index.ts';
-import type { VbValue } from '../runtime/index.ts';
+} from "../ast/index.ts";
+import type { VbValue } from "../runtime/index.ts";
 import {
   VbContext,
   VbEmpty,
@@ -50,8 +50,8 @@ import {
   type VbArgumentRef,
   declaredArity,
   checkArgumentRange,
-} from '../runtime/index.ts';
-import { ExpressionEvaluator } from './expression-evaluator.ts';
+} from "../runtime/index.ts";
+import { ExpressionEvaluator } from "./expression-evaluator.ts";
 
 // Real VBScript's control-flow conditions (If/While/Do/Select Case) treat
 // Null as simply False - unlike toBoolean() itself, which correctly throws
@@ -62,7 +62,7 @@ import { ExpressionEvaluator } from './expression-evaluator.ts';
 // `if null then call ok(false, ...)` / `while null : call ok(false, ...) :
 // wend` both assert the body never runs, not that an error is raised.
 function toConditionBoolean(value: VbValue): boolean {
-  if (value.type === 'Null') return false;
+  if (value.type === "Null") return false;
   return toBoolean(value);
 }
 
@@ -73,13 +73,15 @@ function toConditionBoolean(value: VbValue): boolean {
  * was, where the same Sub written with the default ByRef changes it.
  */
 function copyArrayArgument(value: VbValue): VbValue {
-  if (value.type !== 'Array') return value;
-  return { type: 'Array', value: (value.value as VbArray).clone() };
+  if (value.type !== "Array") return value;
+  return { type: "Array", value: (value.value as VbArray).clone() };
 }
 
 /** The parameter list of a class member as the argument counts are read from it. */
-function classParameterInfo(params: import('../ast/index.ts').VbParameter[]): VbParameterInfo[] {
-  return params.map(param => ({
+function classParameterInfo(
+  params: import("../ast/index.ts").VbParameter[],
+): VbParameterInfo[] {
+  return params.map((param) => ({
     name: param.name.name,
     byRef: param.byRef,
     isArray: param.isArray,
@@ -90,8 +92,8 @@ function classParameterInfo(params: import('../ast/index.ts').VbParameter[]): Vb
 
 export class ControlFlowSignal extends Error {
   constructor(
-    public type: 'exit' | 'return' | 'continue' | 'break' | 'goto',
-    public value?: VbValue
+    public type: "exit" | "return" | "continue" | "break" | "goto",
+    public value?: VbValue,
   ) {
     super(type);
   }
@@ -106,66 +108,71 @@ export class ControlFlowSignal extends Error {
 
 export class GotoSignal extends ControlFlowSignal {
   constructor(public labelName: string) {
-    super('goto');
+    super("goto");
   }
 }
 
-function tsTypeAnnotationName(annotation: import('../ast/index.ts').TSTypeAnnotation): string {
+function tsTypeAnnotationName(
+  annotation: import("../ast/index.ts").TSTypeAnnotation,
+): string {
   const t = annotation.typeAnnotation;
   switch (t.type) {
-    case 'TSStringKeyword':
-      return 'string';
-    case 'TSBooleanKeyword':
-      return 'boolean';
-    case 'TSObjectKeyword':
-      return 'object';
-    case 'TSAnyKeyword':
-      return 'variant';
-    case 'TSVoidKeyword':
-      return 'variant';
-    case 'TSNumberKeyword':
-      return 'double';
-    case 'TSNullKeyword':
-      return 'variant';
-    case 'TSTypeReference':
+    case "TSStringKeyword":
+      return "string";
+    case "TSBooleanKeyword":
+      return "boolean";
+    case "TSObjectKeyword":
+      return "object";
+    case "TSAnyKeyword":
+      return "variant";
+    case "TSVoidKeyword":
+      return "variant";
+    case "TSNumberKeyword":
+      return "double";
+    case "TSNullKeyword":
+      return "variant";
+    case "TSTypeReference":
       return t.typeName.name;
-    case 'TSArrayType':
-      return tsTypeAnnotationName({ type: 'TSTypeAnnotation', typeAnnotation: t.elementType });
+    case "TSArrayType":
+      return tsTypeAnnotationName({
+        type: "TSTypeAnnotation",
+        typeAnnotation: t.elementType,
+      });
     default:
-      return 'variant';
+      return "variant";
   }
 }
 
 function getTypedDefault(typeName: string, context?: VbContext): VbValue {
   switch (typeName.toLowerCase()) {
-    case 'integer':
-      return { type: 'Integer', value: 0 };
-    case 'long':
-      return { type: 'Long', value: 0 };
-    case 'longlong':
-      return { type: 'LongLong', value: BigInt(0) };
-    case 'single':
-      return { type: 'Single', value: 0 };
-    case 'double':
-      return { type: 'Double', value: 0 };
-    case 'currency':
-      return { type: 'Currency', value: BigInt(0) };
-    case 'byte':
-      return { type: 'Byte', value: 0 };
-    case 'boolean':
-      return { type: 'Boolean', value: false };
-    case 'string':
-      return { type: 'String', value: '' };
-    case 'date':
-      return { type: 'Date', value: new Date(0) };
-    case 'variant':
+    case "integer":
+      return { type: "Integer", value: 0 };
+    case "long":
+      return { type: "Long", value: 0 };
+    case "longlong":
+      return { type: "LongLong", value: BigInt(0) };
+    case "single":
+      return { type: "Single", value: 0 };
+    case "double":
+      return { type: "Double", value: 0 };
+    case "currency":
+      return { type: "Currency", value: BigInt(0) };
+    case "byte":
+      return { type: "Byte", value: 0 };
+    case "boolean":
+      return { type: "Boolean", value: false };
+    case "string":
+      return { type: "String", value: "" };
+    case "date":
+      return { type: "Date", value: new Date(0) };
+    case "variant":
       return VbEmpty;
     default:
       if (context && context.classRegistry.has(typeName)) {
         const instance = context.classRegistry.createInstance(typeName, []);
-        return { type: 'Object', value: instance };
+        return { type: "Object", value: instance };
       }
-      return { type: 'Object', value: null }; // Object/class → Nothing
+      return { type: "Object", value: null }; // Object/class → Nothing
   }
 }
 
@@ -179,61 +186,63 @@ export class StatementExecutor {
   execute(node: Statement): VbValue {
     try {
       switch (node.type) {
-        case 'ExpressionStatement':
+        case "ExpressionStatement":
           return this.executeExpressionStatement(node);
-        case 'BlockStatement':
+        case "BlockStatement":
           return this.executeBlockStatement(node);
-        case 'IfStatement':
+        case "IfStatement":
           return this.executeIfStatement(node);
-        case 'VbDimStatement':
+        case "VbDimStatement":
           return this.executeDimStatement(node);
-        case 'VbReDimStatement':
+        case "VbReDimStatement":
           return this.executeReDimStatement(node);
-        case 'VbEraseStatement':
+        case "VbEraseStatement":
           return this.executeEraseStatement(node);
-        case 'VbConstStatement':
+        case "VbConstStatement":
           return this.executeConstStatement(node);
-        case 'VbForToStatement':
+        case "VbForToStatement":
           return this.executeForToStatement(node);
-        case 'ForOfStatement':
+        case "ForOfStatement":
           return this.executeForEachStatement(node);
-        case 'VbDoLoopStatement':
+        case "VbDoLoopStatement":
           return this.executeDoLoopStatement(node);
-        case 'WhileStatement':
+        case "WhileStatement":
           return this.executeWhileStatement(node);
-        case 'VbSelectCaseStatement':
+        case "VbSelectCaseStatement":
           return this.executeSelectCaseStatement(node);
-        case 'WithStatement':
+        case "WithStatement":
           return this.executeWithStatement(node);
-        case 'VbExitStatement':
+        case "VbExitStatement":
           return this.executeExitStatement(node);
-        case 'VbOptionExplicitStatement':
+        case "VbOptionExplicitStatement":
           return this.executeOptionExplicitStatement(node);
-        case 'VbSubStatement':
+        case "VbSubStatement":
           return this.executeSubStatement(node);
-        case 'VbFunctionStatement':
+        case "VbFunctionStatement":
           return this.executeFunctionStatement(node);
-        case 'VbClassStatement':
+        case "VbClassStatement":
           return this.executeClassStatement(node);
-        case 'VbPropertyGetStatement':
-        case 'VbPropertyLetStatement':
-        case 'VbPropertySetStatement':
+        case "VbPropertyGetStatement":
+        case "VbPropertyLetStatement":
+        case "VbPropertySetStatement":
           return this.executePropertyStatement(node);
-        case 'VbOnErrorHandlerStatement':
+        case "VbOnErrorHandlerStatement":
           return this.executeOnErrorHandlerStatement(node);
-        case 'VbGotoStatement':
+        case "VbGotoStatement":
           return this.executeGotoStatement(node);
-        case 'VbLabelStatement':
-        case 'EmptyStatement':
+        case "VbLabelStatement":
+        case "EmptyStatement":
           return VbEmpty;
-        case 'TSEnumDeclaration':
+        case "TSEnumDeclaration":
           return this.executeEnumStatement(node);
-        case 'VbTypeStatement':
+        case "VbTypeStatement":
           return this.executeTypeStatement(node);
-        case 'ReturnStatement':
-          throw new ControlFlowSignal('return');
+        case "ReturnStatement":
+          throw new ControlFlowSignal("return");
         default:
-          throw new Error(`Unknown statement type: ${(node as Statement).type}`);
+          throw new Error(
+            `Unknown statement type: ${(node as Statement).type}`,
+          );
       }
     } catch (error) {
       if (error instanceof ControlFlowSignal) {
@@ -244,7 +253,10 @@ export class StatementExecutor {
       // the innermost one -- wins, and that is where the real engine points: at the statement
       // that failed, not at the block containing it.
       const at = (node as Statement).loc?.start;
-      const stampPosition = (target: { line?: number; column?: number }): void => {
+      const stampPosition = (target: {
+        line?: number;
+        column?: number;
+      }): void => {
         if (at && target.line === undefined) {
           target.line = at.line;
           target.column = at.column;
@@ -278,9 +290,13 @@ export class StatementExecutor {
     // let go of here: a fresh cscript runs the Terminate event of the instance `FreshMaker()` alone answers
     // with at that statement. A bare name is left alone, since what it names lives somewhere that keeps its
     // own reference and letting go of this statement's one is not the same thing.
-    const expression = node.expression as { type: string; callee?: { type?: string } };
+    const expression = node.expression as {
+      type: string;
+      callee?: { type?: string };
+    };
     const isCall =
-      expression.type === 'CallExpression' && expression.callee?.type !== 'VbWithObject';
+      expression.type === "CallExpression" &&
+      expression.callee?.type !== "VbWithObject";
     if (isCall) {
       releaseValue(result);
     }
@@ -311,7 +327,7 @@ export class StatementExecutor {
     const target = this.context.getCurrentCallTarget();
     if (target === null) return;
     this.context.setExitFlag(target);
-    const signal = new ControlFlowSignal('exit', answer);
+    const signal = new ControlFlowSignal("exit", answer);
     signal.carriesThisStatement = true;
     throw signal;
   }
@@ -336,22 +352,27 @@ export class StatementExecutor {
         // Dim a() makes a dynamic array with no size yet: IsArray answers True, UBound raises error 9, and a
         // later ReDim gives it its bounds. Measured on a fresh cscript, as is VarType 8204 for it. A bound is
         // a whole number, so a script that writes a fraction gets the nearest one.
-        const bounds = (decl.arrayBounds ?? []).map(b => {
+        const bounds = (decl.arrayBounds ?? []).map((b) => {
           const boundValue = this.exprEvaluator.evaluate(b);
           return toWholeNumber(toNumber(boundValue));
         });
         const arr = createVbArray(bounds);
-        value = { type: 'Array', value: arr };
+        value = { type: "Array", value: arr };
       } else if (decl.init) {
         value = this.exprEvaluator.evaluate(decl.init);
       } else if (decl.typeAnnotation) {
-        value = getTypedDefault(tsTypeAnnotationName(decl.typeAnnotation), this.context);
+        value = getTypedDefault(
+          tsTypeAnnotationName(decl.typeAnnotation),
+          this.context,
+        );
       }
 
       // A variable Dim wrote with parentheses is an array for the rest of the run, and giving it a whole value
       // afterwards is an error: a fresh cscript answers `Dim a(1)` with `a = 5` and with `a = Array(1, 2)`
       // alike with error 13, and `Dim a()` with `a = Array(1, 2)` with error 9.
-      this.context.declareVariable(decl.id.name, value, { isArray: decl.isArray });
+      this.context.declareVariable(decl.id.name, value, {
+        isArray: decl.isArray,
+      });
     }
 
     return VbEmpty;
@@ -365,11 +386,13 @@ export class StatementExecutor {
         const evaluated = this.exprEvaluator.evaluate(member.initializer);
         const numVal = toNumber(evaluated);
         nextValue = BigInt(Math.trunc(numVal));
-        memberValue = { type: 'Long', value: Number(nextValue) };
+        memberValue = { type: "Long", value: Number(nextValue) };
       } else {
-        memberValue = { type: 'Long', value: Number(nextValue) };
+        memberValue = { type: "Long", value: Number(nextValue) };
       }
-      this.context.globalScope.declare(member.id.name, memberValue, { isConst: true });
+      this.context.globalScope.declare(member.id.name, memberValue, {
+        isConst: true,
+      });
       nextValue++;
     }
     return VbEmpty;
@@ -378,10 +401,13 @@ export class StatementExecutor {
   private executeTypeStatement(node: VbTypeStatement): VbValue {
     const cls = new VbClass(node.name.name);
 
-    cls.initializer = instance => {
+    cls.initializer = (instance) => {
       for (const member of node.members) {
         const defaultValue = member.typeAnnotation
-          ? getTypedDefault(tsTypeAnnotationName(member.typeAnnotation), this.context)
+          ? getTypedDefault(
+              tsTypeAnnotationName(member.typeAnnotation),
+              this.context,
+            )
           : VbEmpty;
         instance.setProperty(member.id.name, defaultValue);
       }
@@ -395,18 +421,18 @@ export class StatementExecutor {
     for (const decl of node.declarations) {
       if (!decl.isArray) continue;
 
-      const bounds = (decl.arrayBounds ?? []).map(b => {
+      const bounds = (decl.arrayBounds ?? []).map((b) => {
         const boundValue = this.exprEvaluator.evaluate(b);
         return toWholeNumber(toNumber(boundValue));
       });
       const existingVar = this.context.currentScope.get(decl.id.name);
 
-      if (existingVar && existingVar.value.type === 'Array') {
+      if (existingVar && existingVar.value.type === "Array") {
         const arr = existingVar.value.value as VbArray;
         // A fixed array cannot be sized again, which a fresh cscript answers with error 10: Dim a(2), Dim a(2)
         // then Erase a, and Dim a(2) then ReDim Preserve a(3) are all error 10.
         if (!arr.isDynamic()) {
-          throw createVbError(10, 'This array is fixed or temporarily locked');
+          throw createVbError(10, "This array is fixed or temporarily locked");
         }
         arr.redim(bounds, node.preserve);
       } else {
@@ -414,7 +440,7 @@ export class StatementExecutor {
         // Variant: a fresh cscript lets `Dim x` take an array afterwards, whatever size ReDim gave it first.
         const arr = createVbArray([]);
         arr.redim(bounds, false);
-        this.context.setVariable(decl.id.name, { type: 'Array', value: arr });
+        this.context.setVariable(decl.id.name, { type: "Array", value: arr });
       }
     }
 
@@ -427,19 +453,19 @@ export class StatementExecutor {
     if (node.targets.length !== 1) {
       throw createVbError(
         VbErrorCodes.InvalidQualifier,
-        'Wrong number of arguments or invalid property assignment: Erase'
+        "Wrong number of arguments or invalid property assignment: Erase",
       );
     }
     if (node.parenthesized) {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
+      throw createVbError(VbErrorCodes.TypeMismatch, "Type mismatch: Erase");
     }
 
     const target = node.targets[0]!;
     const value = this.readEraseTarget(target);
 
     // Erasing something that is not an array is a type mismatch, which a fresh cscript shows for Erase x.
-    if (value.type !== 'Array') {
-      throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
+    if (value.type !== "Array") {
+      throw createVbError(VbErrorCodes.TypeMismatch, "Type mismatch: Erase");
     }
 
     const arr = value.value as VbArray;
@@ -456,7 +482,7 @@ export class StatementExecutor {
    * `Erase Array(1, 2)`, is error 13.
    */
   private readEraseTarget(target: Expression): VbValue {
-    if (target.type === 'Identifier') {
+    if (target.type === "Identifier") {
       const variable = this.context.currentScope.get(target.name);
       // A name nothing holds is read the way every other name is: error 500 with Option Explicit, and the
       // Empty it stands for without, which is then the type mismatch Erase answers with.
@@ -464,21 +490,21 @@ export class StatementExecutor {
     }
 
     if (
-      target.type === 'CallExpression' &&
-      target.callee.type === 'Identifier' &&
+      target.type === "CallExpression" &&
+      target.callee.type === "Identifier" &&
       target.arguments.length > 0
     ) {
       const container = this.context.currentScope.get(target.callee.name);
-      if (container && container.value.type === 'Array') {
+      if (container && container.value.type === "Array") {
         const arr = container.value.value as VbArray;
-        const indices = target.arguments.map(argument =>
-          toSubscript(this.exprEvaluator.evaluate(argument as Expression))
+        const indices = target.arguments.map((argument) =>
+          toSubscript(this.exprEvaluator.evaluate(argument as Expression)),
         );
         return arr.get(indices);
       }
     }
 
-    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Erase');
+    throw createVbError(VbErrorCodes.TypeMismatch, "Type mismatch: Erase");
   }
 
   private executeConstStatement(node: VbConstStatement): VbValue {
@@ -493,7 +519,9 @@ export class StatementExecutor {
   private executeForToStatement(node: VbForToStatement): VbValue {
     const init = this.exprEvaluator.evaluate(node.init);
     const to = this.exprEvaluator.evaluate(node.to);
-    const step = node.step ? this.exprEvaluator.evaluate(node.step) : createVbValue(1);
+    const step = node.step
+      ? this.exprEvaluator.evaluate(node.step)
+      : createVbValue(1);
 
     // A bound or a step that is no number is the loop's own error 92, measured on a fresh cscript:
     // "For i = 1 To Null", "For i = 1 To 3 Step Null" and "For i = \"a\" To \"c\"" are all error 92, and not
@@ -503,7 +531,7 @@ export class StatementExecutor {
       try {
         return toNumber(value);
       } catch {
-        throw createVbError(92, 'For loop not initialized');
+        throw createVbError(92, "For loop not initialized");
       }
     };
 
@@ -525,11 +553,11 @@ export class StatementExecutor {
         this.execute(node.body);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal) {
-          if (signal.type === 'exit' && this.context.getExitFlag() === 'for') {
+          if (signal.type === "exit" && this.context.getExitFlag() === "for") {
             this.context.clearExitFlag();
             break;
           }
-          if (signal.type === 'return') {
+          if (signal.type === "return") {
             throw signal;
           }
         }
@@ -537,7 +565,10 @@ export class StatementExecutor {
       }
 
       const currentValue = toNumber(this.context.getVariable(node.left.name));
-      this.context.setVariable(node.left.name, createVbValue(currentValue + stepValue));
+      this.context.setVariable(
+        node.left.name,
+        createVbValue(currentValue + stepValue),
+      );
     }
 
     return VbEmpty;
@@ -546,38 +577,42 @@ export class StatementExecutor {
   private executeForEachStatement(node: ForOfStatement): VbValue {
     const collection = this.exprEvaluator.evaluate(node.right as Expression);
 
-    if (collection.type !== 'Array' && collection.type !== 'Object') {
+    if (collection.type !== "Array" && collection.type !== "Object") {
       // A value that is no collection is error 451 in Windows, measured on a fresh cscript for a number, a
       // text, an Empty, a Null, a Boolean and a Date alike: "For Each y In 5" answers "Object is not a
       // collection" there, and not the type mismatch this used to raise. An object the engine cannot
       // enumerate answers it too, which the check further down takes care of.
-      throw createVbError(451, 'Object is not a collection');
+      throw createVbError(451, "Object is not a collection");
     }
 
     let items: VbValue[];
-    if (collection.type === 'Array') {
+    if (collection.type === "Array") {
       const arr = collection.value as VbArray;
       items = arr.toArray();
     } else {
       const rawObj = collection.value as unknown;
-      if (rawObj !== null && typeof rawObj === 'object' && Symbol.iterator in (rawObj as object)) {
+      if (
+        rawObj !== null &&
+        typeof rawObj === "object" &&
+        Symbol.iterator in (rawObj as object)
+      ) {
         items = [];
         for (const item of rawObj as Iterable<unknown>) {
           if (item === null || item === undefined) {
             items.push(VbEmpty);
-          } else if (typeof item === 'boolean') {
-            items.push({ type: 'Boolean', value: item });
-          } else if (typeof item === 'number') {
-            items.push({ type: 'Double', value: item });
-          } else if (typeof item === 'string') {
-            items.push({ type: 'String', value: item });
+          } else if (typeof item === "boolean") {
+            items.push({ type: "Boolean", value: item });
+          } else if (typeof item === "number") {
+            items.push({ type: "Double", value: item });
+          } else if (typeof item === "string") {
+            items.push({ type: "String", value: item });
           } else {
-            items.push({ type: 'Object', value: item });
+            items.push({ type: "Object", value: item });
           }
         }
       } else {
         const obj = collection.value as VbObjectInstance;
-        const count = obj.getProperty('Count');
+        const count = obj.getProperty("Count");
         const countNum = toNumber(count);
         items = [];
         for (let i = 0; i < countNum; i++) {
@@ -586,7 +621,7 @@ export class StatementExecutor {
       }
     }
 
-    const loopVar = (node.left as import('../ast/index.ts').Identifier).name;
+    const loopVar = (node.left as import("../ast/index.ts").Identifier).name;
     this.context.declareVariable(loopVar, VbEmpty);
 
     for (const item of items) {
@@ -596,11 +631,11 @@ export class StatementExecutor {
         this.execute(node.body);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal) {
-          if (signal.type === 'exit' && this.context.getExitFlag() === 'for') {
+          if (signal.type === "exit" && this.context.getExitFlag() === "for") {
             this.context.clearExitFlag();
             break;
           }
-          if (signal.type === 'return') {
+          if (signal.type === "return") {
             throw signal;
           }
         }
@@ -623,8 +658,10 @@ export class StatementExecutor {
       return toConditionBoolean(testValue);
     };
 
-    const isWhile = node.testPosition === 'while-do' || node.testPosition === 'do-while';
-    const isPreTest = node.testPosition === 'while-do' || node.testPosition === 'until-do';
+    const isWhile =
+      node.testPosition === "while-do" || node.testPosition === "do-while";
+    const isPreTest =
+      node.testPosition === "while-do" || node.testPosition === "until-do";
 
     while (true) {
       if (this.context.checkTimeout) this.context.checkTimeout();
@@ -638,11 +675,11 @@ export class StatementExecutor {
         this.execute(node.body);
       } catch (signal) {
         if (signal instanceof ControlFlowSignal) {
-          if (signal.type === 'exit' && this.context.getExitFlag() === 'do') {
+          if (signal.type === "exit" && this.context.getExitFlag() === "do") {
             this.context.clearExitFlag();
             break;
           }
-          if (signal.type === 'return') {
+          if (signal.type === "return") {
             throw signal;
           }
         }
@@ -692,7 +729,11 @@ export class StatementExecutor {
         return VbEmpty;
       }
 
-      const matches = this.matchCase(caseClause.test, discriminant, node.discriminant);
+      const matches = this.matchCase(
+        caseClause.test,
+        discriminant,
+        node.discriminant,
+      );
 
       if (matches) {
         for (const stmt of caseClause.consequent) {
@@ -708,7 +749,7 @@ export class StatementExecutor {
   private matchCase(
     test: Expression | Expression[] | null,
     discriminant: VbValue,
-    discriminantNode: Expression
+    discriminantNode: Expression,
   ): boolean {
     if (!test) return false;
 
@@ -721,10 +762,10 @@ export class StatementExecutor {
       // `Case 1` is error 13. A Null answer matches nothing, which is why a Null value and a `Case Null`
       // both fall through to Case Else.
       if (
-        t.type === 'BinaryExpression' &&
-        'left' in t &&
-        (t.left as Expression).type === 'Identifier' &&
-        (t.left as Expression as { name: string }).name === '__select_expr__'
+        t.type === "BinaryExpression" &&
+        "left" in t &&
+        (t.left as Expression).type === "Identifier" &&
+        (t.left as Expression as { name: string }).name === "__select_expr__"
       ) {
         const rightNode = t.right as Expression;
         const right = this.exprEvaluator.evaluate(rightNode);
@@ -732,28 +773,28 @@ export class StatementExecutor {
           discriminantNode,
           rightNode,
           discriminant,
-          right
+          right,
         );
         const order = this.exprEvaluator.compareValues(discriminant, right);
         if (order === null) continue;
 
         switch (t.operator) {
-          case '==':
+          case "==":
             if (order === 0) return true;
             break;
-          case '<':
+          case "<":
             if (order < 0) return true;
             break;
-          case '>':
+          case ">":
             if (order > 0) return true;
             break;
-          case '<=':
+          case "<=":
             if (order <= 0) return true;
             break;
-          case '>=':
+          case ">=":
             if (order >= 0) return true;
             break;
-          case '!=':
+          case "!=":
             if (order !== 0) return true;
             break;
         }
@@ -763,7 +804,7 @@ export class StatementExecutor {
           discriminantNode,
           t,
           discriminant,
-          testValue
+          testValue,
         );
         if (this.exprEvaluator.compareValues(discriminant, testValue) === 0) {
           return true;
@@ -793,15 +834,21 @@ export class StatementExecutor {
     // on, and the same text inside a Function leaves that Function answering Empty. The rest of the handed
     // over text stops there with it.
     if (this.context.insideExecutedText) {
-      throw createVbError(VbErrorCodes.CannotExitProcedure, 'Cannot exit a procedure');
+      throw createVbError(
+        VbErrorCodes.CannotExitProcedure,
+        "Cannot exit a procedure",
+      );
     }
     this.context.setExitFlag(
-      node.target.toLowerCase() as 'sub' | 'function' | 'property' | 'do' | 'for' | 'select'
+      node.target.toLowerCase() as
+        "sub" | "function" | "property" | "do" | "for" | "select",
     );
-    throw new ControlFlowSignal('exit');
+    throw new ControlFlowSignal("exit");
   }
 
-  private executeOptionExplicitStatement(_node: VbOptionExplicitStatement): VbValue {
+  private executeOptionExplicitStatement(
+    _node: VbOptionExplicitStatement,
+  ): VbValue {
     void _node; // Intentionally unused
     this.context.optionExplicit = true;
     return VbEmpty;
@@ -812,10 +859,13 @@ export class StatementExecutor {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
-    const subFunc = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
+    const subFunc = function (
+      args: VbValue[],
+      refs?: VbArgumentRef[],
+    ): VbValue {
       self.context.pushScope();
       self.context.pushCall(subName);
-      self.context.pushProcedure('sub');
+      self.context.pushProcedure("sub");
 
       try {
         self.bindParameters(node.params, args, refs);
@@ -833,10 +883,10 @@ export class StatementExecutor {
         // idiom (early-return guard clauses) was completely broken.
         if (
           signal instanceof ControlFlowSignal &&
-          ((signal.type === 'exit' && self.context.getExitFlag() === 'sub') ||
-            signal.type === 'return')
+          ((signal.type === "exit" && self.context.getExitFlag() === "sub") ||
+            signal.type === "return")
         ) {
-          if (signal.type === 'exit') self.context.clearExitFlag();
+          if (signal.type === "exit") self.context.clearExitFlag();
           self.updateByRefArgs(node.params, args);
         } else {
           throw signal;
@@ -850,7 +900,7 @@ export class StatementExecutor {
       return VbEmpty;
     };
 
-    const params = node.params.map(p => ({
+    const params = node.params.map((p) => ({
       name: p.name.name,
       byRef: p.byRef,
       isArray: p.isArray,
@@ -874,7 +924,7 @@ export class StatementExecutor {
     const func = function (args: VbValue[], refs?: VbArgumentRef[]): VbValue {
       self.context.pushScope();
       self.context.pushCall(funcName);
-      self.context.pushProcedure('function');
+      self.context.pushProcedure("function");
 
       self.context.declareVariable(funcName, VbEmpty);
 
@@ -895,10 +945,11 @@ export class StatementExecutor {
         // `Exit Sub` above.
         if (
           signal instanceof ControlFlowSignal &&
-          ((signal.type === 'exit' && self.context.getExitFlag() === 'function') ||
-            signal.type === 'return')
+          ((signal.type === "exit" &&
+            self.context.getExitFlag() === "function") ||
+            signal.type === "return")
         ) {
-          if (signal.type === 'exit') self.context.clearExitFlag();
+          if (signal.type === "exit") self.context.clearExitFlag();
           self.updateByRefArgs(node.params, args);
           // An `Execute "Exit Function"` left the function where it stood, so the value the signal carries is
           // the answer: measured, the function answers Empty when it had not written its name yet.
@@ -922,7 +973,7 @@ export class StatementExecutor {
 
       return result;
     };
-    const params = node.params.map(p => ({
+    const params = node.params.map((p) => ({
       name: p.name.name,
       byRef: p.byRef,
       isArray: p.isArray,
@@ -930,14 +981,17 @@ export class StatementExecutor {
       isParamArray: p.isParamArray,
     }));
 
-    this.context.functionRegistry.register(funcName, func, { params, isUserDefined: true });
+    this.context.functionRegistry.register(funcName, func, {
+      params,
+      isUserDefined: true,
+    });
     return VbEmpty;
   }
 
   private bindParameters(
-    params: import('../ast/index.ts').VbParameter[],
+    params: import("../ast/index.ts").VbParameter[],
     args: VbValue[],
-    refs?: VbArgumentRef[]
+    refs?: VbArgumentRef[],
   ): void {
     let argIndex = 0;
 
@@ -949,7 +1003,10 @@ export class StatementExecutor {
         }
         const arr = createVbArray([restArgs.length]);
         restArgs.forEach((v, idx) => arr.set([idx], v));
-        this.context.declareVariable(param.name.name, { type: 'Array', value: arr });
+        this.context.declareVariable(param.name.name, {
+          type: "Array",
+          value: arr,
+        });
       } else {
         let argValue: VbValue;
         // A parameter takes on the array-ness of the variable it was handed, so writing a whole array into it
@@ -981,7 +1038,10 @@ export class StatementExecutor {
     }
   }
 
-  private updateByRefArgs(params: import('../ast/index.ts').VbParameter[], args: VbValue[]): void {
+  private updateByRefArgs(
+    params: import("../ast/index.ts").VbParameter[],
+    args: VbValue[],
+  ): void {
     let argIndex = 0;
 
     for (const param of params) {
@@ -1005,21 +1065,23 @@ export class StatementExecutor {
     let terminateFunc: VbProperty | undefined;
 
     for (const member of node.body) {
-      if (member.type === 'VbDimStatement') {
+      if (member.type === "VbDimStatement") {
         for (const decl of member.declarations) {
           cls.properties.set(decl.id.name.toLowerCase(), {
             name: decl.id.name,
-            isPrivate: member.visibility === 'private',
+            isPrivate: member.visibility === "private",
           });
         }
-      } else if (member.type === 'VbSubStatement') {
+      } else if (member.type === "VbSubStatement") {
         const memberNode = member;
         const memberName = member.name.name.toLowerCase();
-        const memberArity = declaredArity(classParameterInfo(memberNode.params));
+        const memberArity = declaredArity(
+          classParameterInfo(memberNode.params),
+        );
 
-        if (memberName === 'class_initialize') {
+        if (memberName === "class_initialize") {
           initializeFunc = {
-            name: 'Class_Initialize',
+            name: "Class_Initialize",
             // Reachable from inside the class only, which a fresh cscript shows: naming it from script level,
             // with or without parentheses and whether the class wrote it Private or Public, is error 438
             // without running it. Only `New` runs it.
@@ -1033,8 +1095,8 @@ export class StatementExecutor {
               } catch (signal) {
                 if (!(
                   signal instanceof ControlFlowSignal &&
-                  signal.type === 'exit' &&
-                  self.context.getExitFlag() === 'sub'
+                  signal.type === "exit" &&
+                  self.context.getExitFlag() === "sub"
                 )) {
                   throw signal;
                 }
@@ -1049,9 +1111,9 @@ export class StatementExecutor {
           continue;
         }
 
-        if (memberName === 'class_terminate') {
+        if (memberName === "class_terminate") {
           terminateFunc = {
-            name: 'Class_Terminate',
+            name: "Class_Terminate",
             // Same reading as Initialize above: naming it from script level is error 438 without running it.
             isPrivate: true,
             get: function (this: VbObjectInstance): VbValue {
@@ -1063,8 +1125,8 @@ export class StatementExecutor {
               } catch (signal) {
                 if (!(
                   signal instanceof ControlFlowSignal &&
-                  signal.type === 'exit' &&
-                  self.context.getExitFlag() === 'sub'
+                  signal.type === "exit" &&
+                  self.context.getExitFlag() === "sub"
                 )) {
                   throw signal;
                 }
@@ -1081,21 +1143,26 @@ export class StatementExecutor {
 
         cls.methods.set(memberName, {
           name: member.name.name,
-          isPrivate: memberNode.visibility === 'private',
+          isPrivate: memberNode.visibility === "private",
           func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
-            checkArgumentRange(member.name.name, memberArity[0], memberArity[1], args.length);
+            checkArgumentRange(
+              member.name.name,
+              memberArity[0],
+              memberArity[1],
+              args.length,
+            );
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
-            self.context.pushProcedure('sub');
+            self.context.pushProcedure("sub");
             try {
               self.bindParameters(memberNode.params, args);
               self.executeBlockStatement(memberNode.body);
             } catch (signal) {
               if (!(
                 signal instanceof ControlFlowSignal &&
-                signal.type === 'exit' &&
-                self.context.getExitFlag() === 'sub'
+                signal.type === "exit" &&
+                self.context.getExitFlag() === "sub"
               )) {
                 throw signal;
               }
@@ -1109,18 +1176,25 @@ export class StatementExecutor {
           },
           isSub: true,
         });
-      } else if (member.type === 'VbFunctionStatement') {
+      } else if (member.type === "VbFunctionStatement") {
         const memberNode = member;
-        const memberArity = declaredArity(classParameterInfo(memberNode.params));
+        const memberArity = declaredArity(
+          classParameterInfo(memberNode.params),
+        );
         cls.methods.set(member.name.name.toLowerCase(), {
           name: member.name.name,
-          isPrivate: memberNode.visibility === 'private',
+          isPrivate: memberNode.visibility === "private",
           func: function (this: VbObjectInstance, ...args: VbValue[]): VbValue {
-            checkArgumentRange(member.name.name, memberArity[0], memberArity[1], args.length);
+            checkArgumentRange(
+              member.name.name,
+              memberArity[0],
+              memberArity[1],
+              args.length,
+            );
             const prevInstance = self.context.currentInstance;
             self.context.currentInstance = this;
             self.context.pushScope();
-            self.context.pushProcedure('function');
+            self.context.pushProcedure("function");
             self.context.declareVariable(memberNode.name.name, VbEmpty);
             self.bindParameters(memberNode.params, args);
             let result: VbValue = VbEmpty;
@@ -1130,10 +1204,11 @@ export class StatementExecutor {
             } catch (signal) {
               if (
                 signal instanceof ControlFlowSignal &&
-                ((signal.type === 'exit' && self.context.getExitFlag() === 'function') ||
-                  signal.type === 'return')
+                ((signal.type === "exit" &&
+                  self.context.getExitFlag() === "function") ||
+                  signal.type === "return")
               ) {
-                if (signal.type === 'exit') self.context.clearExitFlag();
+                if (signal.type === "exit") self.context.clearExitFlag();
                 result = signal.carriesThisStatement
                   ? (signal.value ?? VbEmpty)
                   : self.context.getVariable(memberNode.name.name);
@@ -1153,12 +1228,12 @@ export class StatementExecutor {
           },
           isSub: false,
         });
-      } else if (member.type === 'VbPropertyGetStatement') {
+      } else if (member.type === "VbPropertyGetStatement") {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || {
           name: member.name.name,
-          isPrivate: memberNode.visibility === 'private',
+          isPrivate: memberNode.visibility === "private",
         };
         existing.get = function (this: VbObjectInstance): VbValue {
           const prevInstance = self.context.currentInstance;
@@ -1168,24 +1243,27 @@ export class StatementExecutor {
           self.context.inPropertyGet = true;
           self.context.propertyGetName = memberNode.name.name.toLowerCase();
           self.context.pushScope();
-          self.context.pushProcedure('property');
+          self.context.pushProcedure("property");
           self.context.declareVariable(memberNode.name.name, VbEmpty);
           let result: VbValue;
           try {
             self.executeBlockStatement(memberNode.body);
-            result = self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty;
+            result =
+              self.context.currentScope.get(memberNode.name.name)?.value ??
+              VbEmpty;
           } catch (signal) {
             if (!(
               signal instanceof ControlFlowSignal &&
-              signal.type === 'exit' &&
-              self.context.getExitFlag() === 'property'
+              signal.type === "exit" &&
+              self.context.getExitFlag() === "property"
             )) {
               throw signal;
             }
             self.context.clearExitFlag();
             result = signal.carriesThisStatement
               ? (signal.value ?? VbEmpty)
-              : (self.context.currentScope.get(memberNode.name.name)?.value ?? VbEmpty);
+              : (self.context.currentScope.get(memberNode.name.name)?.value ??
+                VbEmpty);
           } finally {
             // Same reading as a plain Function's answer above: a Property Get that answers an object hands the
             // caller a reference of its own, which survives the scope the property ran in.
@@ -1199,12 +1277,12 @@ export class StatementExecutor {
           return result;
         };
         cls.properties.set(propName, existing);
-      } else if (member.type === 'VbPropertyLetStatement') {
+      } else if (member.type === "VbPropertyLetStatement") {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || {
           name: member.name.name,
-          isPrivate: memberNode.visibility === 'private',
+          isPrivate: memberNode.visibility === "private",
         };
         existing.let = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
@@ -1222,8 +1300,8 @@ export class StatementExecutor {
           } catch (signal) {
             if (!(
               signal instanceof ControlFlowSignal &&
-              signal.type === 'exit' &&
-              self.context.getExitFlag() === 'property'
+              signal.type === "exit" &&
+              self.context.getExitFlag() === "property"
             )) {
               throw signal;
             }
@@ -1234,12 +1312,12 @@ export class StatementExecutor {
           }
         };
         cls.properties.set(propName, existing);
-      } else if (member.type === 'VbPropertySetStatement') {
+      } else if (member.type === "VbPropertySetStatement") {
         const memberNode = member;
         const propName = member.name.name.toLowerCase();
         const existing = cls.properties.get(propName) || {
           name: member.name.name,
-          isPrivate: memberNode.visibility === 'private',
+          isPrivate: memberNode.visibility === "private",
         };
         existing.set = function (this: VbObjectInstance, value: VbValue): void {
           const prevInstance = self.context.currentInstance;
@@ -1257,8 +1335,8 @@ export class StatementExecutor {
           } catch (signal) {
             if (!(
               signal instanceof ControlFlowSignal &&
-              signal.type === 'exit' &&
-              self.context.getExitFlag() === 'property'
+              signal.type === "exit" &&
+              self.context.getExitFlag() === "property"
             )) {
               throw signal;
             }
@@ -1273,10 +1351,10 @@ export class StatementExecutor {
     }
 
     if (initializeFunc) {
-      cls.properties.set('class_initialize', initializeFunc);
+      cls.properties.set("class_initialize", initializeFunc);
     }
     if (terminateFunc) {
-      cls.properties.set('class_terminate', terminateFunc);
+      cls.properties.set("class_terminate", terminateFunc);
     }
     this.context.classRegistry.register(cls);
     return VbEmpty;
@@ -1287,14 +1365,16 @@ export class StatementExecutor {
     return VbEmpty;
   }
 
-  private executeOnErrorHandlerStatement(node: VbOnErrorHandlerStatement): VbValue {
-    if (node.action === 'resume_next') {
+  private executeOnErrorHandlerStatement(
+    node: VbOnErrorHandlerStatement,
+  ): VbValue {
+    if (node.action === "resume_next") {
       this.context.onErrorResumeNext = true;
       // The statement resets the Err object itself, and not only Err.Clear and On Error GoTo 0 do. Measured on
       // a fresh cscript: after Err.Raise 4321, "a source", "a description", a second On Error Resume Next leaves
       // Number 0 with an empty Source and Description, and the raise still reads 4321 before it.
       this.context.clearError();
-    } else if (node.action === 'goto_0') {
+    } else if (node.action === "goto_0") {
       this.context.onErrorResumeNext = false;
       this.context.clearError();
     }

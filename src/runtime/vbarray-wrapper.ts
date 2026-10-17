@@ -19,8 +19,8 @@
  * ```
  */
 
-import type { VbArray } from './vb-array.ts';
-import type { VbValue } from './values.ts';
+import type { VbArray } from "./vb-array.ts";
+import type { VbValue } from "./values.ts";
 
 /**
  * Checks if a value is a VbArray instance (internal VBScript array)
@@ -28,11 +28,11 @@ import type { VbValue } from './values.ts';
 function isVbArray(value: unknown): value is VbArray {
   return (
     value !== null &&
-    typeof value === 'object' &&
-    'getDimensions' in value &&
-    'getBounds' in value &&
-    'get' in value &&
-    typeof (value as VbArray).getDimensions === 'function'
+    typeof value === "object" &&
+    "getDimensions" in value &&
+    "getBounds" in value &&
+    "get" in value &&
+    typeof (value as VbArray).getDimensions === "function"
   );
 }
 
@@ -45,30 +45,30 @@ function vbValueToJs(value: VbValue): unknown {
   }
 
   // Handle VbValue type
-  if (typeof value === 'object' && 'type' in value) {
+  if (typeof value === "object" && "type" in value) {
     const vbValue = value as VbValue;
     switch (vbValue.type) {
-      case 'Empty':
+      case "Empty":
         return undefined;
-      case 'Null':
+      case "Null":
         return null;
-      case 'Boolean':
-      case 'Integer':
-      case 'Long':
-      case 'Single':
-      case 'Double':
-      case 'Currency':
-      case 'String':
-      case 'Byte':
+      case "Boolean":
+      case "Integer":
+      case "Long":
+      case "Single":
+      case "Double":
+      case "Currency":
+      case "String":
+      case "Byte":
         return vbValue.value;
-      case 'Date':
+      case "Date":
         return vbValue.value;
-      case 'Array':
+      case "Array":
         // Nested array - wrap in VBArray or convert
         return new VBArray(vbValue.value as VbArray);
-      case 'Object':
+      case "Object":
         return vbValue.value;
-      case 'Error':
+      case "Error":
         return vbValue.value;
       default:
         return vbValue.value;
@@ -96,8 +96,8 @@ export class VBArray {
   constructor(vbArray: unknown) {
     if (!isVbArray(vbArray)) {
       throw new TypeError(
-        'VBArray constructor requires a VBScript array. ' +
-          'Ensure you are passing a valid VBScript array from the engine.'
+        "VBArray constructor requires a VBScript array. " +
+          "Ensure you are passing a valid VBScript array from the engine.",
       );
     }
     this._vbArray = vbArray;
@@ -181,7 +181,7 @@ export class VBArray {
   getItem(...indices: number[]): unknown {
     if (indices.length !== this._vbArray.getDimensions()) {
       throw new RangeError(
-        `Array has ${this._vbArray.getDimensions()} dimension(s), but ${indices.length} index(es) provided`
+        `Array has ${this._vbArray.getDimensions()} dimension(s), but ${indices.length} index(es) provided`,
       );
     }
 

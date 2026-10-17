@@ -1,6 +1,6 @@
-import { VbsEngine } from '../src/index.ts';
-import * as path from 'path';
-import * as fs from 'fs';
+import { VbsEngine } from "../src/index.ts";
+import * as path from "path";
+import * as fs from "fs";
 
 globalThis.nodePath = path;
 globalThis.nodeFs = fs;
@@ -18,8 +18,11 @@ engine.addCode(`
   End Function
 `);
 
-const currentDir = engine.run('GetCurrentDir');
-const content = engine.run('ReadPackageJson');
+const currentDir = engine.run("GetCurrentDir");
+const content = engine.run("ReadPackageJson");
 
-console.log('Current Directory:', currentDir);
-console.log('Package.json length:', typeof content === 'string' ? content.length : 0);
+console.log("Current Directory:", currentDir);
+console.log(
+  "Package.json length:",
+  typeof content === "string" ? content.length : 0,
+);

@@ -1,5 +1,5 @@
-import type { VbValue } from '../runtime/index.ts';
-import { getExecFileSync, psQuote, runPowerShellDialog } from './gui.ts';
+import type { VbValue } from "../runtime/index.ts";
+import { getExecFileSync, psQuote, runPowerShellDialog } from "./gui.ts";
 
 export interface InputBoxOptions {
   prompt?: (message: string, defaultValue: string) => string | null;
@@ -12,7 +12,11 @@ export interface InputBoxOptions {
    * console/readline fallback, matching real WSH where InputBox is always a
    * blocking modal dialog (in both cscript and wscript).
    */
-  gui?: (args: { message: string; title: string; defaultText: string }) => string | null;
+  gui?: (args: {
+    message: string;
+    title: string;
+    defaultText: string;
+  }) => string | null;
 }
 
 export function createInputBox(options?: InputBoxOptions) {
@@ -23,31 +27,37 @@ export function createInputBox(options?: InputBoxOptions) {
     _xPos?: VbValue,
     _yPos?: VbValue,
     _helpFile?: VbValue,
-    _contextVal?: VbValue
+    _contextVal?: VbValue,
   ): VbValue {
     void _xPos;
     void _yPos;
     void _helpFile;
     void _contextVal;
     const message = String(promptVal.value ?? promptVal);
-    const titleStr = title ? String(title.value ?? title) : 'Input';
-    const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';
-    const hasDefault = defaultVal !== '';
+    const titleStr = title ? String(title.value ?? title) : "Input";
+    const defaultVal = defaultText
+      ? String(defaultText.value ?? defaultText)
+      : "";
+    const hasDefault = defaultVal !== "";
 
     if (options?.gui) {
-      const result = options.gui({ message, title: titleStr, defaultText: defaultVal });
-      return { type: 'String', value: result ?? '' };
+      const result = options.gui({
+        message,
+        title: titleStr,
+        defaultText: defaultVal,
+      });
+      return { type: "String", value: result ?? "" };
     }
 
     if (options?.prompt) {
       const result = options.prompt(message, defaultVal);
-      return { type: 'String', value: result ?? '' };
+      return { type: "String", value: result ?? "" };
     }
 
     const promptText =
       `[${titleStr}]\n${message}\n` +
-      (hasDefault ? `Default: ${defaultVal}\n` : '') +
-      `[Enter] Confirm / [Esc] Cancel (default is "${defaultVal || '(empty)'}")`;
+      (hasDefault ? `Default: ${defaultVal}\n` : "") +
+      `[Enter] Confirm / [Esc] Cancel (default is "${defaultVal || "(empty)"}")`;
 
     if (options?.console) {
       options.console(promptText);
@@ -60,24 +70,28 @@ export function createInputBox(options?: InputBoxOptions) {
       while (true) {
         const input = readline();
         if (input === null) {
-          return { type: 'String', value: '' };
+          return { type: "String", value: "" };
         }
-        if (input === '' && hasDefault) {
-          return { type: 'String', value: defaultVal };
+        if (input === "" && hasDefault) {
+          return { type: "String", value: defaultVal };
         }
-        if (input === '' && !hasDefault) {
+        if (input === "" && !hasDefault) {
           if (options?.console) {
-            options.console(`Input cannot be empty. Please try again.\n` + promptText);
+            options.console(
+              `Input cannot be empty. Please try again.\n` + promptText,
+            );
           } else {
-            console.log(`Input cannot be empty. Please try again.\n` + promptText);
+            console.log(
+              `Input cannot be empty. Please try again.\n` + promptText,
+            );
           }
           continue;
         }
-        return { type: 'String', value: input };
+        return { type: "String", value: input };
       }
     }
 
-    return { type: 'String', value: '' };
+    return { type: "String", value: "" };
   };
 }
 
@@ -89,37 +103,39 @@ export function createBrowserInputBox() {
     _xPos?: VbValue,
     _yPos?: VbValue,
     _helpFile?: VbValue,
-    _contextVal?: VbValue
+    _contextVal?: VbValue,
   ): VbValue {
     void _xPos;
     void _yPos;
     void _helpFile;
     void _contextVal;
     const message = String(prompt.value ?? prompt);
-    const titleStr = title ? String(title.value ?? title) : 'Input';
-    const def = defaultVal ? String(defaultVal.value ?? defaultVal) : '';
+    const titleStr = title ? String(title.value ?? title) : "Input";
+    const def = defaultVal ? String(defaultVal.value ?? defaultVal) : "";
     while (true) {
       const result = window.prompt(`[${titleStr}]\n${message}`, def);
       if (result === null) {
-        return { type: 'String', value: '' };
+        return { type: "String", value: "" };
       }
-      if (result === '' && def !== '') {
-        return { type: 'String', value: def };
+      if (result === "" && def !== "") {
+        return { type: "String", value: def };
       }
-      if (result === '' && def === '') {
-        alert('Input cannot be empty. Please try again.');
+      if (result === "" && def === "") {
+        alert("Input cannot be empty. Please try again.");
         continue;
       }
-      return { type: 'String', value: result };
+      return { type: "String", value: result };
     }
   };
 }
 
 export function registerInputBox(context: {
-  functionRegistry: { register: (name: string, func: (...args: VbValue[]) => VbValue) => void };
+  functionRegistry: {
+    register: (name: string, func: (...args: VbValue[]) => VbValue) => void;
+  };
 }): void {
   context.functionRegistry.register(
-    'InputBox',
+    "InputBox",
     (
       promptVal: VbValue,
       title?: VbValue,
@@ -127,30 +143,35 @@ export function registerInputBox(context: {
       _xPos?: VbValue,
       _yPos?: VbValue,
       _helpFile?: VbValue,
-      _contextVal?: VbValue
+      _contextVal?: VbValue,
     ): VbValue => {
       void _xPos;
       void _yPos;
       void _helpFile;
       void _contextVal;
       const message = String(promptVal.value ?? promptVal);
-      const titleStr = title ? String(title.value ?? title) : 'Input';
-      const defaultVal = defaultText ? String(defaultText.value ?? defaultText) : '';
+      const titleStr = title ? String(title.value ?? title) : "Input";
+      const defaultVal = defaultText
+        ? String(defaultText.value ?? defaultText)
+        : "";
 
-      if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.prompt === "function"
+      ) {
         while (true) {
           const result = window.prompt(`[${titleStr}]\n${message}`, defaultVal);
           if (result === null) {
-            return { type: 'String', value: '' };
+            return { type: "String", value: "" };
           }
-          if (result === '' && defaultVal !== '') {
-            return { type: 'String', value: defaultVal };
+          if (result === "" && defaultVal !== "") {
+            return { type: "String", value: defaultVal };
           }
-          if (result === '' && defaultVal === '') {
-            alert('Input cannot be empty. Please try again.');
+          if (result === "" && defaultVal === "") {
+            alert("Input cannot be empty. Please try again.");
             continue;
           }
-          return { type: 'String', value: result };
+          return { type: "String", value: result };
         }
       }
 
@@ -159,12 +180,15 @@ export function registerInputBox(context: {
       // no platform backend is available, fall back to a non-interactive console
       // line. A host that wants custom interactive InputBox overrides this via
       // createInputBox({ readline, console, gui, ... }).
-      if (typeof process !== 'undefined' && getExecFileSync() !== null) {
-        return { type: 'String', value: showNativeInputBox(message, titleStr, defaultVal) };
+      if (typeof process !== "undefined" && getExecFileSync() !== null) {
+        return {
+          type: "String",
+          value: showNativeInputBox(message, titleStr, defaultVal),
+        };
       }
       console.log(`[${titleStr}]\n${message}`);
-      return { type: 'String', value: '' };
-    }
+      return { type: "String", value: "" };
+    },
   );
 }
 
@@ -175,42 +199,56 @@ export function registerInputBox(context: {
 // `process.getBuiltinModule` so the browser build never pulls in node:child_process.
 
 /** Shows a native InputBox dialog; returns the entered text, or '' on cancel. */
-function showNativeInputBox(message: string, title: string, defaultText: string): string {
+function showNativeInputBox(
+  message: string,
+  title: string,
+  defaultText: string,
+): string {
   const execFileSync = getExecFileSync()!;
 
-  if (process.platform === 'win32') {
+  if (process.platform === "win32") {
     const body =
-      'Add-Type -AssemblyName Microsoft.VisualBasic; ' +
+      "Add-Type -AssemblyName Microsoft.VisualBasic; " +
       `$r=[Microsoft.VisualBasic.Interaction]::InputBox(${psQuote(message)}, ${psQuote(title)}, ${psQuote(defaultText)}); ` +
       'if ([string]::IsNullOrEmpty($r)) { Write-Output "__CANCEL__" } else { Write-Output $r }';
     const out = runPowerShellDialog(body).trim();
-    return out === '__CANCEL__' ? '' : out;
+    return out === "__CANCEL__" ? "" : out;
   }
 
-  if (process.platform === 'darwin') {
+  if (process.platform === "darwin") {
     const script =
       `display dialog ${JSON.stringify(message)} default answer ${JSON.stringify(defaultText)}` +
-      (title ? ` with title ${JSON.stringify(title)}` : '');
-    const out = String(execFileSync('osascript', ['-e', script], { encoding: 'utf8' }));
+      (title ? ` with title ${JSON.stringify(title)}` : "");
+    const out = String(
+      execFileSync("osascript", ["-e", script], { encoding: "utf8" }),
+    );
     // osascript prints `button returned:X, text returned:Y\n` — the trailing
     // newline defeats a non-greedy `.*?` + `$` here, and a user value containing a
     // comma would truncate at the first `,`. A greedy `.*` to end-of-line avoids
     // both (it stops short of the newline), and an empty answer yields ''.
     const m = /text returned:(.*)/.exec(out);
-    return m ? m[1]!.trim() : '';
+    return m ? m[1]!.trim() : "";
   }
 
   // Unix-like, non-macOS.
   try {
     const out = String(
       execFileSync(
-        'zenity',
-        ['--entry', '--title', title, '--text', message, '--entry-text', defaultText],
-        { encoding: 'utf8' }
-      )
+        "zenity",
+        [
+          "--entry",
+          "--title",
+          title,
+          "--text",
+          message,
+          "--entry-text",
+          defaultText,
+        ],
+        { encoding: "utf8" },
+      ),
     );
-    return out.replace(/\r?\n$/, '');
+    return out.replace(/\r?\n$/, "");
   } catch {
-    return '';
+    return "";
   }
 }

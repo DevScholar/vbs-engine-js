@@ -1,6 +1,6 @@
-import type { VbValue, VbObjectValueData } from '../runtime/values.ts';
-import { VbEmpty } from '../runtime/values.ts';
-import { createVbError, VbErrorCodes } from '../runtime/errors.ts';
+import type { VbValue, VbObjectValueData } from "../runtime/values.ts";
+import { VbEmpty } from "../runtime/values.ts";
+import { createVbError, VbErrorCodes } from "../runtime/errors.ts";
 
 /**
  * The WSH-compatible `WScript` host object, provided by the host (the run-script
@@ -29,14 +29,14 @@ import { createVbError, VbErrorCodes } from '../runtime/errors.ts';
 export class WScriptQuitSignal extends Error {
   public constructor(public readonly exitCode: number) {
     super(`WScript.Quit(${exitCode})`);
-    this.name = 'WScriptQuitSignal';
+    this.name = "WScriptQuitSignal";
   }
 }
 
 /** Host-supplied behavior for the WScript object (I/O, paths, sleep, args). */
 export interface WshEnvironment {
   /** 'cscript' (console) or 'wscript' (GUI). Drives `WScript.Echo` and `FullName`. */
-  mode: 'cscript' | 'wscript';
+  mode: "cscript" | "wscript";
   scriptFullName: string;
   scriptName: string;
   interactive: boolean;
@@ -91,14 +91,18 @@ interface HostObject extends VbObjectValueData {
  * reads to `target` (the HostObject), so all members (both the VBScript protocol
  * and the JS-facing ones) are still reachable. `invoke` receives the JS arg list.
  */
-function callableObject<T extends object>(target: T, invoke: (args: unknown[]) => unknown): T {
+function callableObject<T extends object>(
+  target: T,
+  invoke: (args: unknown[]) => unknown,
+): T {
   const fn = function (...args: unknown[]): unknown {
     return invoke(args);
   };
   const targetRecord = target as unknown as Record<string | symbol, unknown>;
   return new Proxy(fn, {
     get(_t: typeof fn, prop: string | symbol): unknown {
-      if (prop === 'call' || prop === 'apply' || prop === 'bind') return undefined;
+      if (prop === "call" || prop === "apply" || prop === "bind")
+        return undefined;
       return targetRecord[prop];
     },
     set(_t: typeof fn, prop: string | symbol, value: unknown): boolean {
@@ -112,8 +116,12 @@ function callableObject<T extends object>(target: T, invoke: (args: unknown[]) =
       void _t;
       return prop in targetRecord;
     },
-    getOwnPropertyDescriptor(_t: typeof fn, prop: string | symbol): PropertyDescriptor | undefined {
-      if (prop === 'call' || prop === 'apply' || prop === 'bind') return undefined;
+    getOwnPropertyDescriptor(
+      _t: typeof fn,
+      prop: string | symbol,
+    ): PropertyDescriptor | undefined {
+      if (prop === "call" || prop === "apply" || prop === "bind")
+        return undefined;
       const d = Object.getOwnPropertyDescriptor(targetRecord, prop);
       return d;
     },
@@ -131,12 +139,12 @@ function makeItemMethod(items: string[]): (index: VbValue) => VbValue {
     if (index === undefined) {
       throw createVbError(
         VbErrorCodes.InvalidQualifier,
-        "Wrong number of arguments or invalid property assignment: 'Item'"
+        "Wrong number of arguments or invalid property assignment: 'Item'",
       );
     }
     const n = Math.floor(Number(index.value ?? index));
     const value = items[n];
-    return value === undefined ? VbEmpty : { type: 'String', value };
+    return value === undefined ? VbEmpty : { type: "String", value };
   };
 }
 
@@ -145,25 +153,30 @@ function createUnnamed(args: string[]): HostObject {
   const item = (index: number): string | undefined => args[index];
 
   const protocol: HostObject = {
-    classInfo: { name: 'WshUnnamed' },
+    classInfo: { name: "WshUnnamed" },
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
-      if (lower === 'count' || lower === 'length') {
-        return { type: 'Long', value: args.length };
+      if (lower === "count" || lower === "length") {
+        return { type: "Long", value: args.length };
       }
       const num = parseInt(name, 10);
-      if (!isNaN(num) && String(num) === name && num >= 0 && num < args.length) {
-        return { type: 'String', value: args[num] };
+      if (
+        !isNaN(num) &&
+        String(num) === name &&
+        num >= 0 &&
+        num < args.length
+      ) {
+        return { type: "String", value: args[num] };
       }
       return VbEmpty;
     },
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
-      return lower === 'item' || lower === 'default';
+      return lower === "item" || lower === "default";
     },
     getMethod(name: string): { func: (...a: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
-      if (lower === 'item' || lower === 'default') {
+      if (lower === "item" || lower === "default") {
         return { func: makeItemMethod(args) };
       }
       throw new Error(`WshUnnamed: unknown method '${name}'`);
@@ -178,7 +191,7 @@ function createUnnamed(args: string[]): HostObject {
   };
 
   const merged = Object.assign(protocol, js) as HostObject;
-  return callableObject(merged, a => item(Math.floor(Number(a[0] ?? 0))));
+  return callableObject(merged, (a) => item(Math.floor(Number(a[0] ?? 0))));
 }
 
 /** Builds a callable named (`WshNamed`) collection, dual-facing. */
@@ -188,33 +201,33 @@ function createNamed(named: Record<string, string>): HostObject {
     Object.prototype.hasOwnProperty.call(named, key.toLowerCase());
 
   const protocol: HostObject = {
-    classInfo: { name: 'WshNamed' },
+    classInfo: { name: "WshNamed" },
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
-      if (lower === 'count' || lower === 'length') {
-        return { type: 'Long', value: Object.keys(named).length };
+      if (lower === "count" || lower === "length") {
+        return { type: "Long", value: Object.keys(named).length };
       }
       return VbEmpty;
     },
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
-      return lower === 'item' || lower === 'default' || lower === 'exists';
+      return lower === "item" || lower === "default" || lower === "exists";
     },
     getMethod(name: string): { func: (...a: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
-      if (lower === 'exists') {
+      if (lower === "exists") {
         return {
           func: (key: VbValue): VbValue => ({
-            type: 'Boolean',
+            type: "Boolean",
             value: exists(String(key.value ?? key)),
           }),
         };
       }
-      if (lower === 'item' || lower === 'default') {
+      if (lower === "item" || lower === "default") {
         return {
           func: (key: VbValue): VbValue => {
             const value = item(String(key.value ?? key));
-            return value === undefined ? VbEmpty : { type: 'String', value };
+            return value === undefined ? VbEmpty : { type: "String", value };
           },
         };
       }
@@ -230,7 +243,7 @@ function createNamed(named: Record<string, string>): HostObject {
   };
 
   const merged = Object.assign(protocol, js) as HostObject;
-  return callableObject(merged, a => item(String(a[0] ?? '')));
+  return callableObject(merged, (a) => item(String(a[0] ?? "")));
 }
 
 /** Builds the `WScript.Arguments` collection, dual-facing. */
@@ -240,34 +253,39 @@ function createArguments(env: WshEnvironment): HostObject {
   const item = (index: number): string | undefined => env.unnamedArgs[index];
 
   const protocol: HostObject = {
-    classInfo: { name: 'WshArguments' },
+    classInfo: { name: "WshArguments" },
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
-      if (lower === 'count' || lower === 'length') {
-        return { type: 'Long', value: env.unnamedArgs.length };
+      if (lower === "count" || lower === "length") {
+        return { type: "Long", value: env.unnamedArgs.length };
       }
-      if (lower === 'named') {
-        return { type: 'Object', value: named };
+      if (lower === "named") {
+        return { type: "Object", value: named };
       }
-      if (lower === 'unnamed') {
-        return { type: 'Object', value: unnamed };
+      if (lower === "unnamed") {
+        return { type: "Object", value: unnamed };
       }
       const num = parseInt(name, 10);
-      if (!isNaN(num) && String(num) === name && num >= 0 && num < env.unnamedArgs.length) {
-        return { type: 'String', value: env.unnamedArgs[num] };
+      if (
+        !isNaN(num) &&
+        String(num) === name &&
+        num >= 0 &&
+        num < env.unnamedArgs.length
+      ) {
+        return { type: "String", value: env.unnamedArgs[num] };
       }
       return VbEmpty;
     },
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
-      return lower === 'item' || lower === 'default' || lower === 'showusage';
+      return lower === "item" || lower === "default" || lower === "showusage";
     },
     getMethod(name: string): { func: (...a: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
-      if (lower === 'item' || lower === 'default') {
+      if (lower === "item" || lower === "default") {
         return { func: makeItemMethod(env.unnamedArgs) };
       }
-      if (lower === 'showusage') {
+      if (lower === "showusage") {
         return {
           func: (): VbValue => {
             env.writeStdout(env.usage);
@@ -289,65 +307,82 @@ function createArguments(env: WshEnvironment): HostObject {
   };
 
   const merged = Object.assign(protocol, js) as HostObject;
-  return callableObject(merged, a => item(Math.floor(Number(a[0] ?? 0))));
+  return callableObject(merged, (a) => item(Math.floor(Number(a[0] ?? 0))));
 }
 
 /** Builds a `TextStream`-shaped object for StdIn/StdOut/StdErr, dual-facing. */
-function createTextStream(kind: 'stdin' | 'stdout' | 'stderr', env: WshEnvironment): HostObject {
-  const write = kind === 'stderr' ? env.writeStderr : env.writeStdout;
-  const writable = kind === 'stdout' || kind === 'stderr';
-  const readable = kind === 'stdin';
+function createTextStream(
+  kind: "stdin" | "stdout" | "stderr",
+  env: WshEnvironment,
+): HostObject {
+  const write = kind === "stderr" ? env.writeStderr : env.writeStdout;
+  const writable = kind === "stdout" || kind === "stderr";
+  const readable = kind === "stdin";
 
   const readLine = (): VbValue => {
     const line = env.readLine();
-    return line === null ? VbEmpty : { type: 'String', value: line };
+    return line === null ? VbEmpty : { type: "String", value: line };
   };
 
   const protocol: HostObject = {
-    classInfo: { name: 'TextStream' },
+    classInfo: { name: "TextStream" },
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
-      if (lower === 'atendofline' || lower === 'atendofstream') {
-        return { type: 'Boolean', value: false };
+      if (lower === "atendofline" || lower === "atendofstream") {
+        return { type: "Boolean", value: false };
       }
-      if (lower === 'line' || lower === 'column') {
-        return { type: 'Long', value: 1 };
+      if (lower === "line" || lower === "column") {
+        return { type: "Long", value: 1 };
       }
       return VbEmpty;
     },
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
       if (readable) {
-        return ['read', 'readline', 'readall', 'skip', 'skipline', 'close'].includes(lower);
+        return [
+          "read",
+          "readline",
+          "readall",
+          "skip",
+          "skipline",
+          "close",
+        ].includes(lower);
       }
       if (writable) {
-        return ['write', 'writeline', 'writeblanklines', 'close'].includes(lower);
+        return ["write", "writeline", "writeblanklines", "close"].includes(
+          lower,
+        );
       }
       return false;
     },
     getMethod(name: string): { func: (...a: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
       if (readable) {
-        if (lower === 'readline') return { func: (): VbValue => readLine() };
-        if (lower === 'readall') {
+        if (lower === "readline") return { func: (): VbValue => readLine() };
+        if (lower === "readall") {
           return {
             func: (): VbValue => {
-              let result = '';
+              let result = "";
               for (;;) {
                 const line = env.readLine();
                 if (line === null) break;
-                result += line + '\n';
+                result += line + "\n";
               }
-              return { type: 'String', value: result };
+              return { type: "String", value: result };
             },
           };
         }
-        if (lower === 'skip' || lower === 'skipline' || lower === 'read' || lower === 'close') {
+        if (
+          lower === "skip" ||
+          lower === "skipline" ||
+          lower === "read" ||
+          lower === "close"
+        ) {
           return { func: (): VbValue => VbEmpty };
         }
       }
       if (writable) {
-        if (lower === 'write') {
+        if (lower === "write") {
           return {
             func: (text: VbValue): VbValue => {
               write(String(text.value ?? text));
@@ -355,23 +390,23 @@ function createTextStream(kind: 'stdin' | 'stdout' | 'stderr', env: WshEnvironme
             },
           };
         }
-        if (lower === 'writeline') {
+        if (lower === "writeline") {
           return {
             func: (text?: VbValue): VbValue => {
-              write(String(text?.value ?? text ?? '') + '\n');
+              write(String(text?.value ?? text ?? "") + "\n");
               return VbEmpty;
             },
           };
         }
-        if (lower === 'writeblanklines') {
+        if (lower === "writeblanklines") {
           return {
             func: (n: VbValue): VbValue => {
-              write('\n'.repeat(Math.max(0, Math.floor(Number(n.value ?? n)))));
+              write("\n".repeat(Math.max(0, Math.floor(Number(n.value ?? n)))));
               return VbEmpty;
             },
           };
         }
-        if (lower === 'close') {
+        if (lower === "close") {
           return { func: (): VbValue => VbEmpty };
         }
       }
@@ -389,23 +424,23 @@ function createTextStream(kind: 'stdin' | 'stdout' | 'stderr', env: WshEnvironme
   if (readable) {
     js.ReadLine = (): string | null => env.readLine();
     js.ReadAll = (): string => {
-      let result = '';
+      let result = "";
       for (;;) {
         const line = env.readLine();
         if (line === null) break;
-        result += line + '\n';
+        result += line + "\n";
       }
       return result;
     };
-    js.Read = (): string => '';
+    js.Read = (): string => "";
     js.Skip = (): void => {};
     js.SkipLine = (): void => {};
   }
   if (writable) {
     js.Write = (text: string): void => write(String(text));
-    js.WriteLine = (text?: string): void => write(String(text ?? '') + '\n');
+    js.WriteLine = (text?: string): void => write(String(text ?? "") + "\n");
     js.WriteBlankLines = (n: number): void =>
-      write('\n'.repeat(Math.max(0, Math.floor(Number(n ?? 0)))));
+      write("\n".repeat(Math.max(0, Math.floor(Number(n ?? 0)))));
   }
 
   return Object.assign(protocol, js) as HostObject;
@@ -419,21 +454,21 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
   let quitCode: number | null = null;
 
   const argumentsObj = createArguments(env);
-  const stdIn = createTextStream('stdin', env);
-  const stdOut = createTextStream('stdout', env);
-  const stdErr = createTextStream('stderr', env);
+  const stdIn = createTextStream("stdin", env);
+  const stdOut = createTextStream("stdout", env);
+  const stdErr = createTextStream("stderr", env);
 
-  const echo = (mode: 'cscript' | 'wscript', args: unknown[]): void => {
+  const echo = (mode: "cscript" | "wscript", args: unknown[]): void => {
     const text = args
-      .map(a => String((a as VbValue | undefined)?.value ?? a))
-      .join(mode === 'cscript' ? ' ' : '\n');
+      .map((a) => String((a as VbValue | undefined)?.value ?? a))
+      .join(mode === "cscript" ? " " : "\n");
     // wscript mode surfaces Echo as a dialog when a GUI backend is available;
     // otherwise it degrades to the console, same as the real host.
-    if (mode === 'wscript' && env.showDialog) {
+    if (mode === "wscript" && env.showDialog) {
       env.showDialog(text, env.scriptName);
       return;
     }
-    env.writeStdout(text + '\n');
+    env.writeStdout(text + "\n");
   };
 
   const quit = (code?: VbValue): never => {
@@ -442,54 +477,60 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
     throw new WScriptQuitSignal(n);
   };
 
-  const createOrGetObject = (which: 'createobject' | 'getobject', args: VbValue[]): VbValue => {
+  const createOrGetObject = (
+    which: "createobject" | "getobject",
+    args: VbValue[],
+  ): VbValue => {
     const g = (globalThis as Record<string, unknown>)[
-      which === 'createobject' ? 'ActiveXObject' : 'GetObject'
+      which === "createobject" ? "ActiveXObject" : "GetObject"
     ];
-    if (typeof g === 'function') {
-      const jsArgs = args.map(a => a.value ?? a);
-      return { type: 'Object', value: (g as (...a: unknown[]) => unknown)(...jsArgs) };
+    if (typeof g === "function") {
+      const jsArgs = args.map((a) => a.value ?? a);
+      return {
+        type: "Object",
+        value: (g as (...a: unknown[]) => unknown)(...jsArgs),
+      };
     }
-    return { type: 'Object', value: null };
+    return { type: "Object", value: null };
   };
 
   const protocol: HostObject = {
-    classInfo: { name: 'WScript' },
+    classInfo: { name: "WScript" },
 
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
       switch (lower) {
-        case 'arguments':
-          return { type: 'Object', value: argumentsObj };
-        case 'stdin':
-          return { type: 'Object', value: stdIn };
-        case 'stdout':
-          return { type: 'Object', value: stdOut };
-        case 'stderr':
-          return { type: 'Object', value: stdErr };
-        case 'scriptname':
-          return { type: 'String', value: env.scriptName };
-        case 'scriptfullname':
-          return { type: 'String', value: env.scriptFullName };
-        case 'fullname':
-          return { type: 'String', value: env.fullName };
-        case 'path':
-          return { type: 'String', value: env.path };
-        case 'version':
-          return { type: 'String', value: env.version };
-        case 'buildversion':
-          return { type: 'Long', value: env.buildVersion };
-        case 'interactive':
-          return { type: 'Boolean', value: env.interactive };
-        case 'currentdirectory':
-          return { type: 'String', value: env.currentDirectory };
+        case "arguments":
+          return { type: "Object", value: argumentsObj };
+        case "stdin":
+          return { type: "Object", value: stdIn };
+        case "stdout":
+          return { type: "Object", value: stdOut };
+        case "stderr":
+          return { type: "Object", value: stdErr };
+        case "scriptname":
+          return { type: "String", value: env.scriptName };
+        case "scriptfullname":
+          return { type: "String", value: env.scriptFullName };
+        case "fullname":
+          return { type: "String", value: env.fullName };
+        case "path":
+          return { type: "String", value: env.path };
+        case "version":
+          return { type: "String", value: env.version };
+        case "buildversion":
+          return { type: "Long", value: env.buildVersion };
+        case "interactive":
+          return { type: "Boolean", value: env.interactive };
+        case "currentdirectory":
+          return { type: "String", value: env.currentDirectory };
         default:
           return VbEmpty;
       }
     },
 
     setProperty(name: string, value: VbValue): void {
-      if (name.toLowerCase() === 'currentdirectory') {
+      if (name.toLowerCase() === "currentdirectory") {
         void value; // read-only in practice; assignment is accepted but a no-op
       }
     },
@@ -497,19 +538,19 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
       return (
-        lower === 'echo' ||
-        lower === 'quit' ||
-        lower === 'sleep' ||
-        lower === 'createobject' ||
-        lower === 'getobject' ||
-        lower === 'connectobject' ||
-        lower === 'disconnectobject'
+        lower === "echo" ||
+        lower === "quit" ||
+        lower === "sleep" ||
+        lower === "createobject" ||
+        lower === "getobject" ||
+        lower === "connectobject" ||
+        lower === "disconnectobject"
       );
     },
 
     getMethod(name: string): { func: (...a: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
-      if (lower === 'echo') {
+      if (lower === "echo") {
         return {
           func: (...args: VbValue[]): VbValue => {
             echo(env.mode, args);
@@ -517,10 +558,10 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
           },
         };
       }
-      if (lower === 'quit') {
+      if (lower === "quit") {
         return { func: (code?: VbValue): VbValue => quit(code) };
       }
-      if (lower === 'sleep') {
+      if (lower === "sleep") {
         return {
           func: (ms: VbValue): VbValue => {
             env.sleep(Math.max(0, Math.floor(Number(ms.value ?? ms))));
@@ -528,13 +569,13 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
           },
         };
       }
-      if (lower === 'createobject' || lower === 'getobject') {
+      if (lower === "createobject" || lower === "getobject") {
         return {
           func: (...args: VbValue[]): VbValue =>
-            createOrGetObject(lower as 'createobject' | 'getobject', args),
+            createOrGetObject(lower as "createobject" | "getobject", args),
         };
       }
-      if (lower === 'connectobject' || lower === 'disconnectobject') {
+      if (lower === "connectobject" || lower === "disconnectobject") {
         return { func: (): VbValue => VbEmpty };
       }
       throw new Error(`WScript: unknown method '${name}'`);
@@ -557,15 +598,19 @@ export function createWScript(env: WshEnvironment): WScriptHandle {
     CurrentDirectory: env.currentDirectory,
     Echo: (...a: unknown[]): void => echo(env.mode, a),
     Quit: (code?: number): void =>
-      quit(code === undefined ? undefined : { type: 'Integer', value: code }),
+      quit(code === undefined ? undefined : { type: "Integer", value: code }),
     Sleep: (ms: number): void => env.sleep(Math.max(0, Math.floor(Number(ms)))),
     CreateObject: (progid: string): unknown => {
       const g = (globalThis as Record<string, unknown>).ActiveXObject;
-      return typeof g === 'function' ? (g as (...a: unknown[]) => unknown)(progid) : null;
+      return typeof g === "function"
+        ? (g as (...a: unknown[]) => unknown)(progid)
+        : null;
     },
     GetObject: (pathname?: string, cls?: string): unknown => {
       const g = (globalThis as Record<string, unknown>).GetObject;
-      return typeof g === 'function' ? (g as (...a: unknown[]) => unknown)(pathname, cls) : null;
+      return typeof g === "function"
+        ? (g as (...a: unknown[]) => unknown)(pathname, cls)
+        : null;
     },
     ConnectObject: (): void => {},
     DisconnectObject: (): void => {},

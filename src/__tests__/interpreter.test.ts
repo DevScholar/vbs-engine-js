@@ -1,213 +1,213 @@
-import { describe, it, expect } from 'vitest';
-import { VbsEngine } from '../index.ts';
+import { describe, it, expect } from "vitest";
+import { VbsEngine } from "../index.ts";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { VbValue } from '../runtime/values.ts';
+import type { VbValue } from "../runtime/values.ts";
 
-describe('Interpreter', () => {
-  describe('basic expressions', () => {
-    it('should evaluate arithmetic expressions', () => {
+describe("Interpreter", () => {
+  describe("basic expressions", () => {
+    it("should evaluate arithmetic expressions", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 1 + 2 * 3');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 1 + 2 * 3");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(7);
     });
 
-    it('should evaluate string concatenation', () => {
+    it("should evaluate string concatenation", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = "hello" & " " & "world"');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello world');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello world");
     });
 
-    it('should evaluate comparison expressions', () => {
+    it("should evaluate comparison expressions", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 5 > 3');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 5 > 3");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(true);
     });
 
-    it('should evaluate logical expressions', () => {
+    it("should evaluate logical expressions", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = True And False');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = True And False");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(false);
     });
 
-    it('should evaluate integer division', () => {
+    it("should evaluate integer division", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 7 \\ 2');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 7 \\ 2");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(3);
     });
 
-    it('should evaluate modulo', () => {
+    it("should evaluate modulo", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 7 Mod 3');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 7 Mod 3");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(1);
     });
 
-    it('should evaluate power', () => {
+    it("should evaluate power", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 2 ^ 3');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 2 ^ 3");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(8);
     });
 
-    it('should evaluate string comparison case sensitively', () => {
+    it("should evaluate string comparison case sensitively", () => {
       // Text is compared character by character, so "HELLO" = "hello" is False. Measured on a fresh cscript
       // under 1033, 1031, 1036 and 2052, which all answer False for that and for "b" < "B".
       const engine = new VbsEngine();
       engine.executeStatement('x = "HELLO" = "hello"');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(false);
     });
 
-    it('should evaluate Not operator', () => {
+    it("should evaluate Not operator", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Not True');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = Not True");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(false);
     });
   });
 
-  describe('built-in functions', () => {
-    it('should use Len function', () => {
+  describe("built-in functions", () => {
+    it("should use Len function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Len("hello")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should use UCase function', () => {
+    it("should use UCase function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = UCase("hello")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('HELLO');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("HELLO");
     });
 
-    it('should use LCase function', () => {
+    it("should use LCase function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = LCase("HELLO")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello");
     });
 
-    it('should use Abs function', () => {
+    it("should use Abs function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Abs(-5)');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = Abs(-5)");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should use Left function', () => {
+    it("should use Left function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Left("hello", 2)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('he');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("he");
     });
 
-    it('should use Right function', () => {
+    it("should use Right function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Right("hello", 2)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('lo');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("lo");
     });
 
-    it('should use Mid function', () => {
+    it("should use Mid function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Mid("hello", 2, 3)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('ell');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("ell");
     });
 
-    it('should use Trim function', () => {
+    it("should use Trim function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Trim("  hello  ")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello");
     });
 
-    it('should use CInt function', () => {
+    it("should use CInt function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CInt("42")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(42);
     });
 
-    it('should use CLng function', () => {
+    it("should use CLng function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CLng("123456")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(123456);
     });
 
-    it('should use CDbl function', () => {
+    it("should use CDbl function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CDbl("3.14")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(3.14);
     });
 
-    it('should use CStr function', () => {
+    it("should use CStr function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = CStr(42)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('42');
+      engine.executeStatement("x = CStr(42)");
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("42");
     });
 
-    it('should use TypeName function', () => {
+    it("should use TypeName function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = TypeName("hello")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('String');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("String");
     });
 
-    it('should use IsNull function', () => {
+    it("should use IsNull function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = IsNull(Null)');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = IsNull(Null)");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(true);
     });
 
-    it('should use IsEmpty function', () => {
+    it("should use IsEmpty function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('Dim v\nx = IsEmpty(v)');
-      const x = engine._getVariable('x');
+      engine.executeStatement("Dim v\nx = IsEmpty(v)");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(true);
     });
 
-    it('should use IsNumeric function', () => {
+    it("should use IsNumeric function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = IsNumeric("42")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(true);
     });
 
-    it('should use Array function', () => {
+    it("should use Array function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Array(1, 2, 3)');
-      const x = engine._getVariable('x');
-      expect(x.type).toBe('Array');
+      engine.executeStatement("x = Array(1, 2, 3)");
+      const x = engine._getVariable("x");
+      expect(x.type).toBe("Array");
     });
 
-    it('should use UBound function', () => {
+    it("should use UBound function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('arr = Array(1, 2, 3)\nx = UBound(arr)');
-      const x = engine._getVariable('x');
+      engine.executeStatement("arr = Array(1, 2, 3)\nx = UBound(arr)");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(2);
     });
 
-    it('should use LBound function', () => {
+    it("should use LBound function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('arr = Array(1, 2, 3)\nx = LBound(arr)');
-      const x = engine._getVariable('x');
+      engine.executeStatement("arr = Array(1, 2, 3)\nx = LBound(arr)");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(0);
     });
   });
 
-  describe('control flow', () => {
-    it('should execute If-Then-Else', () => {
+  describe("control flow", () => {
+    it("should execute If-Then-Else", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 If True Then
@@ -216,11 +216,11 @@ Else
     x = 2
 End If
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(1);
     });
 
-    it('should execute nested multi-line If blocks', () => {
+    it("should execute nested multi-line If blocks", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Dim x
@@ -230,11 +230,11 @@ If 1 = 1 Then
     End If
 End If
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(1);
     });
 
-    it('should execute ElseIf', () => {
+    it("should execute ElseIf", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -246,11 +246,11 @@ Else
     x = 3
 End If
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(2);
     });
 
-    it('should execute For-To loop', () => {
+    it("should execute For-To loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -258,11 +258,11 @@ For i = 1 To 5
     x = x + i
 Next
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(15);
     });
 
-    it('should execute For-To-Step loop', () => {
+    it("should execute For-To-Step loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -270,11 +270,11 @@ For i = 1 To 5 Step 2
     x = x + i
 Next
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(9);
     });
 
-    it('should execute For-Each loop', () => {
+    it("should execute For-Each loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 arr = Array(1, 2, 3)
@@ -283,11 +283,11 @@ For Each item In arr
     x = x + item
 Next
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(6);
     });
 
-    it('should execute Do-While loop', () => {
+    it("should execute Do-While loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -295,11 +295,11 @@ Do While x < 5
     x = x + 1
 Loop
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should execute Do-Until loop', () => {
+    it("should execute Do-Until loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -307,11 +307,11 @@ Do Until x = 5
     x = x + 1
 Loop
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should execute While-Wend loop', () => {
+    it("should execute While-Wend loop", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -319,11 +319,11 @@ While x < 5
     x = x + 1
 Wend
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should execute Do-Loop While post-test', () => {
+    it("should execute Do-Loop While post-test", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -331,11 +331,11 @@ Do
     x = x + 1
 Loop While x < 5
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should execute Do-Loop Until post-test', () => {
+    it("should execute Do-Loop Until post-test", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -343,11 +343,11 @@ Do
     x = x + 1
 Loop Until x = 5
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should execute Select-Case', () => {
+    it("should execute Select-Case", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -360,11 +360,11 @@ Select Case 2
         x = 3
 End Select
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(2);
     });
 
-    it('should execute Exit For', () => {
+    it("should execute Exit For", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 x = 0
@@ -373,13 +373,13 @@ For i = 1 To 10
     x = x + 1
 Next
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(4);
     });
   });
 
-  describe('procedures', () => {
-    it('should define and call Sub', () => {
+  describe("procedures", () => {
+    it("should define and call Sub", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Sub Test
@@ -388,11 +388,11 @@ End Sub
 
 Call Test
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(42);
     });
 
-    it('should define and call Function', () => {
+    it("should define and call Function", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Function Add(a, b)
@@ -401,11 +401,11 @@ End Function
 
 x = Add(2, 3)
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should handle ByVal parameters', () => {
+    it("should handle ByVal parameters", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Sub Increment(ByVal n)
@@ -415,11 +415,11 @@ End Sub
 x = 5
 Call Increment(x)
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should handle ByRef parameters (default)', () => {
+    it("should handle ByRef parameters (default)", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Sub Increment(n)
@@ -429,11 +429,11 @@ End Sub
 x = 5
 Call Increment(x)
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(6);
     });
 
-    it('should handle explicit ByRef parameters', () => {
+    it("should handle explicit ByRef parameters", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Sub Increment(ByRef n)
@@ -443,11 +443,11 @@ End Sub
 x = 5
 Call Increment(x)
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(6);
     });
 
-    it('should handle ByRef in Function', () => {
+    it("should handle ByRef in Function", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Function Swap(a, b)
@@ -462,15 +462,15 @@ x = 1
 y = 2
 result = Swap(x, y)
 `);
-      const x = engine._getVariable('x');
-      const y = engine._getVariable('y');
+      const x = engine._getVariable("x");
+      const y = engine._getVariable("y");
       expect(x.value).toBe(2);
       expect(y.value).toBe(1);
     });
   });
 
-  describe('classes', () => {
-    it('should create class instance with New', () => {
+  describe("classes", () => {
+    it("should create class instance with New", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Person
@@ -480,11 +480,11 @@ Dim p
 Set p = New Person
 result = TypeName(p)
 `);
-      const result = engine._getVariable('result');
-      expect(result.value).toBe('Person');
+      const result = engine._getVariable("result");
+      expect(result.value).toBe("Person");
     });
 
-    it('should access class property', () => {
+    it("should access class property", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Person
@@ -495,11 +495,11 @@ Set p = New Person
 p.Name = "John"
 result = p.Name
 `);
-      const result = engine._getVariable('result');
-      expect(result.value).toBe('John');
+      const result = engine._getVariable("result");
+      expect(result.value).toBe("John");
     });
 
-    it('should call class method', () => {
+    it("should call class method", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Calculator
@@ -511,11 +511,11 @@ Dim calc
 Set calc = New Calculator
 result = calc.Add(5, 3)
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(8);
     });
 
-    it('should use Me keyword', () => {
+    it("should use Me keyword", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Counter
@@ -535,11 +535,11 @@ c.Increment()
 c.Increment()
 result = c.GetCount()
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(2);
     });
 
-    it('should use With statement', () => {
+    it("should use With statement", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Point
@@ -554,13 +554,13 @@ With pt
 End With
 result = pt.X + pt.Y
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(30);
     });
   });
 
-  describe('error handling', () => {
-    it('should handle On Error Resume Next', () => {
+  describe("error handling", () => {
+    it("should handle On Error Resume Next", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 On Error Resume Next
@@ -568,11 +568,11 @@ Dim x
 x = 1 / 0
 result = Err.Number
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).not.toBe(0);
     });
 
-    it('should clear error with Err.Clear', () => {
+    it("should clear error with Err.Clear", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 On Error Resume Next
@@ -581,20 +581,20 @@ x = 1 / 0
 Call Err.Clear()
 result = Err.Number
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(0);
     });
   });
 
-  describe('arrays', () => {
-    it('should use Array function', () => {
+  describe("arrays", () => {
+    it("should use Array function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('arr = Array(1, 2, 3)\nresult = arr(1)');
-      const result = engine._getVariable('result');
+      engine.executeStatement("arr = Array(1, 2, 3)\nresult = arr(1)");
+      const result = engine._getVariable("result");
       expect(result.value).toBe(2);
     });
 
-    it('should erase fixed-size array', () => {
+    it("should erase fixed-size array", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Dim arr(5)
@@ -603,11 +603,11 @@ arr(1) = 200
 Erase arr
 result = arr(0)
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBeUndefined();
     });
 
-    it('should erase dynamic array', () => {
+    it("should erase dynamic array", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Dim arr()
@@ -617,203 +617,205 @@ arr(1) = 200
 Erase arr
 result = arr(0)
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBeUndefined();
     });
 
-    it('should keep array bounds after erase', () => {
+    it("should keep array bounds after erase", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('Dim arr(5)');
-      engine.executeStatement('arr(0) = 100');
+      engine.executeStatement("Dim arr(5)");
+      engine.executeStatement("arr(0) = 100");
 
       // Erase the array
-      engine.executeStatement('Erase arr');
+      engine.executeStatement("Erase arr");
 
       // After Erase, value should be cleared
-      engine.executeStatement('result = arr(0)');
-      const result = engine._getVariable('result');
+      engine.executeStatement("result = arr(0)");
+      const result = engine._getVariable("result");
       expect(result.value).toBeUndefined();
     });
   });
 
-  describe('variables and scope', () => {
-    it('should handle Dim declaration', () => {
+  describe("variables and scope", () => {
+    it("should handle Dim declaration", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Dim x
 x = 5
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
 
-    it('should handle Const declaration', () => {
+    it("should handle Const declaration", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Const PI = 3.14159
 result = PI
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(3.14159);
     });
 
-    it('should handle Option Explicit', () => {
+    it("should handle Option Explicit", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Option Explicit
 Dim x
 x = 5
 `);
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(5);
     });
   });
 
-  describe('IE compatibility - string functions', () => {
-    it('should handle Mid with start beyond string length', () => {
+  describe("IE compatibility - string functions", () => {
+    it("should handle Mid with start beyond string length", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Mid("hello", 10)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("");
     });
 
-    it('should handle Mid with 1-based index', () => {
+    it("should handle Mid with 1-based index", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Mid("hello", 1, 2)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('he');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("he");
     });
 
-    it('should handle InStr returning 0 when not found', () => {
+    it("should handle InStr returning 0 when not found", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = InStr("hello", "x")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(0);
     });
 
-    it('should handle InStr with 1-based return', () => {
+    it("should handle InStr with 1-based return", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = InStr("hello", "l")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(3);
     });
 
-    it('should handle InStr with start position', () => {
+    it("should handle InStr with start position", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = InStr(4, "hello", "l")');
-      const x = engine._getVariable('x');
+      const x = engine._getVariable("x");
       expect(x.value).toBe(4);
     });
 
-    it('should handle Left with length > string', () => {
+    it("should handle Left with length > string", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Left("hello", 100)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello");
     });
 
-    it('should handle Right with length > string', () => {
+    it("should handle Right with length > string", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = Right("hello", 100)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello");
     });
 
-    it('should handle Replace function', () => {
+    it("should handle Replace function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Replace("hello world", "world", "VBScript")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('hello VBScript');
+      engine.executeStatement(
+        'x = Replace("hello world", "world", "VBScript")',
+      );
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("hello VBScript");
     });
 
-    it('should handle Split function', () => {
+    it("should handle Split function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('arr = Split("a,b,c", ",")\nx = arr(1)');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('b');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("b");
     });
 
-    it('should handle Join function', () => {
+    it("should handle Join function", () => {
       const engine = new VbsEngine();
       engine.executeStatement('arr = Array("a", "b", "c")\nx = Join(arr, "-")');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('a-b-c');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("a-b-c");
     });
   });
 
-  describe('IE compatibility - type conversion', () => {
-    it('should handle CInt rounding', () => {
+  describe("IE compatibility - type conversion", () => {
+    it("should handle CInt rounding", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = CInt(3.5)\ny = CInt(3.4)');
-      const x = engine._getVariable('x');
-      const y = engine._getVariable('y');
+      engine.executeStatement("x = CInt(3.5)\ny = CInt(3.4)");
+      const x = engine._getVariable("x");
+      const y = engine._getVariable("y");
       expect(x.value).toBe(4);
       expect(y.value).toBe(3);
     });
 
-    it('should handle CBool with numbers', () => {
+    it("should handle CBool with numbers", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = CBool(0)\ny = CBool(1)');
-      const x = engine._getVariable('x');
-      const y = engine._getVariable('y');
+      engine.executeStatement("x = CBool(0)\ny = CBool(1)");
+      const x = engine._getVariable("x");
+      const y = engine._getVariable("y");
       expect(x.value).toBe(false);
       expect(y.value).toBe(true);
     });
 
-    it('should handle CBool with strings', () => {
+    it("should handle CBool with strings", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CBool("True")\ny = CBool("False")');
-      const x = engine._getVariable('x');
-      const y = engine._getVariable('y');
+      const x = engine._getVariable("x");
+      const y = engine._getVariable("y");
       expect(x.value).toBe(true);
       expect(y.value).toBe(false);
     });
 
-    it('should handle CDate with string', () => {
+    it("should handle CDate with string", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = TypeName(CDate("2024-01-01"))');
-      const x = engine._getVariable('x');
-      expect(x.value).toBe('Date');
+      const x = engine._getVariable("x");
+      expect(x.value).toBe("Date");
     });
   });
 
-  describe('IE compatibility - Empty/Null/Nothing', () => {
-    it('should handle Empty as uninitialized variable', () => {
+  describe("IE compatibility - Empty/Null/Nothing", () => {
+    it("should handle Empty as uninitialized variable", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('Dim x\nresult = IsEmpty(x)');
-      const result = engine._getVariable('result');
+      engine.executeStatement("Dim x\nresult = IsEmpty(x)");
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should handle Empty in numeric context as 0', () => {
+    it("should handle Empty in numeric context as 0", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('Dim x\nresult = x + 5');
-      const result = engine._getVariable('result');
+      engine.executeStatement("Dim x\nresult = x + 5");
+      const result = engine._getVariable("result");
       expect(result.value).toBe(5);
     });
 
-    it('should handle Empty in string context as empty string', () => {
+    it("should handle Empty in string context as empty string", () => {
       const engine = new VbsEngine();
       engine.executeStatement('Dim x\nresult = x & "hello"');
-      const result = engine._getVariable('result');
-      expect(result.value).toBe('hello');
+      const result = engine._getVariable("result");
+      expect(result.value).toBe("hello");
     });
 
-    it('should handle Null propagation', () => {
+    it("should handle Null propagation", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Null\nresult = x + 5');
-      const result = engine._getVariable('result');
-      expect(result.type).toBe('Null');
+      engine.executeStatement("x = Null\nresult = x + 5");
+      const result = engine._getVariable("result");
+      expect(result.type).toBe("Null");
     });
 
-    it('should handle IsNull function', () => {
+    it("should handle IsNull function", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = Null\nresult = IsNull(x)');
-      const result = engine._getVariable('result');
+      engine.executeStatement("x = Null\nresult = IsNull(x)");
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should handle IsObject function', () => {
+    it("should handle IsObject function", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Test
@@ -822,68 +824,68 @@ Dim obj
 Set obj = New Test
 result = IsObject(obj)
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
   });
 
-  describe('IE compatibility - string comparison', () => {
-    it('should compare strings case sensitively', () => {
+  describe("IE compatibility - string comparison", () => {
+    it("should compare strings case sensitively", () => {
       // Internet Explorer used the same vbscript.dll, whose comparison is binary: "HELLO" = "hello" is
       // False, measured on a fresh cscript under 1033, 1031, 1036 and 2052. A script that wants a
       // case-insensitive reading asks for one, as StrComp("a", "A", vbTextCompare) does.
       const engine = new VbsEngine();
       engine.executeStatement('result = ("HELLO" = "hello")');
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(false);
     });
 
-    it('should compare strings with < operator', () => {
+    it("should compare strings with < operator", () => {
       const engine = new VbsEngine();
       engine.executeStatement('result = ("apple" < "banana")');
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should compare strings with > operator', () => {
+    it("should compare strings with > operator", () => {
       const engine = new VbsEngine();
       engine.executeStatement('result = ("zebra" > "apple")');
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should use StrComp for binary comparison', () => {
+    it("should use StrComp for binary comparison", () => {
       const engine = new VbsEngine();
       engine.executeStatement('result = StrComp("HELLO", "hello", 0)');
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).not.toBe(0);
     });
   });
 
-  describe('IE compatibility - error handling', () => {
-    it('should handle division by zero', () => {
+  describe("IE compatibility - error handling", () => {
+    it("should handle division by zero", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 On Error Resume Next
 x = 1 / 0
 result = Err.Number <> 0
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should handle type mismatch error', () => {
+    it("should handle type mismatch error", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 On Error Resume Next
 x = CInt("abc")
 result = Err.Number <> 0
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
 
-    it('should handle subscript out of range', () => {
+    it("should handle subscript out of range", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 On Error Resume Next
@@ -891,13 +893,13 @@ arr = Array(1, 2, 3)
 x = arr(10)
 result = Err.Number <> 0
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(true);
     });
   });
 
-  describe('IE compatibility - Set vs Let', () => {
-    it('should use Set for object assignment', () => {
+  describe("IE compatibility - Set vs Let", () => {
+    it("should use Set for object assignment", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Test
@@ -908,11 +910,11 @@ Set obj = New Test
 obj.Value = 42
 result = obj.Value
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(42);
     });
 
-    it('should use Let (implicit) for value assignment', () => {
+    it("should use Let (implicit) for value assignment", () => {
       const engine = new VbsEngine();
       engine.executeStatement(`
 Class Test
@@ -923,62 +925,62 @@ Set obj = New Test
 obj.Value = 42
 result = obj.Value
 `);
-      const result = engine._getVariable('result');
+      const result = engine._getVariable("result");
       expect(result.value).toBe(42);
     });
   });
 
-  describe('MSScriptControl compatible API', () => {
-    it('should use addCode to define functions', () => {
+  describe("MSScriptControl compatible API", () => {
+    it("should use addCode to define functions", () => {
       const engine = new VbsEngine();
       engine.addCode(`
         Function Add(a, b)
           Add = a + b
         End Function
       `);
-      const result = engine.run('Add', 5, 3);
+      const result = engine.run("Add", 5, 3);
       expect(result).toBe(8);
     });
 
-    it('should use executeStatement for single statements', () => {
+    it("should use executeStatement for single statements", () => {
       const engine = new VbsEngine();
-      engine.executeStatement('x = 42');
-      const x = engine._getVariable('x');
+      engine.executeStatement("x = 42");
+      const x = engine._getVariable("x");
       expect(x.value).toBe(42);
     });
 
-    it('should use run to call functions with arguments', () => {
+    it("should use run to call functions with arguments", () => {
       const engine = new VbsEngine();
-      engine.addCode('Function Multiply(a, b): Multiply = a * b: End Function');
-      const result = engine.run('Multiply', 4, 7);
+      engine.addCode("Function Multiply(a, b): Multiply = a * b: End Function");
+      const result = engine.run("Multiply", 4, 7);
       expect(result).toBe(28);
     });
 
-    it('should use eval to evaluate expressions', () => {
+    it("should use eval to evaluate expressions", () => {
       const engine = new VbsEngine();
-      const result = engine.eval('2 + 3 * 4');
+      const result = engine.eval("2 + 3 * 4");
       expect(result).toBe(14);
     });
 
-    it('should use addObject to expose JS objects', () => {
+    it("should use addObject to expose JS objects", () => {
       const engine = new VbsEngine();
       const myObj = {
         getValue: () => 100,
-        name: 'test',
+        name: "test",
       };
-      engine.addObject('myObj', myObj, true);
-      engine.executeStatement('result = myObj.getValue()');
-      const result = engine._getVariable('result');
+      engine.addObject("myObj", myObj, true);
+      engine.executeStatement("result = myObj.getValue()");
+      const result = engine._getVariable("result");
       expect(result.value).toBe(100);
     });
 
-    it('should track errors via error property', () => {
+    it("should track errors via error property", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CInt("not a number")');
       expect(engine.error).not.toBeNull();
     });
 
-    it('should clear errors between operations', () => {
+    it("should clear errors between operations", () => {
       const engine = new VbsEngine();
       engine.executeStatement('x = CInt("not a number")');
       expect(engine.error).not.toBeNull();

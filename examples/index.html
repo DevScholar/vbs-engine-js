@@ -7,10 +7,10 @@
     <title>VBScript Engine Demo</title>
     <!--[if !IE]> -->
     <script type="module">
-      import { VbsEngine } from '../src/index.ts';
+      import { VbsEngine } from "../src/index.ts";
       // Kept where the error panel can reach it: the engine's own error member carries the position of a failing
       // statement, which the thrown error does not, because the host's did not.
-      window.vbsEngine = new VbsEngine({ mode: 'browser' });
+      window.vbsEngine = new VbsEngine({ mode: "browser" });
     </script>
     <!-- <![endif]-->
   </head>
@@ -37,13 +37,17 @@
     <button id="btnMsgBox">Show MsgBox (OK)</button>
     <button id="btnMsgBoxYesNo">Show MsgBox (Yes/No)</button>
     <button id="btnMsgBoxYesNoCancel">Show MsgBox (Yes/No/Cancel)</button>
-    <button id="btnMsgBoxAbortRetryIgnore">Show MsgBox (Abort/Retry/Ignore)</button>
+    <button id="btnMsgBoxAbortRetryIgnore">
+      Show MsgBox (Abort/Retry/Ignore)
+    </button>
     <button id="btnInputBox">Show InputBox</button>
 
     <h2>Inline onclick="vbscript:..."</h2>
-    <button id="btnInline" onclick='vbscript:MsgBox "Inline VBScript works!", 64, "Inline Test"'>
-      Test Inline VBScript
-    </button>
+    <!-- Kept on one line on purpose. The page reports the line of a failure in a script block, and that line is
+         counted from the document the browser holds, where a tag split across lines is written back as one. A
+         split here would leave every line after it reported short by the lines the split took. -->
+    <!-- prettier-ignore -->
+    <button id="btnInline" onclick='vbscript:MsgBox "Inline VBScript works!", 64, "Inline Test"'>Test Inline VBScript</button>
 
     <h2>&lt;script for="..." event="..."&gt;</h2>
     <input type="button" id="button1" value="Click Me (for/event)" />
@@ -173,28 +177,31 @@
 
     <script type="text/javascript">
       // ===== JavaScript Section =====
-      var jsMessage = 'Hello from JS';
+      var jsMessage = "Hello from JS";
 
       // Function to read VBS variable
       function readVBSMessage() {
         try {
-          if (typeof vbsMessage !== 'undefined') {
+          if (typeof vbsMessage !== "undefined") {
             return vbsMessage;
           }
-          return 'Read failed';
+          return "Read failed";
         } catch (e) {
-          return 'Read failed';
+          return "Read failed";
         }
       }
 
       // Display final result - poll until ShowResult has set the innerHTML
       function showFinalResult() {
-        var resultDiv = document.getElementById('demo-result');
+        var resultDiv = document.getElementById("demo-result");
         var current = resultDiv.innerHTML;
 
-        if (current.indexOf('Waiting for JS display...') >= 0) {
+        if (current.indexOf("Waiting for JS display...") >= 0) {
           var vbsMsg = readVBSMessage();
-          resultDiv.innerHTML = current.replace('Waiting for JS display...', vbsMsg);
+          resultDiv.innerHTML = current.replace(
+            "Waiting for JS display...",
+            vbsMsg,
+          );
           clearInterval(pollTimer);
         }
       }
@@ -217,43 +224,46 @@
       // kept in a variable for this panel to read.
 
       function codeText(number) {
-        if (typeof number !== 'number') return '(not reported)';
-        return '0x' + (number >>> 0).toString(16);
+        if (typeof number !== "number") return "(not reported)";
+        return "0x" + (number >>> 0).toString(16);
       }
 
       function positionText() {
         var engineError = window.vbsEngine ? window.vbsEngine.error : null;
-        if (engineError && typeof engineError.line === 'number') {
+        if (engineError && typeof engineError.line === "number") {
           // The engine counts the column from zero the way Microsoft's ScriptControl does, and Internet Explorer
           // printed one counted from one, so the number shown here is that one.
           return (
-            'line ' +
+            "line " +
             engineError.line +
-            ', column ' +
-            ((typeof engineError.column === 'number' ? engineError.column : 0) + 1) +
-            ' (line from engine.error, counted in the document the way Internet Explorer counted it; column shown the way Internet Explorer printed it, though engine.error counts it from zero)'
+            ", column " +
+            ((typeof engineError.column === "number" ? engineError.column : 0) +
+              1) +
+            " (line from engine.error, counted in the document the way Internet Explorer counted it; column shown the way Internet Explorer printed it, though engine.error counts it from zero)"
           );
         }
-        return 'not reported';
+        return "not reported";
       }
 
       window.onerror = function (message, source, line, column, error) {
         var parts = [
-          'The error object, which is what IE 10 handed JScript:',
-          '  description  ' + (error && error.description ? error.description : message),
-          '  number       ' + codeText(error && error.number),
-          '  message      ' + (error && error.message ? error.message : ''),
-          '  keys         ' + (error ? Object.keys(error).sort().join(',') : ''),
-          '',
-          'The position, which IE reported through window.onerror and this engine keeps on its error member:',
-          '  ' + positionText(),
-          '',
-          'The JavaScript throw site: ' + source + ':' + line + ':' + column,
-          '',
-          'Stack:',
-          error && error.stack ? error.stack : '(not available)',
+          "The error object, which is what IE 10 handed JScript:",
+          "  description  " +
+            (error && error.description ? error.description : message),
+          "  number       " + codeText(error && error.number),
+          "  message      " + (error && error.message ? error.message : ""),
+          "  keys         " +
+            (error ? Object.keys(error).sort().join(",") : ""),
+          "",
+          "The position, which IE reported through window.onerror and this engine keeps on its error member:",
+          "  " + positionText(),
+          "",
+          "The JavaScript throw site: " + source + ":" + line + ":" + column,
+          "",
+          "Stack:",
+          error && error.stack ? error.stack : "(not available)",
         ];
-        document.getElementById('error-output').textContent = parts.join('\n');
+        document.getElementById("error-output").textContent = parts.join("\n");
         return false;
       };
     </script>

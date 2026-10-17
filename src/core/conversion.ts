@@ -1,5 +1,5 @@
-import type { VbValue } from '../runtime/index.ts';
-import { VbNothing } from '../runtime/index.ts';
+import type { VbValue } from "../runtime/index.ts";
+import { VbNothing } from "../runtime/index.ts";
 
 /**
  * Converts a VbValue to its JavaScript equivalent.
@@ -15,33 +15,35 @@ import { VbNothing } from '../runtime/index.ts';
  */
 export function vbToJs(value: VbValue): unknown {
   switch (value.type) {
-    case 'Empty':
+    case "Empty":
       return undefined;
-    case 'Null':
+    case "Null":
       return null;
-    case 'Boolean':
-    case 'Long':
-    case 'Double':
-    case 'Integer':
-    case 'String':
-    case 'Date':
+    case "Boolean":
+    case "Long":
+    case "Double":
+    case "Integer":
+    case "String":
+    case "Date":
       return value.value;
-    case 'Array': {
+    case "Array": {
       const arr = value.value as { toArray(): VbValue[] };
       return arr.toArray().map(vbToJs);
     }
-    case 'Object': {
+    case "Object": {
       const obj = value.value as Record<string, unknown> | null;
       if (
         obj &&
-        typeof obj === 'object' &&
-        obj['type'] === 'vbref' &&
-        typeof obj['call'] === 'function'
+        typeof obj === "object" &&
+        obj["type"] === "vbref" &&
+        typeof obj["call"] === "function"
       ) {
-        const callFn = obj['call'] as (...args: unknown[]) => unknown;
+        const callFn = obj["call"] as (...args: unknown[]) => unknown;
         return (...jsArgs: unknown[]): unknown => {
-          const vbArgs = jsArgs.map(a => jsToVb(a));
-          return vbToJs(callFn(...vbArgs) as import('../runtime/index.ts').VbValue);
+          const vbArgs = jsArgs.map((a) => jsToVb(a));
+          return vbToJs(
+            callFn(...vbArgs) as import("../runtime/index.ts").VbValue,
+          );
         };
       }
       return value.value;
@@ -66,33 +68,37 @@ export function vbToJs(value: VbValue): unknown {
  * ```
  */
 export function jsToVb(value: unknown, thisArg?: unknown): VbValue {
-  if (value === undefined) return { type: 'Empty', value: undefined };
-  if (value === null) return { type: 'Null', value: null };
-  if (value === Symbol.for('Nothing')) return VbNothing;
-  if (typeof value === 'boolean') return { type: 'Boolean', value };
-  if (typeof value === 'number') {
-    if (Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) {
-      return { type: 'Long', value };
+  if (value === undefined) return { type: "Empty", value: undefined };
+  if (value === null) return { type: "Null", value: null };
+  if (value === Symbol.for("Nothing")) return VbNothing;
+  if (typeof value === "boolean") return { type: "Boolean", value };
+  if (typeof value === "number") {
+    if (
+      Number.isInteger(value) &&
+      value >= -2147483648 &&
+      value <= 2147483647
+    ) {
+      return { type: "Long", value };
     }
-    return { type: 'Double', value };
+    return { type: "Double", value };
   }
-  if (typeof value === 'string') return { type: 'String', value };
-  if (value instanceof Date) return { type: 'Date', value };
+  if (typeof value === "string") return { type: "String", value };
+  if (value instanceof Date) return { type: "Date", value };
   if (Array.isArray(value)) {
-    return { type: 'Array', value };
+    return { type: "Array", value };
   }
-  if (typeof value === 'function') {
+  if (typeof value === "function") {
     return {
-      type: 'Object',
+      type: "Object",
       value: {
-        type: 'jsfunction',
+        type: "jsfunction",
         func: value as (...args: unknown[]) => unknown,
         thisArg: thisArg ?? null,
       },
     };
   }
-  if (typeof value === 'object') {
-    return { type: 'Object', value };
+  if (typeof value === "object") {
+    return { type: "Object", value };
   }
-  return { type: 'String', value: String(value) };
+  return { type: "String", value: String(value) };
 }

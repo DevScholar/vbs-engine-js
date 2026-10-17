@@ -162,13 +162,30 @@ const PACKED = `1025|dd/MM/yyyy|dd MMMM, yyyy|hh:mm:ss tt|hh:mm tt|ص|م|23
 20490|MM/dd/yyyy|dddd, d 'de' MMMM 'de' yyyy|h:mm:ss\u202ftt|h:mm\u202ftt|a.\u202fm.|p.\u202fm.|1`;
 
 export const NLS_DATE_FORMATS: ReadonlyMap<number, NlsDateFormat> = new Map(
-  PACKED.split('\n').map(row => {
-    const [lcid, shortDate, longDate, timeFormat, shortTime, am, pm, calendarType] = row.split('|');
+  PACKED.split("\n").map((row) => {
+    const [
+      lcid,
+      shortDate,
+      longDate,
+      timeFormat,
+      shortTime,
+      am,
+      pm,
+      calendarType,
+    ] = row.split("|");
     return [
       Number(lcid),
-      { shortDate, longDate, timeFormat, shortTime, am, pm, calendarType: Number(calendarType) },
+      {
+        shortDate,
+        longDate,
+        timeFormat,
+        shortTime,
+        am,
+        pm,
+        calendarType: Number(calendarType),
+      },
     ] as const;
-  })
+  }),
 );
 
 /** The NLS formats for an LCID, or undefined when the table has no row for it. */

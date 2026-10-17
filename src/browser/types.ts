@@ -1,4 +1,4 @@
-import type { VbsEngineOptions } from '../core/index.ts';
+import type { VbsEngineOptions } from "../core/index.ts";
 
 /**
  * Configuration options for the browser runtime.

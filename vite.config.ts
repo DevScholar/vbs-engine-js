@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
-import dts from 'vite-plugin-dts';
+import { defineConfig } from "vite";
+import { resolve } from "path";
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
   plugins: [
@@ -10,9 +10,9 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
-      name: 'VbsEngine',
-      fileName: 'vbs-engine',
+      entry: resolve(__dirname, "src/index.ts"),
+      name: "VbsEngine",
+      fileName: "vbs-engine",
     },
     rollupOptions: {
       external: [],
@@ -23,6 +23,6 @@ export default defineConfig({
     sourcemap: true,
   },
   server: {
-    open: '/examples/index.html',
+    open: "/examples/index.html",
   },
 });

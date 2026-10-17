@@ -1,18 +1,32 @@
-import type { Expression, Program, Statement, VbLabelStatement } from '../ast/index.ts';
-import type { VbValue } from '../runtime/index.ts';
-import { VbContext, VbEmpty, VbErrorCodes, createVbError } from '../runtime/index.ts';
-import type { Vbscope } from '../runtime/index.ts';
-import { StatementExecutor, GotoSignal, ControlFlowSignal } from './statement-executor.ts';
-import { ExpressionEvaluator } from './expression-evaluator.ts';
-import { registerBuiltins } from '../builtins/index.ts';
-import { parse } from '../parser/index.ts';
+import type {
+  Expression,
+  Program,
+  Statement,
+  VbLabelStatement,
+} from "../ast/index.ts";
+import type { VbValue } from "../runtime/index.ts";
+import {
+  VbContext,
+  VbEmpty,
+  VbErrorCodes,
+  createVbError,
+} from "../runtime/index.ts";
+import type { Vbscope } from "../runtime/index.ts";
+import {
+  StatementExecutor,
+  GotoSignal,
+  ControlFlowSignal,
+} from "./statement-executor.ts";
+import { ExpressionEvaluator } from "./expression-evaluator.ts";
+import { registerBuiltins } from "../builtins/index.ts";
+import { parse } from "../parser/index.ts";
 
 /**
  * Takes the whole-statement marks off an expression, which Eval needs since it is handed an expression and
  * not a statement list.
  */
 function clearStatementCallMarks(expression: Expression): void {
-  if (expression.type === 'CallExpression') {
+  if (expression.type === "CallExpression") {
     expression.statementCall = false;
     expression.bareName = false;
   }
@@ -43,7 +57,9 @@ export class Interpreter {
     if (this.maxExecutionTime > 0) {
       const elapsed = Date.now() - this.startTime;
       if (elapsed > this.maxExecutionTime) {
-        throw new Error(`Script execution timed out after ${this.maxExecutionTime}ms`);
+        throw new Error(
+          `Script execution timed out after ${this.maxExecutionTime}ms`,
+        );
       }
     }
   }
@@ -52,9 +68,12 @@ export class Interpreter {
     const labels = new Map<string, LabelInfo>();
     for (let i = 0; i < statements.length; i++) {
       const stmt = statements[i]!;
-      if (stmt.type === 'VbLabelStatement') {
+      if (stmt.type === "VbLabelStatement") {
         const labelStmt = stmt as VbLabelStatement;
-        labels.set(labelStmt.label.name.toLowerCase(), { index: i, statement: labelStmt });
+        labels.set(labelStmt.label.name.toLowerCase(), {
+          index: i,
+          statement: labelStmt,
+        });
       }
     }
     return labels;
@@ -90,9 +109,9 @@ export class Interpreter {
   // body, so there's no need to recurse into those.
   private hoistDeclarationsIn(stmt: Statement): void {
     switch (stmt.type) {
-      case 'VbSubStatement':
-      case 'VbFunctionStatement':
-      case 'VbClassStatement':
+      case "VbSubStatement":
+      case "VbFunctionStatement":
+      case "VbClassStatement":
         // Class declarations are hoisted too, same as Sub/Function - `New
         // EmptyClass` can textually precede `Class EmptyClass ... End
         // Class`. executeClassStatement() just (re-)registers the class
@@ -100,21 +119,21 @@ export class Interpreter {
         // reaches it is harmless, same as Sub/Function.
         this.executor.execute(stmt);
         return;
-      case 'BlockStatement':
+      case "BlockStatement":
         this.hoistDeclarations(stmt.body);
         return;
-      case 'IfStatement':
+      case "IfStatement":
         this.hoistDeclarationsIn(stmt.consequent);
         if (stmt.alternate) this.hoistDeclarationsIn(stmt.alternate);
         return;
-      case 'VbDoLoopStatement':
-      case 'WhileStatement':
-      case 'VbForToStatement':
-      case 'ForOfStatement':
-      case 'WithStatement':
+      case "VbDoLoopStatement":
+      case "WhileStatement":
+      case "VbForToStatement":
+      case "ForOfStatement":
+      case "WithStatement":
         this.hoistDeclarationsIn(stmt.body);
         return;
-      case 'VbSelectCaseStatement':
+      case "VbSelectCaseStatement":
         for (const caseClause of stmt.cases) {
           this.hoistDeclarations(caseClause.consequent);
         }
@@ -136,7 +155,9 @@ export class Interpreter {
 
     while (i < statements.length) {
       if (iterations++ > maxIterations) {
-        throw new Error('Possible infinite loop detected (too many goto jumps)');
+        throw new Error(
+          "Possible infinite loop detected (too many goto jumps)",
+        );
       }
 
       this.checkTimeout();
@@ -152,7 +173,9 @@ export class Interpreter {
             i = labelInfo.index + 1;
             continue;
           }
-          throw new Error(`Label not found: ${error.labelName}`, { cause: error });
+          throw new Error(`Label not found: ${error.labelName}`, {
+            cause: error,
+          });
         }
         if (error instanceof ControlFlowSignal) {
           throw error;
@@ -191,7 +214,7 @@ export class Interpreter {
     try {
       ast = parse(code);
     } catch {
-      throw createVbError(1002, 'Syntax error');
+      throw createVbError(1002, "Syntax error");
     }
     const evaluator = new ExpressionEvaluator(this.context);
     // Eval reads an expression, and a bare name in an expression is the value it holds or the procedure it
@@ -205,12 +228,15 @@ export class Interpreter {
     const body = ast.body;
     if (body.length === 1) {
       const only = body[0]!;
-      if (only.type === 'ExpressionStatement') {
+      if (only.type === "ExpressionStatement") {
         const expression = only.expression;
-        const wasBareName = expression.type === 'CallExpression' && expression.bareName === true;
+        const wasBareName =
+          expression.type === "CallExpression" && expression.bareName === true;
         clearStatementCallMarks(expression);
         if (wasBareName) {
-          return evaluator.evaluate((expression as { callee: Expression }).callee);
+          return evaluator.evaluate(
+            (expression as { callee: Expression }).callee,
+          );
         }
         return evaluator.evaluate(expression);
       }
@@ -232,7 +258,9 @@ export class Interpreter {
 
     while (i < statements.length) {
       if (iterations++ > maxIterations) {
-        throw new Error('Possible infinite loop detected (too many goto jumps)');
+        throw new Error(
+          "Possible infinite loop detected (too many goto jumps)",
+        );
       }
 
       this.checkTimeout();
@@ -248,7 +276,9 @@ export class Interpreter {
             i = labelInfo.index + 1;
             continue;
           }
-          throw new Error(`Label not found: ${error.labelName}`, { cause: error });
+          throw new Error(`Label not found: ${error.labelName}`, {
+            cause: error,
+          });
         }
         if (error instanceof ControlFlowSignal) {
           throw error;
@@ -287,7 +317,7 @@ export class Interpreter {
     try {
       ast = parse(code);
     } catch {
-      throw createVbError(1002, 'Syntax error');
+      throw createVbError(1002, "Syntax error");
     }
 
     const savedScope = this.context.currentScope;
@@ -304,9 +334,12 @@ export class Interpreter {
       // does not run. The flag says so, and the procedure's own statement handling reads it when it catches
       // this error; it is cleared here so that a helper the text called and the text then returned from leaves
       // nothing behind.
-      if (error instanceof ControlFlowSignal && error.type === 'exit') {
+      if (error instanceof ControlFlowSignal && error.type === "exit") {
         this.context.insideExecutedText = false;
-        throw createVbError(VbErrorCodes.CannotExitProcedure, 'Cannot exit a procedure');
+        throw createVbError(
+          VbErrorCodes.CannotExitProcedure,
+          "Cannot exit a procedure",
+        );
       }
       if (this.isCannotExitProcedure(error)) {
         this.context.leftProcedureThroughExecute = true;
@@ -315,7 +348,7 @@ export class Interpreter {
         // even the work the text finished before the Exit does not stand.
         if (this.context.getCurrentCallTarget() === null) {
           this.context.leftProcedureThroughExecute = false;
-          throw new ControlFlowSignal('exit');
+          throw new ControlFlowSignal("exit");
         }
       }
       throw error;
@@ -329,9 +362,10 @@ export class Interpreter {
   /** Whether an error is the 1039 an Exit inside executed text raises. */
   private isCannotExitProcedure(error: unknown): boolean {
     return (
-      typeof error === 'object' &&
+      typeof error === "object" &&
       error !== null &&
-      (error as { number?: unknown }).number === VbErrorCodes.CannotExitProcedure
+      (error as { number?: unknown }).number ===
+        VbErrorCodes.CannotExitProcedure
     );
   }
 

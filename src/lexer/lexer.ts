@@ -1,5 +1,5 @@
-import { TokenType, type Token, type TokenLocation } from './token.ts';
-import { KEYWORDS } from './keywords.ts';
+import { TokenType, type Token, type TokenLocation } from "./token.ts";
+import { KEYWORDS } from "./keywords.ts";
 
 // Real VBScript hex/octal integer-literal semantics (verified against Wine's
 // own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs - a
@@ -46,11 +46,11 @@ export class Lexer {
   }
 
   private get current(): string {
-    return this.source[this.pos] ?? '';
+    return this.source[this.pos] ?? "";
   }
 
   private get peek(): string {
-    return this.source[this.pos + 1] ?? '';
+    return this.source[this.pos + 1] ?? "";
   }
 
   private get isEOF(): boolean {
@@ -68,7 +68,7 @@ export class Lexer {
   private advance(): string {
     const char = this.current;
     this.pos++;
-    if (char === '\n') {
+    if (char === "\n") {
       this.line++;
       this.column = 1;
     } else {
@@ -77,7 +77,12 @@ export class Lexer {
     return char;
   }
 
-  private createToken(type: TokenType, value: string, start: TokenLocation, raw?: string): Token {
+  private createToken(
+    type: TokenType,
+    value: string,
+    start: TokenLocation,
+    raw?: string,
+  ): Token {
     return {
       type,
       value,
@@ -91,30 +96,40 @@ export class Lexer {
 
   private skipWhitespaceAndLineContinuation(): void {
     while (true) {
-      while (this.current === ' ' || this.current === '\t' || this.current === '\r') {
+      while (
+        this.current === " " ||
+        this.current === "\t" ||
+        this.current === "\r"
+      ) {
         this.advance();
       }
 
-      if (this.current === '_') {
+      if (this.current === "_") {
         // VBScript tolerates spaces and tabs between the continuation underscore and the line
         // break. Anything else after it is not a continuation -- the real engine rejects that
         // with a compilation error -- so the scan stops at the first other character.
         let afterUnderscore = this.pos + 1;
-        while (this.source[afterUnderscore] === ' ' || this.source[afterUnderscore] === '\t') {
+        while (
+          this.source[afterUnderscore] === " " ||
+          this.source[afterUnderscore] === "\t"
+        ) {
           afterUnderscore++;
         }
 
-        if (this.source[afterUnderscore] === '\n' || this.source[afterUnderscore] === '\r') {
+        if (
+          this.source[afterUnderscore] === "\n" ||
+          this.source[afterUnderscore] === "\r"
+        ) {
           while (this.pos < afterUnderscore) {
             this.advance();
           }
-          if (this.peek === '\r') {
+          if (this.peek === "\r") {
             this.advance();
           }
-          if (this.peek === '\n') {
+          if (this.peek === "\n") {
             this.advance();
           }
-          if ((this.current as string) === '\n') {
+          if ((this.current as string) === "\n") {
             this.advance();
           }
           continue;
@@ -129,7 +144,7 @@ export class Lexer {
     const start = this.getLoc();
     this.advance();
 
-    let value = '';
+    let value = "";
     while (!this.isEOF) {
       if (this.current === quote) {
         if (this.peek === quote) {
@@ -139,7 +154,7 @@ export class Lexer {
         } else {
           break;
         }
-      } else if (this.current === '\n') {
+      } else if (this.current === "\n") {
         break;
       } else {
         value += this.advance();
@@ -150,35 +165,43 @@ export class Lexer {
       this.advance();
     }
 
-    return this.createToken(TokenType.StringLiteral, value, start, quote + value + quote);
+    return this.createToken(
+      TokenType.StringLiteral,
+      value,
+      start,
+      quote + value + quote,
+    );
   }
 
   private readNumber(): Token {
     const start = this.getLoc();
-    let value = '';
+    let value = "";
     let isFloat = false;
     let isExponent = false;
 
-    if (this.current === '&' && (this.peek === 'h' || this.peek === 'H')) {
+    if (this.current === "&" && (this.peek === "h" || this.peek === "H")) {
       this.advance();
       this.advance();
       while (/[0-9a-fA-F]/.test(this.current)) {
         value += this.advance();
       }
-      let suffix = '';
-      if ((this.current as string) === '&') {
+      let suffix = "";
+      if ((this.current as string) === "&") {
         suffix = this.advance();
       }
-      const num = signExtendIntegerLiteral(parseInt(value, 16), suffix === '&');
+      const num = signExtendIntegerLiteral(parseInt(value, 16), suffix === "&");
       return this.createToken(
         TokenType.NumberLiteral,
         String(num),
         start,
-        '&' + (this.source[start.offset + 1] === 'H' ? 'H' : 'h') + value + suffix
+        "&" +
+          (this.source[start.offset + 1] === "H" ? "H" : "h") +
+          value +
+          suffix,
       );
     }
 
-    if (this.current === '&' && (this.peek === 'o' || this.peek === 'O')) {
+    if (this.current === "&" && (this.peek === "o" || this.peek === "O")) {
       this.advance();
       this.advance();
       while (/[0-7]/.test(this.current)) {
@@ -193,19 +216,22 @@ export class Lexer {
       // adjacent number literal with no error at all. Found via Wine's own
       // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs
       // (`Eval("&O8")` expects error 1002).
-      if (value === '' || /[0-9]/.test(this.current)) {
-        throw new Error('Invalid octal literal');
+      if (value === "" || /[0-9]/.test(this.current)) {
+        throw new Error("Invalid octal literal");
       }
-      let suffix = '';
-      if ((this.current as string) === '&') {
+      let suffix = "";
+      if ((this.current as string) === "&") {
         suffix = this.advance();
       }
-      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === '&');
+      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === "&");
       return this.createToken(
         TokenType.NumberLiteral,
         String(num),
         start,
-        '&' + (this.source[start.offset + 1] === 'O' ? 'O' : 'o') + value + suffix
+        "&" +
+          (this.source[start.offset + 1] === "O" ? "O" : "o") +
+          value +
+          suffix,
       );
     }
 
@@ -219,7 +245,7 @@ export class Lexer {
     // Ampersand (string-concat) operator instead, on top of `100` being
     // parsed as a separate, unrelated decimal literal - "Unexpected token:
     // Ampersand" (or worse, silently wrong values, depending on context).
-    if (this.current === '&' && /[0-7]/.test(this.peek)) {
+    if (this.current === "&" && /[0-7]/.test(this.peek)) {
       this.advance();
       while (/[0-7]/.test(this.current)) {
         value += this.advance();
@@ -229,14 +255,19 @@ export class Lexer {
       // 0-7) - catches `&19`: consumes '1', then '9' is a decimal digit
       // immediately adjacent to the octal run, real VBScript syntax error.
       if (/[0-9]/.test(this.current)) {
-        throw new Error('Invalid octal literal');
+        throw new Error("Invalid octal literal");
       }
-      let suffix = '';
-      if ((this.current as string) === '&') {
+      let suffix = "";
+      if ((this.current as string) === "&") {
         suffix = this.advance();
       }
-      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === '&');
-      return this.createToken(TokenType.NumberLiteral, String(num), start, '&' + value + suffix);
+      const num = signExtendIntegerLiteral(parseInt(value, 8), suffix === "&");
+      return this.createToken(
+        TokenType.NumberLiteral,
+        String(num),
+        start,
+        "&" + value + suffix,
+      );
     }
 
     while (/[0-9]/.test(this.current)) {
@@ -252,7 +283,7 @@ export class Lexer {
     // the `.` unconsumed, re-tokenized as a stray Dot (member-access)
     // operator and cascading into "Expected property name"/"Expected
     // RParen" parse errors depending on context.
-    if (this.current === '.') {
+    if (this.current === ".") {
       isFloat = true;
       value += this.advance();
       while (/[0-9]/.test(this.current)) {
@@ -261,11 +292,11 @@ export class Lexer {
     }
 
     const currentChar = this.current;
-    if (currentChar === 'e' || currentChar === 'E') {
+    if (currentChar === "e" || currentChar === "E") {
       isExponent = true;
       value += this.advance();
       const signChar = this.current;
-      if (signChar === '+' || signChar === '-') {
+      if (signChar === "+" || signChar === "-") {
         value += this.advance();
       }
       while (/[0-9]/.test(this.current)) {
@@ -273,7 +304,7 @@ export class Lexer {
       }
     }
 
-    if (this.current === '#' && !isFloat && !isExponent) {
+    if (this.current === "#" && !isFloat && !isExponent) {
       return this.readDate(start, value);
     }
 
@@ -281,26 +312,31 @@ export class Lexer {
   }
 
   private readDate(start: TokenLocation, prefix?: string): Token {
-    let value = prefix ?? '';
-    if (this.current === '#') {
+    let value = prefix ?? "";
+    if (this.current === "#") {
       this.advance();
     }
 
-    while (!this.isEOF && this.current !== '#') {
-      if (this.current === '\n') break;
+    while (!this.isEOF && this.current !== "#") {
+      if (this.current === "\n") break;
       value += this.advance();
     }
 
-    if (this.current === '#') {
+    if (this.current === "#") {
       this.advance();
     }
 
-    return this.createToken(TokenType.DateLiteral, value.trim(), start, '#' + value + '#');
+    return this.createToken(
+      TokenType.DateLiteral,
+      value.trim(),
+      start,
+      "#" + value + "#",
+    );
   }
 
   private readIdentifier(): Token {
     const start = this.getLoc();
-    let value = '';
+    let value = "";
 
     while (/[a-zA-Z0-9_]/.test(this.current)) {
       value += this.advance();
@@ -311,16 +347,26 @@ export class Lexer {
 
     if (keywordType) {
       if (keywordType === TokenType.BooleanLiteral) {
-        return this.createToken(TokenType.BooleanLiteral, upperValue, start, value);
+        return this.createToken(
+          TokenType.BooleanLiteral,
+          upperValue,
+          start,
+          value,
+        );
       }
       if (keywordType === TokenType.NothingLiteral) {
-        return this.createToken(TokenType.NothingLiteral, 'nothing', start, value);
+        return this.createToken(
+          TokenType.NothingLiteral,
+          "nothing",
+          start,
+          value,
+        );
       }
       if (keywordType === TokenType.NullLiteral) {
-        return this.createToken(TokenType.NullLiteral, 'null', start, value);
+        return this.createToken(TokenType.NullLiteral, "null", start, value);
       }
       if (keywordType === TokenType.EmptyLiteral) {
-        return this.createToken(TokenType.EmptyLiteral, 'empty', start, value);
+        return this.createToken(TokenType.EmptyLiteral, "empty", start, value);
       }
       return this.createToken(keywordType, upperValue, start, value);
     }
@@ -330,9 +376,9 @@ export class Lexer {
 
   private readRemComment(): Token {
     const start = this.getLoc();
-    let value = '';
+    let value = "";
 
-    while (!this.isEOF && this.current !== '\n') {
+    while (!this.isEOF && this.current !== "\n") {
       value += this.advance();
     }
 
@@ -340,7 +386,7 @@ export class Lexer {
   }
 
   private readSingleLineComment(): void {
-    while (!this.isEOF && this.current !== '\n') {
+    while (!this.isEOF && this.current !== "\n") {
       this.advance();
     }
   }
@@ -358,16 +404,16 @@ export class Lexer {
       }
 
       if (this.isEOF) {
-        return this.createToken(TokenType.EOF, '', this.getLoc());
+        return this.createToken(TokenType.EOF, "", this.getLoc());
       }
 
-      if (this.current === '\n') {
+      if (this.current === "\n") {
         const start = this.getLoc();
         this.advance();
         if (this.options.skipNewlines) {
           continue;
         }
-        return this.createToken(TokenType.Newline, '\n', start, '\n');
+        return this.createToken(TokenType.Newline, "\n", start, "\n");
       }
 
       if (this.current === "'" && this.options.skipWhitespace) {
@@ -379,7 +425,7 @@ export class Lexer {
         return this.readString(this.current);
       }
 
-      if (this.current === '#') {
+      if (this.current === "#") {
         const start = this.getLoc();
         return this.readDate(start);
       }
@@ -389,11 +435,13 @@ export class Lexer {
       // concatenation is lost. VBScript resolves the ambiguity the same way: `&h` followed by a
       // hex digit IS the literal even when a variable of that name exists, so `"x"&h1` is a
       // compile error there rather than a concatenation -- which this guard preserves.
-      const afterRadixPrefix = this.source[this.pos + 2] ?? '';
+      const afterRadixPrefix = this.source[this.pos + 2] ?? "";
       if (
-        this.current === '&' &&
-        (((this.peek === 'h' || this.peek === 'H') && /[0-9a-fA-F]/.test(afterRadixPrefix)) ||
-          ((this.peek === 'o' || this.peek === 'O') && /[0-7]/.test(afterRadixPrefix)) ||
+        this.current === "&" &&
+        (((this.peek === "h" || this.peek === "H") &&
+          /[0-9a-fA-F]/.test(afterRadixPrefix)) ||
+          ((this.peek === "o" || this.peek === "O") &&
+            /[0-7]/.test(afterRadixPrefix)) ||
           /[0-7]/.test(this.peek))
       ) {
         return this.readNumber();
@@ -403,7 +451,7 @@ export class Lexer {
         return this.readNumber();
       }
 
-      if (this.current === '.' && /[0-9]/.test(this.peek)) {
+      if (this.current === "." && /[0-9]/.test(this.peek)) {
         return this.readNumber();
       }
 
@@ -417,7 +465,8 @@ export class Lexer {
           // dlls/vbscript/tests/lang.vbs: without this check, `.rem`
           // silently swallowed the rest of the line as a comment.
           const isMemberAccess =
-            this.lastTokenType === TokenType.Dot || this.lastTokenType === TokenType.Bang;
+            this.lastTokenType === TokenType.Dot ||
+            this.lastTokenType === TokenType.Bang;
           if (this.options.skipWhitespace && !isMemberAccess) {
             this.readRemComment();
             continue;
@@ -431,105 +480,105 @@ export class Lexer {
       const char = this.current;
 
       switch (char) {
-        case '+':
+        case "+":
           this.advance();
-          return this.createToken(TokenType.Plus, '+', start);
-        case '-':
+          return this.createToken(TokenType.Plus, "+", start);
+        case "-":
           this.advance();
-          return this.createToken(TokenType.Minus, '-', start);
-        case '*':
+          return this.createToken(TokenType.Minus, "-", start);
+        case "*":
           this.advance();
-          return this.createToken(TokenType.Asterisk, '*', start);
-        case '/':
+          return this.createToken(TokenType.Asterisk, "*", start);
+        case "/":
           this.advance();
-          return this.createToken(TokenType.Slash, '/', start);
-        case '\\':
+          return this.createToken(TokenType.Slash, "/", start);
+        case "\\":
           this.advance();
-          return this.createToken(TokenType.Backslash, '\\', start);
-        case '^':
+          return this.createToken(TokenType.Backslash, "\\", start);
+        case "^":
           this.advance();
-          return this.createToken(TokenType.Caret, '^', start);
-        case '&':
+          return this.createToken(TokenType.Caret, "^", start);
+        case "&":
           this.advance();
-          return this.createToken(TokenType.Ampersand, '&', start);
-        case '(':
+          return this.createToken(TokenType.Ampersand, "&", start);
+        case "(":
           this.advance();
-          return this.createToken(TokenType.LParen, '(', start);
-        case ')':
+          return this.createToken(TokenType.LParen, "(", start);
+        case ")":
           this.advance();
-          return this.createToken(TokenType.RParen, ')', start);
-        case '{':
+          return this.createToken(TokenType.RParen, ")", start);
+        case "{":
           this.advance();
-          return this.createToken(TokenType.LBrace, '{', start);
-        case '}':
+          return this.createToken(TokenType.LBrace, "{", start);
+        case "}":
           this.advance();
-          return this.createToken(TokenType.RBrace, '}', start);
-        case '[':
+          return this.createToken(TokenType.RBrace, "}", start);
+        case "[":
           this.advance();
-          return this.createToken(TokenType.LBracket, '[', start);
-        case ']':
+          return this.createToken(TokenType.LBracket, "[", start);
+        case "]":
           this.advance();
-          return this.createToken(TokenType.RBracket, ']', start);
-        case ',':
+          return this.createToken(TokenType.RBracket, "]", start);
+        case ",":
           this.advance();
-          return this.createToken(TokenType.Comma, ',', start);
-        case ':':
+          return this.createToken(TokenType.Comma, ",", start);
+        case ":":
           this.advance();
-          return this.createToken(TokenType.Colon, ':', start);
-        case '.':
+          return this.createToken(TokenType.Colon, ":", start);
+        case ".":
           this.advance();
-          return this.createToken(TokenType.Dot, '.', start);
-        case '!':
+          return this.createToken(TokenType.Dot, ".", start);
+        case "!":
           this.advance();
-          return this.createToken(TokenType.Bang, '!', start);
-        case '=':
+          return this.createToken(TokenType.Bang, "!", start);
+        case "=":
           this.advance();
           // Real VBScript accepts `=<`/`=>` as alternate spellings of `<=`/`>=`
           // (the `=` may come before or after the relational operator, both
           // equally valid) - found via Wine's own vbscript.dll conformance
           // suite, dlls/vbscript/tests/lang.vbs: `ok(2 => 1, ...)`, a real
           // assertion in Microsoft-accuracy test code, not a typo.
-          if (this.current === '<') {
+          if (this.current === "<") {
             this.advance();
-            return this.createToken(TokenType.Le, '=<', start);
+            return this.createToken(TokenType.Le, "=<", start);
           }
-          if (this.current === '>') {
+          if (this.current === ">") {
             this.advance();
-            return this.createToken(TokenType.Ge, '=>', start);
+            return this.createToken(TokenType.Ge, "=>", start);
           }
-          return this.createToken(TokenType.Eq, '=', start);
-        case '<':
+          return this.createToken(TokenType.Eq, "=", start);
+        case "<":
           this.advance();
-          if (this.current === '>') {
+          if (this.current === ">") {
             this.advance();
-            return this.createToken(TokenType.Ne, '<>', start);
+            return this.createToken(TokenType.Ne, "<>", start);
           }
-          if (this.current === '=') {
+          if (this.current === "=") {
             this.advance();
-            return this.createToken(TokenType.Le, '<=', start);
+            return this.createToken(TokenType.Le, "<=", start);
           }
-          return this.createToken(TokenType.Lt, '<', start);
-        case '>':
+          return this.createToken(TokenType.Lt, "<", start);
+        case ">":
           this.advance();
-          if (this.current === '=') {
+          if (this.current === "=") {
             this.advance();
-            return this.createToken(TokenType.Ge, '>=', start);
+            return this.createToken(TokenType.Ge, ">=", start);
           }
           // `><` is likewise a valid alternate spelling of `<>` (see the `=<`/`=>`
           // comment above - same "either character order" VB grammar quirk,
           // also found via Wine's lang.vbs: `ok(not (2 >< 2), ...)`).
-          if (this.current === '<') {
+          if (this.current === "<") {
             this.advance();
-            return this.createToken(TokenType.Ne, '><', start);
+            return this.createToken(TokenType.Ne, "><", start);
           }
-          return this.createToken(TokenType.Gt, '>', start);
+          return this.createToken(TokenType.Gt, ">", start);
         default:
           this.advance();
           return this.createToken(TokenType.Unknown, char, start);
       }
     }
 
-    return this.createToken(TokenType.EOF, '', this.getLoc());
+    return this.createToken(TokenType.EOF, "", this.getLoc());
   }
 
   tokenize(): Token[] {

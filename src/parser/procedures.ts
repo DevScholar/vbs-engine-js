@@ -10,22 +10,22 @@ import type {
   VbPropertyLetStatement,
   VbPropertySetStatement,
   Expression,
-} from '../ast/index.ts';
-import { TokenType } from '../lexer/token.ts';
-import { ParserState } from './parser-state.ts';
-import { ExpressionParser } from './expression-parser.ts';
-import { DeclarationParser } from './declarations.ts';
-import { createLocation, createLocationFromNodeAndToken } from './location.ts';
+} from "../ast/index.ts";
+import { TokenType } from "../lexer/token.ts";
+import { ParserState } from "./parser-state.ts";
+import { ExpressionParser } from "./expression-parser.ts";
+import { DeclarationParser } from "./declarations.ts";
+import { createLocation, createLocationFromNodeAndToken } from "./location.ts";
 
 function isVbClassElement(stmt: Statement): stmt is VbClassElement {
   const elementTypes = [
-    'VbSubStatement',
-    'VbFunctionStatement',
-    'VbPropertyGetStatement',
-    'VbPropertyLetStatement',
-    'VbPropertySetStatement',
-    'VbDimStatement',
-    'VbConstStatement',
+    "VbSubStatement",
+    "VbFunctionStatement",
+    "VbPropertyGetStatement",
+    "VbPropertyLetStatement",
+    "VbPropertySetStatement",
+    "VbDimStatement",
+    "VbConstStatement",
   ];
   return elementTypes.includes(stmt.type);
 }
@@ -36,7 +36,7 @@ export class ProcedureParser {
   constructor(
     private state: ParserState,
     private exprParser: ExpressionParser,
-    private parseStatement: () => Statement
+    private parseStatement: () => Statement,
   ) {
     this.declParser = new DeclarationParser(state, exprParser);
   }
@@ -55,11 +55,11 @@ export class ProcedureParser {
     this.state.expect(TokenType.Sub);
 
     return {
-      type: 'VbSubStatement',
+      type: "VbSubStatement",
       name,
       params,
       body,
-      visibility: (visibility ?? 'public') as 'public' | 'private',
+      visibility: (visibility ?? "public") as "public" | "private",
       loc: createLocation(startToken, this.state.previous),
     };
   }
@@ -81,11 +81,11 @@ export class ProcedureParser {
     this.state.expect(TokenType.Function);
 
     return {
-      type: 'VbFunctionStatement',
+      type: "VbFunctionStatement",
       name,
       params,
       body,
-      visibility: (visibility ?? 'public') as 'public' | 'private',
+      visibility: (visibility ?? "public") as "public" | "private",
       returnType,
       loc: createLocation(startToken, this.state.previous),
     };
@@ -105,7 +105,7 @@ export class ProcedureParser {
     this.state.expect(TokenType.Class);
 
     return {
-      type: 'VbClassStatement',
+      type: "VbClassStatement",
       name,
       body,
       loc: createLocation(classToken, this.state.previous),
@@ -114,7 +114,7 @@ export class ProcedureParser {
 
   parsePropertyStatement(visibility?: string): Statement {
     this.state.expect(TokenType.Property);
-    const propVisibility = visibility ?? 'public';
+    const propVisibility = visibility ?? "public";
 
     if (this.state.check(TokenType.Get)) {
       return this.parsePropertyGet(propVisibility);
@@ -126,7 +126,7 @@ export class ProcedureParser {
       return this.parsePropertySet(propVisibility);
     }
 
-    throw new Error('Expected Get, Let, or Set after Property');
+    throw new Error("Expected Get, Let, or Set after Property");
   }
 
   private parsePropertyGet(visibility: string): VbPropertyGetStatement {
@@ -143,11 +143,11 @@ export class ProcedureParser {
     this.state.expect(TokenType.Property);
 
     return {
-      type: 'VbPropertyGetStatement',
+      type: "VbPropertyGetStatement",
       name,
       params,
       body,
-      visibility: visibility as 'public' | 'private',
+      visibility: visibility as "public" | "private",
       loc: createLocation(this.state.previous, this.state.previous),
     };
   }
@@ -162,11 +162,11 @@ export class ProcedureParser {
     this.state.expect(TokenType.Property);
 
     return {
-      type: 'VbPropertyLetStatement',
+      type: "VbPropertyLetStatement",
       name,
       params,
       body,
-      visibility: visibility as 'public' | 'private',
+      visibility: visibility as "public" | "private",
       loc: createLocation(this.state.previous, this.state.previous),
     };
   }
@@ -181,11 +181,11 @@ export class ProcedureParser {
     this.state.expect(TokenType.Property);
 
     return {
-      type: 'VbPropertySetStatement',
+      type: "VbPropertySetStatement",
       name,
       params,
       body,
-      visibility: visibility as 'public' | 'private',
+      visibility: visibility as "public" | "private",
       loc: createLocation(this.state.previous, this.state.previous),
     };
   }
@@ -255,7 +255,7 @@ export class ProcedureParser {
     }
 
     return {
-      type: 'VbParameter',
+      type: "VbParameter",
       name,
       byRef,
       isArray,
@@ -284,7 +284,7 @@ export class ProcedureParser {
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }

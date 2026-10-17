@@ -22,9 +22,9 @@ export class VbError extends Error {
   public line?: number;
   public column?: number;
 
-  constructor(number: number, description: string, source: string = '') {
+  constructor(number: number, description: string, source: string = "") {
     super(description);
-    this.name = 'VbError';
+    this.name = "VbError";
     this.number = number;
     this.source = source;
     this.description = description;
@@ -35,8 +35,8 @@ export class VbError extends Error {
  * The two localized-by-the-host source strings Microsoft's engines stamp on an
  * error depending on whether it is a compile-time or run-time failure.
  */
-export const VBS_RUNTIME_SOURCE = 'Microsoft VBScript runtime error';
-export const VBS_COMPILE_SOURCE = 'Microsoft VBScript compilation error';
+export const VBS_RUNTIME_SOURCE = "Microsoft VBScript runtime error";
+export const VBS_COMPILE_SOURCE = "Microsoft VBScript compilation error";
 
 /**
  * Encode a VBScript error code into the HRESULT shape that IE/WSH expose on the
@@ -80,7 +80,11 @@ export const VbErrorCodes = {
   CannotExitProcedure: 1039,
 };
 
-export function createVbError(code: number, description: string, source?: string): VbError {
+export function createVbError(
+  code: number,
+  description: string,
+  source?: string,
+): VbError {
   return new VbError(code, description, source ?? VBS_RUNTIME_SOURCE);
 }
 
@@ -92,70 +96,70 @@ export function createVbError(code: number, description: string, source?: string
  * (see "Type mismatch", "Division by zero" elsewhere), so the table stays English too.
  */
 export const VbErrorDescriptions: Record<number, string> = {
-  5: 'Invalid procedure call or argument',
-  6: 'Overflow',
-  7: 'Out of memory',
-  9: 'Subscript out of range',
-  10: 'This array is fixed or temporarily locked',
-  11: 'Division by zero',
-  13: 'Type mismatch',
-  14: 'Out of string space',
+  5: "Invalid procedure call or argument",
+  6: "Overflow",
+  7: "Out of memory",
+  9: "Subscript out of range",
+  10: "This array is fixed or temporarily locked",
+  11: "Division by zero",
+  13: "Type mismatch",
+  14: "Out of string space",
   17: "Can't perform requested operation",
-  28: 'Out of stack space',
-  35: 'Sub or Function not defined',
-  48: 'Error in loading DLL',
-  51: 'Internal error',
-  52: 'Bad file name or number',
-  53: 'File not found',
-  54: 'Bad file mode',
-  55: 'File already open',
-  57: 'Device I/O error',
-  58: 'File already exists',
-  61: 'Disk full',
-  62: 'Input past end of file',
-  67: 'Too many files',
-  68: 'Device unavailable',
-  70: 'Permission denied',
-  71: 'Disk not ready',
+  28: "Out of stack space",
+  35: "Sub or Function not defined",
+  48: "Error in loading DLL",
+  51: "Internal error",
+  52: "Bad file name or number",
+  53: "File not found",
+  54: "Bad file mode",
+  55: "File already open",
+  57: "Device I/O error",
+  58: "File already exists",
+  61: "Disk full",
+  62: "Input past end of file",
+  67: "Too many files",
+  68: "Device unavailable",
+  70: "Permission denied",
+  71: "Disk not ready",
   74: "Can't rename with different drive",
-  75: 'Path/File access error',
-  76: 'Path not found',
-  91: 'Object variable or With block variable not set',
-  92: 'For loop not initialized',
-  94: 'Invalid use of Null',
+  75: "Path/File access error",
+  76: "Path not found",
+  91: "Object variable or With block variable not set",
+  92: "For loop not initialized",
+  94: "Invalid use of Null",
   322: "Can't create necessary temporary file",
-  424: 'Object required',
+  424: "Object required",
   429: "ActiveX component can't create object",
   430: "Class doesn't support Automation",
-  432: 'File name or class name not found during Automation operation',
+  432: "File name or class name not found during Automation operation",
   438: "Object doesn't support this property or method",
-  440: 'Automation error',
+  440: "Automation error",
   442:
-    'Connection to type library or object library for remote process has been lost. ' +
-    'Press OK for dialog box to remove reference.',
+    "Connection to type library or object library for remote process has been lost. " +
+    "Press OK for dialog box to remove reference.",
   443: "Automation object doesn't have a default value",
   445: "Object doesn't support this action",
   446: "Object doesn't support named arguments",
   447: "Object doesn't support current locale setting",
-  448: 'Named argument not found',
-  449: 'Argument not optional',
-  450: 'Wrong number of arguments or invalid property assignment',
-  451: 'Object not a collection',
-  453: 'Specified DLL function not found',
-  455: 'Code resource lock error',
-  457: 'This key is already associated with an element of this collection',
-  458: 'Variable uses an Automation type not supported in VBScript',
-  462: 'The remote server machine does not exist or is unavailable',
-  481: 'Invalid picture',
-  500: 'Variable is undefined',
-  501: 'Illegal assignment',
-  502: 'Object not safe for scripting',
-  503: 'Object not safe for initializing',
-  504: 'Object not safe for creating',
-  505: 'Invalid or unqualified reference',
-  1001: 'Out of Memory',
-  1002: 'Syntax error',
-  1039: 'Cannot exit a procedure',
+  448: "Named argument not found",
+  449: "Argument not optional",
+  450: "Wrong number of arguments or invalid property assignment",
+  451: "Object not a collection",
+  453: "Specified DLL function not found",
+  455: "Code resource lock error",
+  457: "This key is already associated with an element of this collection",
+  458: "Variable uses an Automation type not supported in VBScript",
+  462: "The remote server machine does not exist or is unavailable",
+  481: "Invalid picture",
+  500: "Variable is undefined",
+  501: "Illegal assignment",
+  502: "Object not safe for scripting",
+  503: "Object not safe for initializing",
+  504: "Object not safe for creating",
+  505: "Invalid or unqualified reference",
+  1001: "Out of Memory",
+  1002: "Syntax error",
+  1039: "Cannot exit a procedure",
 };
 
 /**
@@ -186,7 +190,11 @@ export function isHresult(hresult: number): boolean {
 export function createVbErrorFromHost(err: unknown): VbError {
   const e = (err ?? {}) as Error & { hresult?: unknown; number?: unknown };
   const raw =
-    typeof e.hresult === 'number' ? e.hresult : typeof e.number === 'number' ? e.number : undefined;
+    typeof e.hresult === "number"
+      ? e.hresult
+      : typeof e.number === "number"
+        ? e.number
+        : undefined;
   if (raw !== undefined && isHresult(raw)) {
     const code = hresultToCode(raw);
     const description = VbErrorDescriptions[code] ?? e.message;
@@ -206,7 +214,7 @@ export function createVbErrorFromHost(err: unknown): VbError {
 export function isQuitSignal(err: unknown): boolean {
   return (
     err instanceof Error &&
-    err.name === 'WScriptQuitSignal' &&
-    typeof (err as { exitCode?: unknown }).exitCode === 'number'
+    err.name === "WScriptQuitSignal" &&
+    typeof (err as { exitCode?: unknown }).exitCode === "number"
   );
 }

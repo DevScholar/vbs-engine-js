@@ -1,65 +1,65 @@
-import { describe, it, expect } from 'vitest';
-import { parse } from '../parser/index.ts';
+import { describe, it, expect } from "vitest";
+import { parse } from "../parser/index.ts";
 
-describe('Parser', () => {
-  describe('expressions', () => {
-    it('should parse simple expressions', () => {
-      const ast = parse('x = 42');
-      expect(ast.body[0].type).toBe('ExpressionStatement');
+describe("Parser", () => {
+  describe("expressions", () => {
+    it("should parse simple expressions", () => {
+      const ast = parse("x = 42");
+      expect(ast.body[0].type).toBe("ExpressionStatement");
     });
 
-    it('should parse arithmetic expressions', () => {
-      const ast = parse('x = 1 + 2 * 3');
-      expect(ast.body[0].type).toBe('ExpressionStatement');
+    it("should parse arithmetic expressions", () => {
+      const ast = parse("x = 1 + 2 * 3");
+      expect(ast.body[0].type).toBe("ExpressionStatement");
     });
 
-    it('should parse string concatenation', () => {
+    it("should parse string concatenation", () => {
       const ast = parse('x = "hello" & " world"');
-      expect(ast.body[0].type).toBe('ExpressionStatement');
+      expect(ast.body[0].type).toBe("ExpressionStatement");
       const stmt = ast.body[0] as {
         type: string;
         expression: { type: string; right: { type: string; operator: string } };
       };
-      expect(stmt.expression.type).toBe('AssignmentExpression');
-      expect(stmt.expression.right.type).toBe('BinaryExpression');
-      expect(stmt.expression.right.operator).toBe('&');
+      expect(stmt.expression.type).toBe("AssignmentExpression");
+      expect(stmt.expression.right.type).toBe("BinaryExpression");
+      expect(stmt.expression.right.operator).toBe("&");
     });
 
-    it('should parse function calls', () => {
-      const ast = parse('result = MyFunction(1, 2, 3)');
-      expect(ast.body[0].type).toBe('ExpressionStatement');
+    it("should parse function calls", () => {
+      const ast = parse("result = MyFunction(1, 2, 3)");
+      expect(ast.body[0].type).toBe("ExpressionStatement");
     });
 
-    it('should parse member expressions', () => {
-      const ast = parse('x = obj.Property');
-      expect(ast.body[0].type).toBe('ExpressionStatement');
+    it("should parse member expressions", () => {
+      const ast = parse("x = obj.Property");
+      expect(ast.body[0].type).toBe("ExpressionStatement");
     });
 
-    it('should parse comparison expressions', () => {
-      const ast = parse('If x > 10 Then y = 1 End If');
-      expect(ast.body[0].type).toBe('IfStatement');
+    it("should parse comparison expressions", () => {
+      const ast = parse("If x > 10 Then y = 1 End If");
+      expect(ast.body[0].type).toBe("IfStatement");
     });
   });
 
-  describe('statements', () => {
-    it('should parse Dim statement', () => {
-      const ast = parse('Dim x');
-      expect(ast.body[0].type).toBe('VbDimStatement');
+  describe("statements", () => {
+    it("should parse Dim statement", () => {
+      const ast = parse("Dim x");
+      expect(ast.body[0].type).toBe("VbDimStatement");
     });
 
-    it('should parse Dim with multiple variables', () => {
-      const ast = parse('Dim x, y, z');
+    it("should parse Dim with multiple variables", () => {
+      const ast = parse("Dim x, y, z");
       const dimStmt = ast.body[0] as { type: string; declarations: unknown[] };
-      expect(dimStmt.type).toBe('VbDimStatement');
+      expect(dimStmt.type).toBe("VbDimStatement");
       expect(dimStmt.declarations).toHaveLength(3);
     });
 
-    it('should parse If-Then-Else', () => {
-      const ast = parse('If x > 0 Then y = 1 Else y = 2 End If');
-      expect(ast.body[0].type).toBe('IfStatement');
+    it("should parse If-Then-Else", () => {
+      const ast = parse("If x > 0 Then y = 1 Else y = 2 End If");
+      expect(ast.body[0].type).toBe("IfStatement");
     });
 
-    it('should parse nested multi-line If blocks', () => {
+    it("should parse nested multi-line If blocks", () => {
       const ast = parse(`
 If 1 = 1 Then
     If 2 = 2 Then
@@ -67,53 +67,56 @@ If 1 = 1 Then
     End If
 End If
 `);
-      const outer = ast.body[0] as { type: string; consequent: { body: { type: string }[] } };
-      expect(outer.type).toBe('IfStatement');
-      expect(outer.consequent.body[0].type).toBe('IfStatement');
+      const outer = ast.body[0] as {
+        type: string;
+        consequent: { body: { type: string }[] };
+      };
+      expect(outer.type).toBe("IfStatement");
+      expect(outer.consequent.body[0].type).toBe("IfStatement");
     });
 
-    it('should parse For-Next loop', () => {
-      const ast = parse('For i = 1 To 10 Step 2\nx = x + i\nNext');
-      expect(ast.body[0].type).toBe('VbForToStatement');
+    it("should parse For-Next loop", () => {
+      const ast = parse("For i = 1 To 10 Step 2\nx = x + i\nNext");
+      expect(ast.body[0].type).toBe("VbForToStatement");
     });
 
-    it('should parse Do-Loop', () => {
-      const ast = parse('Do While x < 10\nx = x + 1\nLoop');
-      expect(ast.body[0].type).toBe('VbDoLoopStatement');
+    it("should parse Do-Loop", () => {
+      const ast = parse("Do While x < 10\nx = x + 1\nLoop");
+      expect(ast.body[0].type).toBe("VbDoLoopStatement");
     });
 
-    it('should parse While-Wend loop', () => {
-      const ast = parse('While x < 10\nx = x + 1\nWend');
-      expect(ast.body[0].type).toBe('WhileStatement');
+    it("should parse While-Wend loop", () => {
+      const ast = parse("While x < 10\nx = x + 1\nWend");
+      expect(ast.body[0].type).toBe("WhileStatement");
     });
 
-    it('should parse Do-Loop While post-test', () => {
-      const ast = parse('Do\nx = x + 1\nLoop While x < 10');
+    it("should parse Do-Loop While post-test", () => {
+      const ast = parse("Do\nx = x + 1\nLoop While x < 10");
       const stmt = ast.body[0] as { type: string; testPosition: string };
-      expect(stmt.type).toBe('VbDoLoopStatement');
-      expect(stmt.testPosition).toBe('do-while');
+      expect(stmt.type).toBe("VbDoLoopStatement");
+      expect(stmt.testPosition).toBe("do-while");
     });
 
-    it('should parse Do-Loop Until post-test', () => {
-      const ast = parse('Do\nx = x + 1\nLoop Until x < 10');
+    it("should parse Do-Loop Until post-test", () => {
+      const ast = parse("Do\nx = x + 1\nLoop Until x < 10");
       const stmt = ast.body[0] as { type: string; testPosition: string };
-      expect(stmt.type).toBe('VbDoLoopStatement');
-      expect(stmt.testPosition).toBe('do-until');
+      expect(stmt.type).toBe("VbDoLoopStatement");
+      expect(stmt.testPosition).toBe("do-until");
     });
 
-    it('should parse Sub definition', () => {
-      const ast = parse('Sub MySub(x, y)\nEnd Sub');
-      expect(ast.body[0].type).toBe('VbSubStatement');
+    it("should parse Sub definition", () => {
+      const ast = parse("Sub MySub(x, y)\nEnd Sub");
+      expect(ast.body[0].type).toBe("VbSubStatement");
     });
 
-    it('should parse Function definition', () => {
-      const ast = parse('Function MyFunc(x)\nMyFunc = x * 2\nEnd Function');
-      expect(ast.body[0].type).toBe('VbFunctionStatement');
+    it("should parse Function definition", () => {
+      const ast = parse("Function MyFunc(x)\nMyFunc = x * 2\nEnd Function");
+      expect(ast.body[0].type).toBe("VbFunctionStatement");
     });
 
-    it('should parse Class definition', () => {
-      const ast = parse('Class MyClass\nEnd Class');
-      expect(ast.body[0].type).toBe('VbClassStatement');
+    it("should parse Class definition", () => {
+      const ast = parse("Class MyClass\nEnd Class");
+      expect(ast.body[0].type).toBe("VbClassStatement");
     });
   });
 
@@ -122,27 +125,27 @@ End If
   // language, refusing all of them rejects scripts that really do compile. Established with
   // cscript //E:vbscript, which compiles `Dim Property` and fails `Dim Class` with
   // "Expected identifier".
-  describe('keywords as declared names', () => {
+  describe("keywords as declared names", () => {
     it.each([
-      'Property',
-      'Step',
-      'Error',
-      'Object',
-      'Date',
-      'String',
-      'Erase',
-      'Explicit',
-      'LongLong',
-    ])('should parse Dim %s, which VBScript allows as a name', word => {
+      "Property",
+      "Step",
+      "Error",
+      "Object",
+      "Date",
+      "String",
+      "Erase",
+      "Explicit",
+      "LongLong",
+    ])("should parse Dim %s, which VBScript allows as a name", (word) => {
       const ast = parse(`Dim ${word}`);
-      expect(ast.body[0].type).toBe('VbDimStatement');
+      expect(ast.body[0].type).toBe("VbDimStatement");
     });
 
-    it.each(['Class', 'Loop', 'Next', 'Wend'])(
-      'should refuse Dim %s, which VBScript reserves',
-      word => {
+    it.each(["Class", "Loop", "Next", "Wend"])(
+      "should refuse Dim %s, which VBScript reserves",
+      (word) => {
         expect(() => parse(`Dim ${word}`)).toThrow();
-      }
+      },
     );
   });
 });

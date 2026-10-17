@@ -4,41 +4,41 @@ import type {
   BasePattern,
   BaseStatement,
   BaseDeclaration,
-} from './base.ts';
+} from "./base.ts";
 
 export interface Identifier extends BaseNode {
-  type: 'Identifier';
+  type: "Identifier";
   name: string;
 }
 
 export interface Literal extends BaseExpression {
-  type: 'Literal';
+  type: "Literal";
   value: string | number | boolean | null | RegExp | bigint | Date | symbol;
   raw?: string | undefined;
 }
 
 export interface ArrayExpression extends BaseExpression {
-  type: 'ArrayExpression';
+  type: "ArrayExpression";
   elements: Array<Expression | SpreadElement | null>;
 }
 
 export interface ObjectExpression extends BaseExpression {
-  type: 'ObjectExpression';
+  type: "ObjectExpression";
   properties: Array<Property | SpreadElement>;
 }
 
 export interface Property extends BaseNode {
-  type: 'Property';
+  type: "Property";
   key: Expression | PrivateIdentifier;
   value: Expression | Pattern;
-  kind: 'init' | 'get' | 'set';
+  kind: "init" | "get" | "set";
   method: boolean;
   shorthand: boolean;
   computed: boolean;
 }
 
 export interface FunctionExpression extends BaseExpression {
-  type: 'FunctionExpression';
+  type: "FunctionExpression";
   id: Identifier | null;
   params: Pattern[];
   body: BlockStatement;
@@ -47,68 +47,69 @@ export interface FunctionExpression extends BaseExpression {
 }
 
 export interface ArrowFunctionExpression extends BaseExpression {
-  type: 'ArrowFunctionExpression';
+  type: "ArrowFunctionExpression";
   params: Pattern[];
   body: Expression | BlockStatement;
   expression: boolean;
 }
 
 export interface UnaryExpression extends BaseExpression {
-  type: 'UnaryExpression';
+  type: "UnaryExpression";
   operator: UnaryOperator;
   prefix: boolean;
   argument: Expression;
 }
 
-export type UnaryOperator = '-' | '+' | '!' | '~' | 'typeof' | 'void' | 'delete' | 'Not';
+export type UnaryOperator =
+  "-" | "+" | "!" | "~" | "typeof" | "void" | "delete" | "Not";
 
 export interface UpdateExpression extends BaseExpression {
-  type: 'UpdateExpression';
+  type: "UpdateExpression";
   operator: UpdateOperator;
   argument: Expression;
   prefix: boolean;
 }
 
-export type UpdateOperator = '++' | '--';
+export type UpdateOperator = "++" | "--";
 
 export interface BinaryExpression extends BaseExpression {
-  type: 'BinaryExpression';
+  type: "BinaryExpression";
   operator: BinaryOperator;
   left: Expression;
   right: Expression;
 }
 
 export type BinaryOperator =
-  | '=='
-  | '!='
-  | '==='
-  | '!=='
-  | '<'
-  | '<='
-  | '>'
-  | '>='
-  | '<<'
-  | '>>'
-  | '>>>'
-  | '+'
-  | '-'
-  | '*'
-  | '/'
-  | '%'
-  | '**'
-  | '|'
-  | '^'
-  | '&'
-  | 'in'
-  | 'instanceof'
-  | '='
-  | '<>'
-  | '\\'
-  | 'Mod'
-  | 'Is';
+  | "=="
+  | "!="
+  | "==="
+  | "!=="
+  | "<"
+  | "<="
+  | ">"
+  | ">="
+  | "<<"
+  | ">>"
+  | ">>>"
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "%"
+  | "**"
+  | "|"
+  | "^"
+  | "&"
+  | "in"
+  | "instanceof"
+  | "="
+  | "<>"
+  | "\\"
+  | "Mod"
+  | "Is";
 
 export interface AssignmentExpression extends BaseExpression {
-  type: 'AssignmentExpression';
+  type: "AssignmentExpression";
   operator: AssignmentOperator;
   left: Pattern | MemberExpression;
   right: Expression;
@@ -116,19 +117,32 @@ export interface AssignmentExpression extends BaseExpression {
 }
 
 export type AssignmentOperator =
-  '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '**=' | '<<=' | '>>=' | '>>>=' | '|=' | '^=' | '&=';
+  | "="
+  | "+="
+  | "-="
+  | "*="
+  | "/="
+  | "%="
+  | "**="
+  | "<<="
+  | ">>="
+  | ">>>="
+  | "|="
+  | "^="
+  | "&=";
 
 export interface LogicalExpression extends BaseExpression {
-  type: 'LogicalExpression';
+  type: "LogicalExpression";
   operator: LogicalOperator;
   left: Expression;
   right: Expression;
 }
 
-export type LogicalOperator = '||' | '&&' | '??' | 'And' | 'Or' | 'Xor' | 'Eqv' | 'Imp';
+export type LogicalOperator =
+  "||" | "&&" | "??" | "And" | "Or" | "Xor" | "Eqv" | "Imp";
 
 export interface MemberExpression extends BaseExpression {
-  type: 'MemberExpression';
+  type: "MemberExpression";
   object: Expression | Super;
   property: Expression | PrivateIdentifier;
   computed: boolean;
@@ -143,14 +157,14 @@ export interface MemberExpression extends BaseExpression {
 }
 
 export interface ConditionalExpression extends BaseExpression {
-  type: 'ConditionalExpression';
+  type: "ConditionalExpression";
   test: Expression;
   alternate: Expression;
   consequent: Expression;
 }
 
 export interface CallExpression extends BaseExpression {
-  type: 'CallExpression';
+  type: "CallExpression";
   callee: Expression | Super;
   arguments: Array<Expression | SpreadElement>;
   optional: boolean;
@@ -174,152 +188,152 @@ export interface CallExpression extends BaseExpression {
 }
 
 export interface NewExpression extends BaseExpression {
-  type: 'NewExpression';
+  type: "NewExpression";
   callee: Expression;
   arguments: Array<Expression | SpreadElement>;
 }
 
 export interface SequenceExpression extends BaseExpression {
-  type: 'SequenceExpression';
+  type: "SequenceExpression";
   expressions: Expression[];
 }
 
 export interface SpreadElement extends BaseNode {
-  type: 'SpreadElement';
+  type: "SpreadElement";
   argument: Expression;
 }
 
 export interface Super extends BaseNode {
-  type: 'Super';
+  type: "Super";
 }
 
 export interface ThisExpression extends BaseNode {
-  type: 'ThisExpression';
+  type: "ThisExpression";
 }
 
 export interface PrivateIdentifier extends BaseNode {
-  type: 'PrivateIdentifier';
+  type: "PrivateIdentifier";
   name: string;
 }
 
 export interface ChainExpression extends BaseExpression {
-  type: 'ChainExpression';
+  type: "ChainExpression";
   expression: CallExpression | MemberExpression;
 }
 
 export interface VbEmptyLiteral extends BaseExpression {
-  type: 'VbEmptyLiteral';
+  type: "VbEmptyLiteral";
   value: undefined;
   raw?: string | undefined;
 }
 
 export interface VbWithObjectExpression extends BaseExpression {
-  type: 'VbWithObject';
+  type: "VbWithObject";
 }
 
 export interface Program extends BaseNode {
-  type: 'Program';
+  type: "Program";
   body: Statement[];
-  sourceType?: 'script';
+  sourceType?: "script";
 }
 
 export interface ExpressionStatement extends BaseStatement {
-  type: 'ExpressionStatement';
+  type: "ExpressionStatement";
   expression: Expression;
   directive?: string;
 }
 
 export interface BlockStatement extends BaseStatement {
-  type: 'BlockStatement';
+  type: "BlockStatement";
   body: Statement[];
 }
 
 export interface EmptyStatement extends BaseStatement {
-  type: 'EmptyStatement';
+  type: "EmptyStatement";
 }
 
 export interface DebuggerStatement extends BaseStatement {
-  type: 'DebuggerStatement';
+  type: "DebuggerStatement";
 }
 
 export interface WithStatement extends BaseStatement {
-  type: 'WithStatement';
+  type: "WithStatement";
   object: Expression;
   body: Statement;
 }
 
 export interface ReturnStatement extends BaseStatement {
-  type: 'ReturnStatement';
+  type: "ReturnStatement";
   argument: Expression | null;
 }
 
 export interface LabeledStatement extends BaseStatement {
-  type: 'LabeledStatement';
+  type: "LabeledStatement";
   label: Identifier;
   body: Statement;
 }
 
 export interface BreakStatement extends BaseStatement {
-  type: 'BreakStatement';
+  type: "BreakStatement";
   label: Identifier | null;
 }
 
 export interface ContinueStatement extends BaseStatement {
-  type: 'ContinueStatement';
+  type: "ContinueStatement";
   label: Identifier | null;
 }
 
 export interface IfStatement extends BaseStatement {
-  type: 'IfStatement';
+  type: "IfStatement";
   test: Expression;
   consequent: Statement;
   alternate: Statement | null;
 }
 
 export interface SwitchStatement extends BaseStatement {
-  type: 'SwitchStatement';
+  type: "SwitchStatement";
   discriminant: Expression;
   cases: SwitchCase[];
 }
 
 export interface SwitchCase extends BaseNode {
-  type: 'SwitchCase';
+  type: "SwitchCase";
   test: Expression | null;
   consequent: Statement[];
 }
 
 export interface ThrowStatement extends BaseStatement {
-  type: 'ThrowStatement';
+  type: "ThrowStatement";
   argument: Expression;
 }
 
 export interface TryStatement extends BaseStatement {
-  type: 'TryStatement';
+  type: "TryStatement";
   block: BlockStatement;
   handler: CatchClause | null;
   finalizer: BlockStatement | null;
 }
 
 export interface CatchClause extends BaseNode {
-  type: 'CatchClause';
+  type: "CatchClause";
   param: Pattern | null;
   body: BlockStatement;
 }
 
 export interface WhileStatement extends BaseStatement {
-  type: 'WhileStatement';
+  type: "WhileStatement";
   test: Expression;
   body: Statement;
 }
 
 export interface DoWhileStatement extends BaseStatement {
-  type: 'DoWhileStatement';
+  type: "DoWhileStatement";
   body: Statement;
   test: Expression;
 }
 
 export interface ForStatement extends BaseStatement {
-  type: 'ForStatement';
+  type: "ForStatement";
   init: VariableDeclaration | Expression | null;
   test: Expression | null;
   update: Expression | null;
@@ -327,14 +341,14 @@ export interface ForStatement extends BaseStatement {
 }
 
 export interface ForInStatement extends BaseStatement {
-  type: 'ForInStatement';
+  type: "ForInStatement";
   left: VariableDeclaration | Pattern;
   right: Expression;
   body: Statement;
 }
 
 export interface ForOfStatement extends BaseStatement {
-  type: 'ForOfStatement';
+  type: "ForOfStatement";
   left: VariableDeclaration | Pattern;
   right: Expression;
   body: Statement;
@@ -342,13 +356,13 @@ export interface ForOfStatement extends BaseStatement {
 }
 
 export interface VariableDeclaration extends BaseDeclaration {
-  type: 'VariableDeclaration';
+  type: "VariableDeclaration";
   declarations: VariableDeclarator[];
-  kind: 'var' | 'let' | 'const';
+  kind: "var" | "let" | "const";
 }
 
 export interface VariableDeclarator extends BaseNode {
-  type: 'VariableDeclarator';
+  type: "VariableDeclarator";
   id: Pattern;
   init: Expression | null;
 }
@@ -358,34 +372,34 @@ export interface VariableDeclarator extends BaseNode {
 // ---------------------------------------------------------------------------
 
 export interface TSStringKeyword extends BaseNode {
-  type: 'TSStringKeyword';
+  type: "TSStringKeyword";
 }
 export interface TSNumberKeyword extends BaseNode {
-  type: 'TSNumberKeyword';
+  type: "TSNumberKeyword";
 }
 export interface TSBooleanKeyword extends BaseNode {
-  type: 'TSBooleanKeyword';
+  type: "TSBooleanKeyword";
 }
 export interface TSObjectKeyword extends BaseNode {
-  type: 'TSObjectKeyword';
+  type: "TSObjectKeyword";
 }
 export interface TSAnyKeyword extends BaseNode {
-  type: 'TSAnyKeyword';
+  type: "TSAnyKeyword";
 }
 export interface TSVoidKeyword extends BaseNode {
-  type: 'TSVoidKeyword';
+  type: "TSVoidKeyword";
 }
 export interface TSNullKeyword extends BaseNode {
-  type: 'TSNullKeyword';
+  type: "TSNullKeyword";
 }
 
 export interface TSTypeReference extends BaseNode {
-  type: 'TSTypeReference';
+  type: "TSTypeReference";
   typeName: Identifier;
 }
 
 export interface TSArrayType extends BaseNode {
-  type: 'TSArrayType';
+  type: "TSArrayType";
   elementType: TSType;
 }
 
@@ -401,18 +415,18 @@ export type TSType =
   | TSArrayType;
 
 export interface TSTypeAnnotation extends BaseNode {
-  type: 'TSTypeAnnotation';
+  type: "TSTypeAnnotation";
   typeAnnotation: TSType;
 }
 
 export interface TSEnumMember extends BaseNode {
-  type: 'TSEnumMember';
+  type: "TSEnumMember";
   id: Identifier;
   initializer: Expression | null;
 }
 
 export interface TSEnumDeclaration extends BaseDeclaration {
-  type: 'TSEnumDeclaration';
+  type: "TSEnumDeclaration";
   id: Identifier;
   members: TSEnumMember[];
   declare?: boolean;
@@ -422,7 +436,7 @@ export interface TSEnumDeclaration extends BaseDeclaration {
 // ---------------------------------------------------------------------------
 
 export interface VbParameter extends BaseNode {
-  type: 'VbParameter';
+  type: "VbParameter";
   name: Identifier;
   byRef: boolean;
   defaultValue?: Expression;
@@ -433,24 +447,24 @@ export interface VbParameter extends BaseNode {
 }
 
 export interface VbSubStatement extends BaseStatement {
-  type: 'VbSubStatement';
+  type: "VbSubStatement";
   name: Identifier;
   params: VbParameter[];
   body: BlockStatement;
-  visibility: 'public' | 'private' | 'default';
+  visibility: "public" | "private" | "default";
 }
 
 export interface VbFunctionStatement extends BaseStatement {
-  type: 'VbFunctionStatement';
+  type: "VbFunctionStatement";
   name: Identifier;
   params: VbParameter[];
   body: BlockStatement;
-  visibility: 'public' | 'private' | 'default';
+  visibility: "public" | "private" | "default";
   returnType?: TSTypeAnnotation | undefined;
 }
 
 export interface VbVariableDeclarator extends BaseNode {
-  type: 'VbVariableDeclarator';
+  type: "VbVariableDeclarator";
   id: Identifier;
   init: Expression | null;
   isArray: boolean;
@@ -459,26 +473,26 @@ export interface VbVariableDeclarator extends BaseNode {
 }
 
 export interface VbConstDeclarator extends BaseNode {
-  type: 'VbConstDeclarator';
+  type: "VbConstDeclarator";
   id: Identifier;
   init: Expression;
   typeAnnotation?: TSTypeAnnotation | undefined;
 }
 
 export interface VbDimStatement extends BaseStatement {
-  type: 'VbDimStatement';
+  type: "VbDimStatement";
   declarations: VbVariableDeclarator[];
-  visibility: 'public' | 'private' | 'dim';
+  visibility: "public" | "private" | "dim";
 }
 
 export interface VbReDimStatement extends BaseStatement {
-  type: 'VbReDimStatement';
+  type: "VbReDimStatement";
   declarations: VbVariableDeclarator[];
   preserve: boolean;
 }
 
 export interface VbEraseStatement extends BaseStatement {
-  type: 'VbEraseStatement';
+  type: "VbEraseStatement";
   /**
    * What the statement names, which may be a variable, an element of an array, or something that is no
    * variable at all.
@@ -492,13 +506,13 @@ export interface VbEraseStatement extends BaseStatement {
 }
 
 export interface VbConstStatement extends BaseStatement {
-  type: 'VbConstStatement';
+  type: "VbConstStatement";
   declarations: VbConstDeclarator[];
-  visibility: 'public' | 'private';
+  visibility: "public" | "private";
 }
 
 export interface VbForToStatement extends BaseStatement {
-  type: 'VbForToStatement';
+  type: "VbForToStatement";
   left: Identifier;
   init: Expression;
   to: Expression;
@@ -507,42 +521,42 @@ export interface VbForToStatement extends BaseStatement {
 }
 
 export interface VbDoLoopStatement extends BaseStatement {
-  type: 'VbDoLoopStatement';
+  type: "VbDoLoopStatement";
   body: Statement;
   test: Expression | null;
-  testPosition: 'while-do' | 'do-while' | 'until-do' | 'do-until' | null;
+  testPosition: "while-do" | "do-while" | "until-do" | "do-until" | null;
 }
 
 export interface VbSelectCaseStatement extends BaseStatement {
-  type: 'VbSelectCaseStatement';
+  type: "VbSelectCaseStatement";
   discriminant: Expression;
   cases: VbCaseClause[];
 }
 
 export interface VbCaseClause extends BaseNode {
-  type: 'VbCaseClause';
+  type: "VbCaseClause";
   test: Expression | Expression[] | null;
   consequent: Statement[];
   isElse: boolean;
 }
 
 export interface VbOnErrorHandlerStatement extends BaseStatement {
-  type: 'VbOnErrorHandlerStatement';
-  action: 'resume_next' | 'goto_0' | 'goto_label';
+  type: "VbOnErrorHandlerStatement";
+  action: "resume_next" | "goto_0" | "goto_label";
   label?: Identifier;
 }
 
 export interface VbExitStatement extends BaseStatement {
-  type: 'VbExitStatement';
-  target: 'Sub' | 'Function' | 'Property' | 'Do' | 'For' | 'Select';
+  type: "VbExitStatement";
+  target: "Sub" | "Function" | "Property" | "Do" | "For" | "Select";
 }
 
 export interface VbOptionExplicitStatement extends BaseStatement {
-  type: 'VbOptionExplicitStatement';
+  type: "VbOptionExplicitStatement";
 }
 
 export interface VbClassStatement extends BaseStatement {
-  type: 'VbClassStatement';
+  type: "VbClassStatement";
   name: Identifier;
   body: VbClassElement[];
 }
@@ -557,73 +571,74 @@ export type VbClassElement =
   | VbConstStatement;
 
 export interface VbPropertyGetStatement extends BaseStatement {
-  type: 'VbPropertyGetStatement';
+  type: "VbPropertyGetStatement";
   name: Identifier;
   params: VbParameter[];
   body: BlockStatement;
-  visibility: 'public' | 'private' | 'default';
+  visibility: "public" | "private" | "default";
 }
 
 export interface VbPropertyLetStatement extends BaseStatement {
-  type: 'VbPropertyLetStatement';
+  type: "VbPropertyLetStatement";
   name: Identifier;
   params: VbParameter[];
   body: BlockStatement;
-  visibility: 'public' | 'private' | 'default';
+  visibility: "public" | "private" | "default";
 }
 
 export interface VbPropertySetStatement extends BaseStatement {
-  type: 'VbPropertySetStatement';
+  type: "VbPropertySetStatement";
   name: Identifier;
   params: VbParameter[];
   body: BlockStatement;
-  visibility: 'public' | 'private' | 'default';
+  visibility: "public" | "private" | "default";
 }
 
 export interface VbResumeStatement extends BaseStatement {
-  type: 'VbResumeStatement';
-  target: 'next' | null | { label: string };
+  type: "VbResumeStatement";
+  target: "next" | null | { label: string };
 }
 
 export interface VbGotoStatement extends BaseStatement {
-  type: 'VbGotoStatement';
+  type: "VbGotoStatement";
   label: Identifier;
 }
 
 export interface VbTypeStatement extends BaseStatement {
-  type: 'VbTypeStatement';
+  type: "VbTypeStatement";
   name: Identifier;
   members: VbVariableDeclarator[];
-  visibility: 'public' | 'private';
+  visibility: "public" | "private";
 }
 
 export interface VbLabelStatement extends BaseStatement {
-  type: 'VbLabelStatement';
+  type: "VbLabelStatement";
   label: Identifier;
 }
 
 export interface ObjectPattern extends BasePattern {
-  type: 'ObjectPattern';
+  type: "ObjectPattern";
   properties: Array<Property | RestElement>;
 }
 
 export interface ArrayPattern extends BasePattern {
-  type: 'ArrayPattern';
+  type: "ArrayPattern";
   elements: Array<Pattern | null>;
 }
 
 export interface RestElement extends BasePattern {
-  type: 'RestElement';
+  type: "RestElement";
   argument: Pattern;
 }
 
 export interface AssignmentPattern extends BasePattern {
-  type: 'AssignmentPattern';
+  type: "AssignmentPattern";
   left: Pattern;
   right: Expression;
 }
 
-export type Pattern = Identifier | ObjectPattern | ArrayPattern | RestElement | AssignmentPattern;
+export type Pattern =
+  Identifier | ObjectPattern | ArrayPattern | RestElement | AssignmentPattern;
 
 export type Expression =
   | Identifier

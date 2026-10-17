@@ -18,7 +18,7 @@
  * resolved from `globalThis`, so no special scope wiring is needed here.
  */
 
-import vm from 'node:vm';
+import vm from "node:vm";
 
 /**
  * Runs a JScript source block in the host's JS engine, in the global context.
@@ -27,5 +27,5 @@ import vm from 'node:vm';
  * @returns The completion value of the block, if any.
  */
 export function runJScript(code: string): unknown {
-  return vm.runInThisContext(code, { filename: 'jscript.wsf' });
+  return vm.runInThisContext(code, { filename: "jscript.wsf" });
 }

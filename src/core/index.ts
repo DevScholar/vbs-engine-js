@@ -1,39 +1,39 @@
-import { Lexer } from '../lexer/index.ts';
-import type { Token } from '../lexer/token.ts';
-import { Parser, globalParserCache } from '../parser/index.ts';
-import { Interpreter } from '../interpreter/index.ts';
-import type { VbValue } from '../runtime/index.ts';
-import { VbError, toHresult } from '../runtime/index.ts';
-import { VBS_COMPILE_SOURCE, isQuitSignal } from '../runtime/errors.ts';
-import { formatWshErrorLine } from '../runtime/wsh-report.ts';
-import { jsToVb, vbToJs } from './conversion.ts';
-import { withLocaleState } from '../builtins/locale.ts';
-import type { LocaleState } from '../builtins/locale.ts';
-import { initializeBrowserEngine } from '../browser/index.ts';
-import { VBArray } from '../runtime/vbarray-wrapper.ts';
+import { Lexer } from "../lexer/index.ts";
+import type { Token } from "../lexer/token.ts";
+import { Parser, globalParserCache } from "../parser/index.ts";
+import { Interpreter } from "../interpreter/index.ts";
+import type { VbValue } from "../runtime/index.ts";
+import { VbError, toHresult } from "../runtime/index.ts";
+import { VBS_COMPILE_SOURCE, isQuitSignal } from "../runtime/errors.ts";
+import { formatWshErrorLine } from "../runtime/wsh-report.ts";
+import { jsToVb, vbToJs } from "./conversion.ts";
+import { withLocaleState } from "../builtins/locale.ts";
+import type { LocaleState } from "../builtins/locale.ts";
+import { initializeBrowserEngine } from "../browser/index.ts";
+import { VBArray } from "../runtime/vbarray-wrapper.ts";
 
-export { jsToVb, vbToJs } from './conversion.ts';
-export { VBArray } from '../runtime/vbarray-wrapper.ts';
+export { jsToVb, vbToJs } from "./conversion.ts";
+export { VBArray } from "../runtime/vbarray-wrapper.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function vbToJsAuto(value: VbValue): unknown {
   switch (value.type) {
-    case 'Empty':
+    case "Empty":
       return undefined;
-    case 'Null':
+    case "Null":
       return null;
-    case 'Boolean':
-    case 'Long':
-    case 'Double':
-    case 'Integer':
-    case 'String':
-    case 'Date':
+    case "Boolean":
+    case "Long":
+    case "Double":
+    case "Integer":
+    case "String":
+    case "Date":
       return value.value;
-    case 'Array': {
+    case "Array": {
       const arr = value.value as { toArray(): VbValue[] };
       return arr.toArray().map(vbToJsAuto);
     }
-    case 'Object':
+    case "Object":
       return value.value;
     default:
       return value.value;
@@ -50,7 +50,7 @@ function vbToJsAuto(value: VbValue): unknown {
  *   handed a page.
  * - `'auto'`: `'browser'` when there is a `window`, `'general'` otherwise.
  */
-export type VbsEngineMode = 'general' | 'browser' | 'auto';
+export type VbsEngineMode = "general" | "browser" | "auto";
 
 /**
  * Browser-specific options for VbsEngine.
@@ -249,10 +249,10 @@ export interface VbsEngineOptions extends BrowserEngineOptions {
  * Otherwise, returns 'general' for Node.js or other environments.
  */
 function determineMode(): VbsEngineMode {
-  if (typeof window !== 'undefined') {
-    return 'browser';
+  if (typeof window !== "undefined") {
+    return "browser";
   }
-  return 'general';
+  return "general";
 }
 
 /** A process has one host, the way IE has one window and WSH one process. */
@@ -270,7 +270,7 @@ function resolveHostIntegration(requested: boolean | undefined): boolean {
 }
 
 function resolveMode(mode: VbsEngineMode | undefined): VbsEngineMode {
-  if (mode === undefined || mode === 'auto') {
+  if (mode === undefined || mode === "auto") {
     return determineMode();
   }
   return mode;
@@ -304,15 +304,15 @@ export interface VbsHostError extends Error {
  */
 function withEnumeratedStack<T extends Error>(hostError: T): T {
   try {
-    const own = Object.getOwnPropertyDescriptor(hostError, 'stack');
+    const own = Object.getOwnPropertyDescriptor(hostError, "stack");
     if (own) {
-      Object.defineProperty(hostError, 'stack', { ...own, enumerable: true });
+      Object.defineProperty(hostError, "stack", { ...own, enumerable: true });
       return hostError;
     }
     // A host that makes no own stack property gets a plain one, which is still better than no stack at all.
     const stack = hostError.stack;
-    if (typeof stack === 'string') {
-      Object.defineProperty(hostError, 'stack', {
+    if (typeof stack === "string") {
+      Object.defineProperty(hostError, "stack", {
         value: stack,
         writable: true,
         enumerable: true,
@@ -338,23 +338,27 @@ function standingCode(code: string, position?: VbsScriptPosition): string {
 
   const columnOffset = position?.columnOffset ?? 0;
   if (columnOffset > 0) {
-    const padding = ' '.repeat(columnOffset);
+    const padding = " ".repeat(columnOffset);
     standing = standing
-      .split('\n')
-      .map(line => `${padding}${line}`)
-      .join('\n');
+      .split("\n")
+      .map((line) => `${padding}${line}`)
+      .join("\n");
   }
 
   const startingLineNumber = position?.startingLineNumber ?? 0;
-  if (startingLineNumber > 0) standing = `${'\n'.repeat(startingLineNumber)}${standing}`;
+  if (startingLineNumber > 0)
+    standing = `${"\n".repeat(startingLineNumber)}${standing}`;
 
   return standing;
 }
 
 /** The line of `code` at a one-based line number, or undefined when the line is not there. */
-function lineOfCode(code: string | undefined, line: number | undefined): string | undefined {
+function lineOfCode(
+  code: string | undefined,
+  line: number | undefined,
+): string | undefined {
   if (code === undefined || line === undefined || line < 1) return undefined;
-  return code.split('\n')[line - 1];
+  return code.split("\n")[line - 1];
 }
 
 export class VbsEngine {
@@ -382,17 +386,23 @@ export class VbsEngine {
       // Kept on: an isolated engine still reads host globals. This option only decides whether the
       // engine publishes its own functions and variables, and that is the part that collides.
       injectGlobalThis: hostIntegration && (options.injectGlobalThis ?? true),
-      mode: hostIntegration ? resolvedMode : 'general',
-      parseScriptElement: hostIntegration && (options.parseScriptElement ?? true),
-      parseInlineEventAttributes: hostIntegration && (options.parseInlineEventAttributes ?? true),
-      parseEventSubNames: hostIntegration && (options.parseEventSubNames ?? true),
-      overrideJsEvalFunctions: hostIntegration && (options.overrideJsEvalFunctions ?? true),
+      mode: hostIntegration ? resolvedMode : "general",
+      parseScriptElement:
+        hostIntegration && (options.parseScriptElement ?? true),
+      parseInlineEventAttributes:
+        hostIntegration && (options.parseInlineEventAttributes ?? true),
+      parseEventSubNames:
+        hostIntegration && (options.parseEventSubNames ?? true),
+      overrideJsEvalFunctions:
+        hostIntegration && (options.overrideJsEvalFunctions ?? true),
       parseVbsProtocol: hostIntegration && (options.parseVbsProtocol ?? true),
-      injectVBArrayToGlobalThis: hostIntegration && (options.injectVBArrayToGlobalThis ?? true),
+      injectVBArrayToGlobalThis:
+        hostIntegration && (options.injectVBArrayToGlobalThis ?? true),
     };
 
     this.interpreter = new Interpreter();
-    this.interpreter.getContext().evaluate = (code: string) => this.interpreter.evaluate(code);
+    this.interpreter.getContext().evaluate = (code: string) =>
+      this.interpreter.evaluate(code);
     this.interpreter.getContext().execute = (code: string) =>
       this.interpreter.executeInCurrentScope(code);
     this.interpreter.getContext().executeGlobal = (code: string) =>
@@ -403,11 +413,14 @@ export class VbsEngine {
     }
 
     // Inject VBArray into globalThis for legacy compatibility (in all modes)
-    if (this.options.injectVBArrayToGlobalThis && typeof globalThis !== 'undefined') {
+    if (
+      this.options.injectVBArrayToGlobalThis &&
+      typeof globalThis !== "undefined"
+    ) {
       (globalThis as Record<string, unknown>).VBArray = VBArray;
     }
 
-    if (this.options.mode === 'browser' && typeof window !== 'undefined') {
+    if (this.options.mode === "browser" && typeof window !== "undefined") {
       this.initializeBrowserMode();
     }
 
@@ -441,27 +454,29 @@ export class VbsEngine {
       }
     };
 
-    if (this.options.mode === 'browser' && typeof window !== 'undefined') {
+    if (this.options.mode === "browser" && typeof window !== "undefined") {
       const onPageHide = (event: { persisted?: boolean }) => {
         if (event.persisted) return;
         release();
       };
-      window.addEventListener('pagehide', onPageHide);
-      this.hostEndCleanup = () => window.removeEventListener('pagehide', onPageHide);
+      window.addEventListener("pagehide", onPageHide);
+      this.hostEndCleanup = () =>
+        window.removeEventListener("pagehide", onPageHide);
       return;
     }
 
     // A listener on the host's own end does not keep the host alive, and every statement a Terminate event
     // runs is synchronous, which is all an exit handler may do.
-    if (typeof process !== 'undefined' && typeof process.on === 'function') {
-      process.on('exit', release);
-      this.hostEndCleanup = () => process.off('exit', release);
+    if (typeof process !== "undefined" && typeof process.on === "function") {
+      process.on("exit", release);
+      this.hostEndCleanup = () => process.off("exit", release);
     }
   }
 
   private setMaxExecutionTime(ms: number): void {
     this.interpreter.setMaxExecutionTime(ms);
-    this.interpreter.getContext().checkTimeout = () => this.interpreter.checkTimeout();
+    this.interpreter.getContext().checkTimeout = () =>
+      this.interpreter.checkTimeout();
   }
 
   /**
@@ -551,7 +566,9 @@ export class VbsEngine {
   executeStatement(statement: string): void {
     this.clearError();
     try {
-      withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
+      withLocaleState(this.localeState, () =>
+        this.executeStatementInternal(statement),
+      );
     } catch (err) {
       this.handleFailure(err, statement);
     }
@@ -580,7 +597,9 @@ export class VbsEngine {
   executeStatementThrows(statement: string): void {
     this.clearError();
     try {
-      withLocaleState(this.localeState, () => this.executeStatementInternal(statement));
+      withLocaleState(this.localeState, () =>
+        this.executeStatementInternal(statement),
+      );
     } catch (err) {
       this.handleFailure(err, statement);
       throw this.toHostError(err);
@@ -634,9 +653,9 @@ export class VbsEngine {
       const context = this.interpreter.getContext();
       const funcRegistry = context.functionRegistry;
 
-      const vbArgs = args.map(arg => jsToVb(arg));
+      const vbArgs = args.map((arg) => jsToVb(arg));
       const result = withLocaleState(this.localeState, () =>
-        funcRegistry.call(procedureName, vbArgs)
+        funcRegistry.call(procedureName, vbArgs),
       );
 
       return vbToJs(result);
@@ -694,17 +713,22 @@ export class VbsEngine {
       const vbValue = jsToVb(object);
       this.interpreter.setVariable(name, vbValue);
 
-      if (addMembers && typeof object === 'object' && object !== null) {
+      if (addMembers && typeof object === "object" && object !== null) {
         const obj = object as Record<string, unknown>;
         for (const key of Object.keys(obj)) {
           const memberName = `${name}.${key}`;
           const member = obj[key];
-          if (typeof member === 'function') {
-            this.interpreter.registerFunction(memberName, (...args: VbValue[]) => {
-              const jsArgs = args.map(vbToJs);
-              const result = (member as (...args: unknown[]) => unknown)(...jsArgs);
-              return jsToVb(result);
-            });
+          if (typeof member === "function") {
+            this.interpreter.registerFunction(
+              memberName,
+              (...args: VbValue[]) => {
+                const jsArgs = args.map(vbToJs);
+                const result = (member as (...args: unknown[]) => unknown)(
+                  ...jsArgs,
+                );
+                return jsToVb(result);
+              },
+            );
           }
         }
       }
@@ -728,7 +752,9 @@ export class VbsEngine {
   eval(expression: string): unknown {
     this.clearError();
     try {
-      const result = withLocaleState(this.localeState, () => this.interpreter.evaluate(expression));
+      const result = withLocaleState(this.localeState, () =>
+        this.interpreter.evaluate(expression),
+      );
       return vbToJs(result);
     } catch (err) {
       this.handleFailure(err, expression);
@@ -790,7 +816,7 @@ export class VbsEngine {
 
   private handleError(err: unknown, code?: string): void {
     if (!(err instanceof Error)) {
-      this.lastError = { number: -1, description: String(err), source: '' };
+      this.lastError = { number: -1, description: String(err), source: "" };
       return;
     }
     // VbError carries the real VBScript code, source, and position. A plain parse
@@ -805,16 +831,16 @@ export class VbsEngine {
       line?: unknown;
       column?: unknown;
     };
-    const number = typeof raised.number === 'number' ? raised.number : -1;
+    const number = typeof raised.number === "number" ? raised.number : -1;
     // A parse failure is a compilation error, which is what Windows Script Host names it: measured with cscript,
     // `If True Then` with no `End If` comes back as `Microsoft VBScript compilation error: Expected 'End'`.
     // A runtime failure carries its own source already.
     const source =
-      typeof raised.source === 'string' && raised.source !== ''
+      typeof raised.source === "string" && raised.source !== ""
         ? raised.source
         : raised.token
           ? VBS_COMPILE_SOURCE
-          : '';
+          : "";
 
     // A parse error carries the token it stopped on; a runtime error was stamped with its
     // statement's position on the way out. Either way VbsError's declared line and column can
@@ -822,8 +848,11 @@ export class VbsEngine {
     // from zero, both the way Microsoft's ScriptControl counts them.
     const at =
       raised.token?.loc?.start ??
-      (typeof raised.line === 'number'
-        ? { line: raised.line, column: typeof raised.column === 'number' ? raised.column : 0 }
+      (typeof raised.line === "number"
+        ? {
+            line: raised.line,
+            column: typeof raised.column === "number" ? raised.column : 0,
+          }
         : undefined);
 
     // The text of the offending line is what `ScriptControl` fills for a parse failure and leaves empty for
@@ -836,8 +865,12 @@ export class VbsEngine {
       source,
       ...(at ? { line: at.line, column: Math.max(0, at.column - 1) } : {}),
       ...(text !== undefined ? { text } : {}),
-      ...(typeof raised.helpFile === 'string' ? { helpFile: raised.helpFile } : {}),
-      ...(typeof raised.helpContext === 'number' ? { helpContext: raised.helpContext } : {}),
+      ...(typeof raised.helpFile === "string"
+        ? { helpFile: raised.helpFile }
+        : {}),
+      ...(typeof raised.helpContext === "number"
+        ? { helpContext: raised.helpContext }
+        : {}),
     };
   }
 
@@ -864,8 +897,14 @@ export class VbsEngine {
    */
   private toHostError(err: unknown): VbsHostError {
     const described =
-      err instanceof VbError ? err.description : err instanceof Error ? err.message : String(err);
-    const hostError = new Error(this.messageForHost(err, described)) as VbsHostError;
+      err instanceof VbError
+        ? err.description
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    const hostError = new Error(
+      this.messageForHost(err, described),
+    ) as VbsHostError;
     hostError.number = toHresult(err instanceof VbError ? err.number : -1);
     hostError.description = described;
     return withEnumeratedStack(hostError);
@@ -873,23 +912,32 @@ export class VbsEngine {
 
   /** The `message` a host error carries, which is the description in a browser and a whole report elsewhere. */
   private messageForHost(err: unknown, described: string): string {
-    if (this.options.mode === 'browser') return described;
-    const raised = err as { line?: unknown; column?: unknown; source?: unknown };
+    if (this.options.mode === "browser") return described;
+    const raised = err as {
+      line?: unknown;
+      column?: unknown;
+      source?: unknown;
+    };
     // The position is stamped where the failure was reported, so the record of it is the place to read from.
     const recorded = this.lastError;
     return formatWshErrorLine(
       {
         description: recorded?.description ?? described,
-        source: typeof raised.source === 'string' ? raised.source : (recorded?.source ?? ''),
-        ...(typeof recorded?.line === 'number' ? { line: recorded.line } : {}),
-        ...(typeof recorded?.column === 'number' ? { column: recorded.column } : {}),
+        source:
+          typeof raised.source === "string"
+            ? raised.source
+            : (recorded?.source ?? ""),
+        ...(typeof recorded?.line === "number" ? { line: recorded.line } : {}),
+        ...(typeof recorded?.column === "number"
+          ? { column: recorded.column }
+          : {}),
       },
-      this.scriptName
+      this.scriptName,
     );
   }
 
   private syncFunctionsToGlobalThis(): void {
-    if (typeof globalThis === 'undefined') return;
+    if (typeof globalThis === "undefined") return;
     if (!this.options.injectGlobalThis) return;
 
     const context = this.interpreter.getContext();
@@ -904,7 +952,9 @@ export class VbsEngine {
     for (const [, info] of userFuncs) {
       const funcName = info.name;
       if (!(funcName in (globalThis as Record<string, unknown>))) {
-        (globalThis as Record<string, unknown>)[funcName] = (...args: unknown[]) => {
+        (globalThis as Record<string, unknown>)[funcName] = (
+          ...args: unknown[]
+        ) => {
           return this.run(funcName, ...args);
         };
       }
@@ -938,8 +988,10 @@ export class VbsEngine {
           });
         } catch {
           // Fallback: static copy for non-configurable properties
-          if (vbVar.value && vbVar.value.type !== 'Empty') {
-            (globalThis as Record<string, unknown>)[publishedName] = vbToJs(vbVar.value);
+          if (vbVar.value && vbVar.value.type !== "Empty") {
+            (globalThis as Record<string, unknown>)[publishedName] = vbToJs(
+              vbVar.value,
+            );
           }
         }
       }

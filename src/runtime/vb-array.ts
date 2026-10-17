@@ -1,11 +1,14 @@
-import type { VbValue } from './values.ts';
-import { VbEmpty } from './values.ts';
-import { createVbError, VbErrorCodes } from './errors.ts';
-import { releaseValue, retainValue } from './class-registry.ts';
+import type { VbValue } from "./values.ts";
+import { VbEmpty } from "./values.ts";
+import { createVbError, VbErrorCodes } from "./errors.ts";
+import { releaseValue, retainValue } from "./class-registry.ts";
 
 /** The error a subscript outside the array raises, which vbscript.dll answers with 9. */
 function subscriptOutOfRange(): never {
-  throw createVbError(VbErrorCodes.SubscriptOutOfRange, 'Subscript out of range');
+  throw createVbError(
+    VbErrorCodes.SubscriptOutOfRange,
+    "Subscript out of range",
+  );
 }
 
 /** The number of elements a set of dimensions holds, where no dimensions at all mean no elements. */
@@ -124,7 +127,7 @@ export class VbArray {
    * asks for, which a fresh cscript shows for ReDim Preserve a(2) after Dim a().
    */
   redim(bounds: number[], preserve: boolean): void {
-    const dimensions = bounds.map(bound => bound + 1);
+    const dimensions = bounds.map((bound) => bound + 1);
 
     if (preserve && this.dimensions.length > 0) {
       if (dimensions.length !== this.dimensions.length) {
@@ -132,7 +135,8 @@ export class VbArray {
       }
       const lastDimension = dimensions.length - 1;
       const changedElsewhere = dimensions.some(
-        (size, index) => size !== this.dimensions[index] && index !== lastDimension
+        (size, index) =>
+          size !== this.dimensions[index] && index !== lastDimension,
       );
       if (changedElsewhere) {
         subscriptOutOfRange();
@@ -191,7 +195,7 @@ export class VbArray {
 
 export function createVbArray(bounds: number[]): VbArray {
   // Dim a() makes a dynamic array, which Erase frees and ReDim may size again; Dim a(2) makes a fixed one.
-  const dimensions = bounds.map(b => b + 1);
+  const dimensions = bounds.map((b) => b + 1);
   return new VbArray(dimensions, undefined, bounds.length === 0);
 }
 

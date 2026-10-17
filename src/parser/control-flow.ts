@@ -8,24 +8,24 @@ import type {
   VbDoLoopStatement,
   VbSelectCaseStatement,
   VbCaseClause,
-} from '../ast/index.ts';
-import type { Token } from '../lexer/index.ts';
-import { ParserState } from './parser-state.ts';
-import { ExpressionParser } from './expression-parser.ts';
-import { createLocation } from './location.ts';
+} from "../ast/index.ts";
+import type { Token } from "../lexer/index.ts";
+import { ParserState } from "./parser-state.ts";
+import { ExpressionParser } from "./expression-parser.ts";
+import { createLocation } from "./location.ts";
 
 export class ControlFlowParser {
   constructor(
     private state: ParserState,
     private exprParser: ExpressionParser,
-    private parseStatement: () => Statement
+    private parseStatement: () => Statement,
   ) {}
 
   parseIfStatement(): IfStatement {
     const ifToken = this.state.advance();
     const test = this.exprParser.parseExpression();
     this.state.skipOptionalNewlines();
-    this.state.expect('Then' as any);
+    this.state.expect("Then" as any);
 
     const hasNewlineAfterThen = this.state.checkNewline();
     this.state.skipOptionalNewlines();
@@ -37,18 +37,18 @@ export class ControlFlowParser {
     const consequent = this.parseSingleLineIfBody();
     let alternate: Statement | null = null;
 
-    if (this.state.check('Else' as any)) {
+    if (this.state.check("Else" as any)) {
       this.state.advance();
       alternate = this.parseSingleLineIfBody();
     }
 
-    if (this.state.check('End' as any)) {
+    if (this.state.check("End" as any)) {
       this.state.advance();
-      this.state.expect('If' as any);
+      this.state.expect("If" as any);
     }
 
     return {
-      type: 'IfStatement',
+      type: "IfStatement",
       test,
       consequent,
       alternate,
@@ -62,19 +62,19 @@ export class ControlFlowParser {
     const consequent = this.parseIfBlock();
     let alternate: Statement | null = null;
 
-    if (this.state.check('ElseIf' as any)) {
+    if (this.state.check("ElseIf" as any)) {
       alternate = this.parseElseIfStatement();
-    } else if (this.state.check('Else' as any)) {
+    } else if (this.state.check("Else" as any)) {
       this.state.advance();
       this.state.skipNewlines();
       alternate = this.parseIfBlock();
     }
 
-    this.state.expect('End' as any);
-    this.state.expect('If' as any);
+    this.state.expect("End" as any);
+    this.state.expect("If" as any);
 
     return {
-      type: 'IfStatement',
+      type: "IfStatement",
       test,
       consequent,
       alternate,
@@ -85,7 +85,7 @@ export class ControlFlowParser {
   parseForStatement(): Statement {
     const forToken = this.state.advance();
 
-    if (this.state.check('Each' as any)) {
+    if (this.state.check("Each" as any)) {
       return this.parseForEachStatement(forToken);
     }
 
@@ -95,22 +95,22 @@ export class ControlFlowParser {
   parseDoStatement(): VbDoLoopStatement {
     const doToken = this.state.advance();
     let test: Expression | null = null;
-    let testPosition: VbDoLoopStatement['testPosition'] = null;
+    let testPosition: VbDoLoopStatement["testPosition"] = null;
 
-    if (this.state.check('While' as any)) {
+    if (this.state.check("While" as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
-      testPosition = 'while-do';
-    } else if (this.state.check('Until' as any)) {
+      testPosition = "while-do";
+    } else if (this.state.check("Until" as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
-      testPosition = 'until-do';
+      testPosition = "until-do";
     }
 
     this.state.skipNewlines();
     const body = this.parseDoBody();
 
-    this.state.expect('Loop' as any);
+    this.state.expect("Loop" as any);
 
     // Real VBScript's post-condition comes AFTER the `Loop` keyword
     // (`Loop While cond` / `Loop Until cond`), not before it - this
@@ -120,18 +120,18 @@ export class ControlFlowParser {
     // left dangling as an invalid next statement ("Unexpected token: Until").
     // Found via Wine's own vbscript.dll conformance suite, dlls/vbscript/
     // tests/lang.vbs: `Do: x = x + 2 \n Loop Until x = 4`.
-    if (this.state.check('While' as any)) {
+    if (this.state.check("While" as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
-      testPosition = 'do-while';
-    } else if (this.state.check('Until' as any)) {
+      testPosition = "do-while";
+    } else if (this.state.check("Until" as any)) {
       this.state.advance();
       test = this.exprParser.parseExpression();
-      testPosition = 'do-until';
+      testPosition = "do-until";
     }
 
     return {
-      type: 'VbDoLoopStatement',
+      type: "VbDoLoopStatement",
       body,
       test,
       testPosition,
@@ -146,7 +146,7 @@ export class ControlFlowParser {
     const body = this.parseWhileBody();
 
     return {
-      type: 'WhileStatement',
+      type: "WhileStatement",
       test,
       body,
       loc: createLocation(whileToken, this.state.previous),
@@ -155,17 +155,17 @@ export class ControlFlowParser {
 
   parseSelectStatement(): VbSelectCaseStatement {
     const selectToken = this.state.advance();
-    this.state.expect('Case' as any);
+    this.state.expect("Case" as any);
     const discriminant = this.exprParser.parseExpression();
     this.state.skipNewlines();
 
     const cases = this.parseCaseClauses();
 
-    this.state.expect('End' as any);
-    this.state.expect('Select' as any);
+    this.state.expect("End" as any);
+    this.state.expect("Select" as any);
 
     return {
-      type: 'VbSelectCaseStatement',
+      type: "VbSelectCaseStatement",
       discriminant,
       cases,
       loc: createLocation(selectToken, this.state.previous),
@@ -179,7 +179,7 @@ export class ControlFlowParser {
       // A colon separates statements, so it can also sit directly in front of the token that
       // ends the body: `If c Then : x = 1 : End If`. Without this the terminator is never
       // reached and the If is reported against whatever follows it.
-      while (this.state.check('Colon' as any)) {
+      while (this.state.check("Colon" as any)) {
         this.state.advance();
       }
 
@@ -187,11 +187,14 @@ export class ControlFlowParser {
         break;
       }
 
-      if (this.state.check('Else' as any) || this.state.check('ElseIf' as any)) {
+      if (
+        this.state.check("Else" as any) ||
+        this.state.check("ElseIf" as any)
+      ) {
         break;
       }
 
-      if (this.state.check('End' as any)) {
+      if (this.state.check("End" as any)) {
         break;
       }
 
@@ -200,7 +203,7 @@ export class ControlFlowParser {
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -234,17 +237,17 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('End' as any)) {
+      if (this.state.check("End" as any)) {
         const savedPos = this.state.save();
         this.state.advance();
-        if (this.state.check('If' as any)) {
+        if (this.state.check("If" as any)) {
           this.state.restore(savedPos);
           break;
         }
         this.state.restore(savedPos);
       }
 
-      if (this.state.checkAny('Else' as any, 'ElseIf' as any)) {
+      if (this.state.checkAny("Else" as any, "ElseIf" as any)) {
         break;
       }
 
@@ -255,7 +258,7 @@ export class ControlFlowParser {
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -264,22 +267,22 @@ export class ControlFlowParser {
     this.state.advance();
     const test = this.exprParser.parseExpression();
     this.state.skipOptionalNewlines();
-    this.state.expect('Then' as any);
+    this.state.expect("Then" as any);
     this.state.skipNewlines();
 
     const consequent = this.parseIfBlock();
     let alternate: Statement | null = null;
 
-    if (this.state.check('ElseIf' as any)) {
+    if (this.state.check("ElseIf" as any)) {
       alternate = this.parseElseIfStatement();
-    } else if (this.state.check('Else' as any)) {
+    } else if (this.state.check("Else" as any)) {
       this.state.advance();
       this.state.skipNewlines();
       alternate = this.parseIfBlock();
     }
 
     return {
-      type: 'IfStatement',
+      type: "IfStatement",
       test,
       consequent,
       alternate,
@@ -292,13 +295,13 @@ export class ControlFlowParser {
     // keyword too (`For Property = 1 To 2`), same reasoning as the other
     // keyword-as-identifier fixes in this codebase.
     const left = this.exprParser.parseFlexibleIdentifier();
-    this.state.expect('Eq' as any);
+    this.state.expect("Eq" as any);
     const init = this.exprParser.parseExpression();
-    this.state.expect('To' as any);
+    this.state.expect("To" as any);
     const to = this.exprParser.parseExpression();
 
     let step: Expression | null = null;
-    if (this.state.match('Step' as any)) {
+    if (this.state.match("Step" as any)) {
       step = this.exprParser.parseExpression();
     }
 
@@ -306,7 +309,7 @@ export class ControlFlowParser {
     const body = this.parseForBody();
 
     return {
-      type: 'VbForToStatement',
+      type: "VbForToStatement",
       left,
       init,
       to,
@@ -317,15 +320,15 @@ export class ControlFlowParser {
   }
 
   private parseForEachStatement(forToken: Token): ForOfStatement {
-    this.state.expect('Each' as any);
+    this.state.expect("Each" as any);
     const left = this.exprParser.parseFlexibleIdentifier();
-    this.state.expect('In' as any);
+    this.state.expect("In" as any);
     const right = this.exprParser.parseExpression();
     this.state.skipNewlines();
     const body = this.parseForBody();
 
     return {
-      type: 'ForOfStatement',
+      type: "ForOfStatement",
       left,
       right,
       body,
@@ -340,7 +343,7 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('Next' as any)) {
+      if (this.state.check("Next" as any)) {
         break;
       }
 
@@ -350,13 +353,13 @@ export class ControlFlowParser {
       body.push(stmt);
     }
 
-    this.state.expect('Next' as any);
-    if (this.state.check('Identifier' as any)) {
+    this.state.expect("Next" as any);
+    if (this.state.check("Identifier" as any)) {
       this.state.advance();
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -367,7 +370,7 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('Loop' as any)) {
+      if (this.state.check("Loop" as any)) {
         break;
       }
 
@@ -378,7 +381,7 @@ export class ControlFlowParser {
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -389,7 +392,7 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('Wend' as any)) {
+      if (this.state.check("Wend" as any)) {
         break;
       }
 
@@ -399,10 +402,10 @@ export class ControlFlowParser {
       body.push(stmt);
     }
 
-    this.state.expect('Wend' as any);
+    this.state.expect("Wend" as any);
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -413,11 +416,11 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('End' as any)) {
+      if (this.state.check("End" as any)) {
         break;
       }
 
-      if (this.state.check('Case' as any)) {
+      if (this.state.check("Case" as any)) {
         const caseClause = this.parseCaseClause();
         cases.push(caseClause);
       } else {
@@ -433,7 +436,7 @@ export class ControlFlowParser {
     let test: Expression | Expression[] | null = null;
     let isElse = false;
 
-    if (this.state.check('Else' as any)) {
+    if (this.state.check("Else" as any)) {
       this.state.advance();
       isElse = true;
     } else {
@@ -444,7 +447,7 @@ export class ControlFlowParser {
     const consequent = this.parseCaseBody();
 
     return {
-      type: 'VbCaseClause',
+      type: "VbCaseClause",
       test,
       consequent,
       isElse,
@@ -456,34 +459,34 @@ export class ControlFlowParser {
     const expressions: Expression[] = [];
 
     do {
-      if (this.state.check('Is' as any)) {
+      if (this.state.check("Is" as any)) {
         this.state.advance();
         const op = this.state.advance();
         const value = this.exprParser.parseExpression();
         expressions.push({
-          type: 'BinaryExpression',
+          type: "BinaryExpression",
           operator: this.getComparisonOperator(op),
-          left: { type: 'Identifier', name: '__select_expr__' },
+          left: { type: "Identifier", name: "__select_expr__" },
           right: value,
         } as Expression);
       } else {
         expressions.push(this.exprParser.parseExpression());
       }
-    } while (this.state.match('Comma' as any));
+    } while (this.state.match("Comma" as any));
 
     return expressions.length === 1 ? expressions[0] : expressions;
   }
 
   private getComparisonOperator(token: Token): string {
     const opMap: Record<string, string> = {
-      Eq: '==',
-      Lt: '<',
-      Gt: '>',
-      Le: '<=',
-      Ge: '>=',
-      Ne: '!=',
+      Eq: "==",
+      Lt: "<",
+      Gt: ">",
+      Le: "<=",
+      Ge: ">=",
+      Ne: "!=",
     };
-    return opMap[token.type] ?? '==';
+    return opMap[token.type] ?? "==";
   }
 
   private parseCaseBody(): Statement[] {
@@ -492,7 +495,7 @@ export class ControlFlowParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check('Case' as any) || this.state.check('End' as any)) {
+      if (this.state.check("Case" as any) || this.state.check("End" as any)) {
         break;
       }
 

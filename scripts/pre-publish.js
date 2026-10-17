@@ -11,18 +11,20 @@
  * Triggered by: "prepublishOnly" in package.json (runs automatically before `npm publish`)
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkgPath = join(__dirname, '..', 'package.json');
-const versionsPath = join(__dirname, '..', 'last-known-good-versions.json');
-const localDepsPath = join(__dirname, '..', 'local-dependencies.json');
+const pkgPath = join(__dirname, "..", "package.json");
+const versionsPath = join(__dirname, "..", "last-known-good-versions.json");
+const localDepsPath = join(__dirname, "..", "local-dependencies.json");
 
-const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-const { packages } = JSON.parse(readFileSync(versionsPath, 'utf-8'));
-const { packages: localDeps } = JSON.parse(readFileSync(localDepsPath, 'utf-8'));
+const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+const { packages } = JSON.parse(readFileSync(versionsPath, "utf-8"));
+const { packages: localDeps } = JSON.parse(
+  readFileSync(localDepsPath, "utf-8"),
+);
 
 let changed = false;
 for (const name of Object.keys(localDeps)) {
@@ -36,7 +38,7 @@ for (const name of Object.keys(localDeps)) {
     const pinned = packages[name];
     if (!pinned) {
       console.error(
-        `[pre-publish] ERROR: no version found for "${name}" in last-known-good-versions.json`
+        `[pre-publish] ERROR: no version found for "${name}" in last-known-good-versions.json`,
       );
       process.exit(1);
     }
@@ -48,8 +50,10 @@ for (const name of Object.keys(localDeps)) {
 }
 
 if (changed) {
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
-  console.log('[pre-publish] package.json updated for npm publish.');
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
+  console.log("[pre-publish] package.json updated for npm publish.");
 } else {
-  console.log('[pre-publish] No local file: references found, nothing to change.');
+  console.log(
+    "[pre-publish] No local file: references found, nothing to change.",
+  );
 }

@@ -7,4 +7,6 @@
 // Editing this by hand makes it something other than what Windows answers.
 
 /** The LCIDs whose date reader takes a comma before the time. */
-export const NLS_COMMA_BEFORE_TIME: ReadonlySet<number> = new Set([1038, 1050, 1062, 2074, 3098]);
+export const NLS_COMMA_BEFORE_TIME: ReadonlySet<number> = new Set([
+  1038, 1050, 1062, 2074, 3098,
+]);

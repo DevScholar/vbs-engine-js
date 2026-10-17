@@ -1,12 +1,16 @@
-import type { Token, TokenType } from '../lexer/index.ts';
+import type { Token, TokenType } from "../lexer/index.ts";
 
 export class ParseError extends Error {
   public token: Token;
   public expected?: TokenType | TokenType[];
 
-  constructor(message: string, token: Token, expected?: TokenType | TokenType[]) {
+  constructor(
+    message: string,
+    token: Token,
+    expected?: TokenType | TokenType[],
+  ) {
     super(message);
-    this.name = 'ParseError';
+    this.name = "ParseError";
     this.token = token;
     if (expected !== undefined) {
       this.expected = expected;
@@ -20,7 +24,7 @@ export class ParserState {
 
   constructor(tokens: Token[]) {
     if (tokens.length === 0) {
-      throw new Error('ParserState requires at least one token');
+      throw new Error("ParserState requires at least one token");
     }
     this.tokens = tokens;
   }
@@ -34,7 +38,7 @@ export class ParserState {
   }
 
   get isEOF(): boolean {
-    return this.current.type === ('EOF' as TokenType);
+    return this.current.type === ("EOF" as TokenType);
   }
 
   save(): number {
@@ -61,7 +65,7 @@ export class ParserState {
   }
 
   checkIdentifier(): boolean {
-    return this.current.type === ('Identifier' as TokenType);
+    return this.current.type === ("Identifier" as TokenType);
   }
 
   checkAny(...types: TokenType[]): boolean {
@@ -69,7 +73,7 @@ export class ParserState {
   }
 
   checkNewline(): boolean {
-    return this.current.type === ('Newline' as TokenType);
+    return this.current.type === ("Newline" as TokenType);
   }
 
   match(type: TokenType): Token | null {
@@ -93,7 +97,7 @@ export class ParserState {
     throw new ParseError(
       message ?? `Expected ${type}, got ${this.current.type}`,
       this.current,
-      type
+      type,
     );
   }
 
@@ -102,14 +106,15 @@ export class ParserState {
       return this.advance();
     }
     throw new ParseError(
-      message ?? `Expected one of ${types.join(', ')}, got ${this.current.type}`,
+      message ??
+        `Expected one of ${types.join(", ")}, got ${this.current.type}`,
       this.current,
-      types
+      types,
     );
   }
 
   skipNewlines(): void {
-    while (this.match('Newline' as TokenType)) {
+    while (this.match("Newline" as TokenType)) {
       // Intentionally empty - consume newlines
     }
   }
@@ -119,7 +124,7 @@ export class ParserState {
   }
 
   skipStatementSeparators(): void {
-    while (this.matchAny('Newline' as TokenType, 'Colon' as TokenType)) {
+    while (this.matchAny("Newline" as TokenType, "Colon" as TokenType)) {
       // Intentionally empty - consume separators
     }
   }

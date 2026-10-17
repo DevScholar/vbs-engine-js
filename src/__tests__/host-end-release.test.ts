@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { VbsEngine } from '../core/index.ts';
+import { describe, expect, it } from "vitest";
+import { VbsEngine } from "../core/index.ts";
 
 /**
  * The engine that claims host integration stands for the host, so it lets the script go when that host ends, the
@@ -20,39 +20,39 @@ End Class
 Set held = New Counter
 `;
 
-describe('the end of the host', () => {
-  it('lets the script go when the host ends, and stops listening once destroyed', () => {
-    const before = process.listenerCount('exit');
+describe("the end of the host", () => {
+  it("lets the script go when the host ends, and stops listening once destroyed", () => {
+    const before = process.listenerCount("exit");
     const engine = new VbsEngine();
-    expect(process.listenerCount('exit')).toBe(before + 1);
+    expect(process.listenerCount("exit")).toBe(before + 1);
 
     engine.executeStatement(SCRIPT);
-    expect(engine.eval('log')).toBe('');
+    expect(engine.eval("log")).toBe("");
 
-    process.emit('exit', 0);
+    process.emit("exit", 0);
 
-    expect(engine.eval('log')).toBe('terminate;');
+    expect(engine.eval("log")).toBe("terminate;");
 
     // The name is still there and still answers the instance, which is now terminated, and not Nothing: a host
     // that releases the globals and then carries on can read them. Letting the same value go again runs nothing.
-    expect(engine.eval('TypeName(held)')).toBe('Counter');
-    expect(engine.eval('held Is Nothing')).toBe(false);
-    process.emit('exit', 0);
-    expect(engine.eval('log')).toBe('terminate;');
+    expect(engine.eval("TypeName(held)")).toBe("Counter");
+    expect(engine.eval("held Is Nothing")).toBe(false);
+    process.emit("exit", 0);
+    expect(engine.eval("log")).toBe("terminate;");
 
     engine.destroy();
-    expect(process.listenerCount('exit')).toBe(before);
+    expect(process.listenerCount("exit")).toBe(before);
   });
 
-  it('leaves an isolated engine with no end of its own', () => {
-    const before = process.listenerCount('exit');
+  it("leaves an isolated engine with no end of its own", () => {
+    const before = process.listenerCount("exit");
     const isolated = new VbsEngine();
-    expect(process.listenerCount('exit')).toBe(before);
+    expect(process.listenerCount("exit")).toBe(before);
 
     isolated.executeStatement(SCRIPT);
-    process.emit('exit', 0);
+    process.emit("exit", 0);
 
     // Nothing released it, so the instance the script still holds has not had its Terminate event run.
-    expect(isolated.eval('log')).toBe('');
+    expect(isolated.eval("log")).toBe("");
   });
 });

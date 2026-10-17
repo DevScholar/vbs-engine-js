@@ -1,6 +1,6 @@
-import type { VbValue, VbObjectValueData } from '../runtime/values.ts';
-import { VbEmpty, VbNull } from '../runtime/values.ts';
-import { toString } from '../runtime/values.ts';
+import type { VbValue, VbObjectValueData } from "../runtime/values.ts";
+import { VbEmpty, VbNull } from "../runtime/values.ts";
+import { toString } from "../runtime/values.ts";
 
 /**
  * Creates a VB6-compatible Collection object.
@@ -26,7 +26,7 @@ export function createCollection(): VbObjectValueData {
   const itemKeys: (string | null)[] = [];
 
   function getByIndexOrKey(index: VbValue): VbValue {
-    if (index.type === 'String') {
+    if (index.type === "String") {
       const key = (index.value as string).toLowerCase();
       const idx = keyIndex.get(key);
       if (idx === undefined) {
@@ -36,9 +36,9 @@ export function createCollection(): VbObjectValueData {
     }
     // Numeric: 1-based
     const n = Math.floor(
-      index.type === 'Integer' || index.type === 'Long' || index.type === 'Byte'
+      index.type === "Integer" || index.type === "Long" || index.type === "Byte"
         ? (index.value as number)
-        : Number((index as { value: unknown }).value)
+        : Number((index as { value: unknown }).value),
     );
     if (n < 1 || n > items.length) {
       throw new Error(`Collection: index out of bounds`);
@@ -48,14 +48,17 @@ export function createCollection(): VbObjectValueData {
 
   function removeByIndexOrKey(index: VbValue): void {
     let pos: number;
-    if (index.type === 'String') {
+    if (index.type === "String") {
       const key = (index.value as string).toLowerCase();
       const idx = keyIndex.get(key);
       if (idx === undefined) throw new Error(`Collection: key not found`);
       pos = idx;
     } else {
-      const n = Math.floor(Number((index as { value: unknown }).value as number));
-      if (n < 1 || n > items.length) throw new Error(`Collection: index out of bounds`);
+      const n = Math.floor(
+        Number((index as { value: unknown }).value as number),
+      );
+      if (n < 1 || n > items.length)
+        throw new Error(`Collection: index out of bounds`);
       pos = n - 1;
     }
     items.splice(pos, 1);
@@ -70,16 +73,21 @@ export function createCollection(): VbObjectValueData {
   }
 
   const obj: VbObjectValueData = {
-    classInfo: { name: 'Collection' },
+    classInfo: { name: "Collection" },
 
     getProperty(name: string): VbValue {
       const lower = name.toLowerCase();
-      if (lower === 'count') {
-        return { type: 'Long', value: items.length };
+      if (lower === "count") {
+        return { type: "Long", value: items.length };
       }
       // Numeric string: 0-based access used by For Each
       const num = parseInt(name, 10);
-      if (!isNaN(num) && String(num) === name && num >= 0 && num < items.length) {
+      if (
+        !isNaN(num) &&
+        String(num) === name &&
+        num >= 0 &&
+        num < items.length
+      ) {
         return items[num];
       }
       return VbEmpty;
@@ -93,20 +101,30 @@ export function createCollection(): VbObjectValueData {
 
     hasMethod(name: string): boolean {
       const lower = name.toLowerCase();
-      return lower === 'add' || lower === 'remove' || lower === 'item' || lower === 'default';
+      return (
+        lower === "add" ||
+        lower === "remove" ||
+        lower === "item" ||
+        lower === "default"
+      );
     },
 
     getMethod(name: string): { func: (...args: VbValue[]) => VbValue } {
       const lower = name.toLowerCase();
 
-      if (lower === 'add') {
+      if (lower === "add") {
         return {
-          func: (item: VbValue, key?: VbValue, _before?: VbValue, _after?: VbValue): VbValue => {
+          func: (
+            item: VbValue,
+            key?: VbValue,
+            _before?: VbValue,
+            _after?: VbValue,
+          ): VbValue => {
             void _before;
             void _after;
             const pos = items.length;
             items.push(item);
-            if (key && key.type === 'String' && (key.value as string) !== '') {
+            if (key && key.type === "String" && (key.value as string) !== "") {
               const k = (key.value as string).toLowerCase();
               if (keyIndex.has(k)) {
                 throw new Error(`Collection: key already exists`);
@@ -121,7 +139,7 @@ export function createCollection(): VbObjectValueData {
         };
       }
 
-      if (lower === 'remove') {
+      if (lower === "remove") {
         return {
           func: (index: VbValue): VbValue => {
             removeByIndexOrKey(index);
@@ -130,7 +148,7 @@ export function createCollection(): VbObjectValueData {
         };
       }
 
-      if (lower === 'item' || lower === 'default') {
+      if (lower === "item" || lower === "default") {
         return {
           func: (index: VbValue): VbValue => {
             return getByIndexOrKey(index);

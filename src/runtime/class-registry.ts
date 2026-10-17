@@ -1,5 +1,5 @@
-import type { VbValue, VbObjectValueData } from './values.ts';
-import { VbEmpty } from './values.ts';
+import type { VbValue, VbObjectValueData } from "./values.ts";
+import { VbEmpty } from "./values.ts";
 
 export type VbPropertyGetter = () => VbValue;
 export type VbPropertySetter = (value: VbValue) => void;
@@ -29,7 +29,7 @@ export class VbClass {
     public name: string,
     public properties: Map<string, VbProperty> = new Map(),
     public methods: Map<string, VbMethodInfo> = new Map(),
-    public initializer?: (instance: VbObjectInstance) => void
+    public initializer?: (instance: VbObjectInstance) => void,
   ) {}
 }
 
@@ -53,7 +53,7 @@ export class VbObjectInstance {
 
   constructor(
     public classInfo: VbClass,
-    public prototype: VbObjectInstance | null = null
+    public prototype: VbObjectInstance | null = null,
   ) {
     if (classInfo.initializer) {
       classInfo.initializer(this);
@@ -181,7 +181,8 @@ export class VbObjectInstance {
     const lowerName = name.toLowerCase();
     const accessor = this.propertyAccessors.get(lowerName);
     const method = this.classInfo.methods.get(lowerName);
-    const isPrivate = accessor?.isPrivate === true || method?.isPrivate === true;
+    const isPrivate =
+      accessor?.isPrivate === true || method?.isPrivate === true;
     if (!isPrivate) return true;
     return caller !== null && caller.classInfo === this.classInfo;
   }
@@ -200,7 +201,7 @@ export class VbObjectInstance {
 
 /** One more place holds the instance, which is what a variable, an element or a field assignment makes. */
 export function retainValue(value: VbValue): void {
-  if (value.type === 'Object' && value.value instanceof VbObjectInstance) {
+  if (value.type === "Object" && value.value instanceof VbObjectInstance) {
     value.value.referenceCount += 1;
   }
 }
@@ -218,7 +219,11 @@ const madeValues = new WeakSet<object>();
 
 /** Marks a value as one an expression made, whose own reference travels with it. */
 export function markMadeValue(value: VbValue): VbValue {
-  if (value.type === 'Object' && value.value !== null && value.value instanceof VbObjectInstance) {
+  if (
+    value.type === "Object" &&
+    value.value !== null &&
+    value.value instanceof VbObjectInstance
+  ) {
     madeValues.add(value as object);
     retainValue(value);
   }
@@ -227,7 +232,7 @@ export function markMadeValue(value: VbValue): VbValue {
 
 /** Releases a made value's own reference once the place it was stored in holds one of its own. */
 export function releaseMadeValue(value: VbValue): void {
-  if (value.type === 'Object' && madeValues.has(value as object)) {
+  if (value.type === "Object" && madeValues.has(value as object)) {
     madeValues.delete(value as object);
     releaseValue(value);
   }
@@ -235,7 +240,7 @@ export function releaseMadeValue(value: VbValue): void {
 
 /** Whether a value carries a reference of its own, which the place storing it must not take again. */
 export function isMadeValue(value: VbValue): boolean {
-  return value.type === 'Object' && madeValues.has(value as object);
+  return value.type === "Object" && madeValues.has(value as object);
 }
 
 /**
@@ -248,11 +253,11 @@ export function isMadeValue(value: VbValue): boolean {
 const freedArrays = new WeakSet<object>();
 
 export function releaseValue(value: VbValue): void {
-  if (value.type === 'Object' && value.value instanceof VbObjectInstance) {
+  if (value.type === "Object" && value.value instanceof VbObjectInstance) {
     releaseInstance(value.value);
     return;
   }
-  if (value.type === 'Array') {
+  if (value.type === "Array") {
     freeArrayElements(value.value);
   }
 }
@@ -265,10 +270,10 @@ function releaseInstance(instance: VbObjectInstance): void {
   if (instance.referenceCount > 0) return;
 
   instance.hasTerminated = true;
-  const terminate = instance.classInfo.properties.get('class_terminate')?.get;
+  const terminate = instance.classInfo.properties.get("class_terminate")?.get;
   if (!terminate) return;
 
-  const held = { type: 'Object', value: instance } as VbValue;
+  const held = { type: "Object", value: instance } as VbValue;
   try {
     terminate.call(instance);
   } finally {
@@ -278,7 +283,8 @@ function releaseInstance(instance: VbObjectInstance): void {
 
 /** Frees every instance an instance's own fields hold, which is what its being freed does to them. */
 function releaseInstanceFields(value: VbValue): void {
-  if (value.type !== 'Object' || !(value.value instanceof VbObjectInstance)) return;
+  if (value.type !== "Object" || !(value.value instanceof VbObjectInstance))
+    return;
   for (const field of value.value.getHeldValues()) {
     releaseValue(field);
   }
@@ -286,9 +292,13 @@ function releaseInstanceFields(value: VbValue): void {
 
 /** Frees every instance an array holds, once for that array. */
 function freeArrayElements(array: unknown): void {
-  const candidate = array as { data?: unknown; isSized?: unknown; getDimensions?: unknown } | null;
-  if (!candidate || typeof candidate !== 'object') return;
-  if (typeof candidate.getDimensions !== 'function') return;
+  const candidate = array as {
+    data?: unknown;
+    isSized?: unknown;
+    getDimensions?: unknown;
+  } | null;
+  if (!candidate || typeof candidate !== "object") return;
+  if (typeof candidate.getDimensions !== "function") return;
   if (freedArrays.has(candidate)) return;
   freedArrays.add(candidate);
 
@@ -302,8 +312,8 @@ function freeArrayElements(array: unknown): void {
 /** Keeps every instance an array holds, which is what copying the array into a new place makes. */
 export function retainArrayElements(array: unknown): void {
   const candidate = array as { data?: unknown; getDimensions?: unknown } | null;
-  if (!candidate || typeof candidate !== 'object') return;
-  if (typeof candidate.getDimensions !== 'function') return;
+  if (!candidate || typeof candidate !== "object") return;
+  if (typeof candidate.getDimensions !== "function") return;
   const data = candidate.data;
   if (!Array.isArray(data)) return;
   for (const element of data) {
@@ -327,7 +337,7 @@ export class VbClassRegistry {
     const cls = new VbClass(name);
     cls.initializer = (instance: VbObjectInstance) => {
       const value = creator();
-      if (value.type === 'Object' && value.value) {
+      if (value.type === "Object" && value.value) {
         const obj = value.value as Record<string, unknown>;
         instance.setPropertiesFromObject(obj);
       }
@@ -340,10 +350,16 @@ export class VbClassRegistry {
   }
 
   has(name: string): boolean {
-    return this.classes.has(name.toLowerCase()) || this.nativeFactories.has(name.toLowerCase());
+    return (
+      this.classes.has(name.toLowerCase()) ||
+      this.nativeFactories.has(name.toLowerCase())
+    );
   }
 
-  createInstance(name: string, _args: VbValue[]): VbObjectInstance | VbObjectValueData {
+  createInstance(
+    name: string,
+    _args: VbValue[],
+  ): VbObjectInstance | VbObjectValueData {
     // Check native factories first
     const factory = this.nativeFactories.get(name.toLowerCase());
     if (factory) {
@@ -358,12 +374,12 @@ export class VbClassRegistry {
 
     const instance = new VbObjectInstance(cls);
 
-    const initMethod = cls.methods.get('class_initialize');
+    const initMethod = cls.methods.get("class_initialize");
     if (initMethod) {
       initMethod.func.call(instance);
     }
 
-    const initProperty = cls.properties.get('class_initialize');
+    const initProperty = cls.properties.get("class_initialize");
     if (initProperty && initProperty.get) {
       initProperty.get.call(instance);
     }

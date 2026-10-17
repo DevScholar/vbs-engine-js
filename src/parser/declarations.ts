@@ -11,18 +11,18 @@ import type {
   TSEnumDeclaration,
   TSEnumMember,
   VbTypeStatement,
-} from '../ast/index.ts';
-import type { SourceLocation } from '../ast/base.ts';
-import { TokenType } from '../lexer/token.ts';
-import { NAMEABLE_KEYWORDS } from '../lexer/keywords.ts';
-import { ParserState } from './parser-state.ts';
-import { ExpressionParser } from './expression-parser.ts';
-import { createLocation, createLocationFromNodeAndToken } from './location.ts';
+} from "../ast/index.ts";
+import type { SourceLocation } from "../ast/base.ts";
+import { TokenType } from "../lexer/token.ts";
+import { NAMEABLE_KEYWORDS } from "../lexer/keywords.ts";
+import { ParserState } from "./parser-state.ts";
+import { ExpressionParser } from "./expression-parser.ts";
+import { createLocation, createLocationFromNodeAndToken } from "./location.ts";
 
 export class DeclarationParser {
   constructor(
     private state: ParserState,
-    private exprParser: ExpressionParser
+    private exprParser: ExpressionParser,
   ) {}
 
   parseDimStatement(): VbDimStatement {
@@ -30,9 +30,9 @@ export class DeclarationParser {
     const declarations = this.parseVariableDeclarations();
 
     return {
-      type: 'VbDimStatement',
+      type: "VbDimStatement",
       declarations,
-      visibility: 'dim',
+      visibility: "dim",
       loc: createLocation(dimToken, this.state.previous),
     };
   }
@@ -43,9 +43,9 @@ export class DeclarationParser {
     const declarations = this.parseVariableDeclarations();
 
     return {
-      type: 'VbDimStatement',
+      type: "VbDimStatement",
       declarations,
-      visibility: 'public',
+      visibility: "public",
       loc: createLocation(visibilityToken, this.state.previous),
     };
   }
@@ -56,9 +56,9 @@ export class DeclarationParser {
     const declarations = this.parseVariableDeclarations();
 
     return {
-      type: 'VbDimStatement',
+      type: "VbDimStatement",
       declarations,
-      visibility: 'private',
+      visibility: "private",
       loc: createLocation(visibilityToken, this.state.previous),
     };
   }
@@ -69,7 +69,7 @@ export class DeclarationParser {
     const declarations = this.parseVariableDeclarations();
 
     return {
-      type: 'VbReDimStatement',
+      type: "VbReDimStatement",
       declarations,
       preserve,
       loc: createLocation(redimToken, this.state.previous),
@@ -97,7 +97,7 @@ export class DeclarationParser {
     }
 
     return {
-      type: 'VbEraseStatement',
+      type: "VbEraseStatement",
       targets,
       parenthesized,
       loc: createLocation(eraseToken, this.state.previous),
@@ -112,7 +112,9 @@ export class DeclarationParser {
       if (stopAtRightParen) {
         this.state.skipOptionalNewlines();
         if (this.state.check(TokenType.RParen)) break;
-      } else if (this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
+      } else if (
+        this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)
+      ) {
         break;
       }
 
@@ -142,7 +144,7 @@ export class DeclarationParser {
         initializer = this.exprParser.parseExpression();
       }
       members.push({
-        type: 'TSEnumMember',
+        type: "TSEnumMember",
         id: memberName,
         initializer,
         loc: createLocationFromNodeAndToken(memberName, this.state.previous),
@@ -155,14 +157,16 @@ export class DeclarationParser {
     void visibility; // stored in parent context (Public/Private), not in TSEnumDeclaration
 
     return {
-      type: 'TSEnumDeclaration',
+      type: "TSEnumDeclaration",
       id,
       members,
       loc: createLocation(enumToken, this.state.previous),
     };
   }
 
-  parseTypeStatement(visibility: 'public' | 'private' = 'public'): VbTypeStatement {
+  parseTypeStatement(
+    visibility: "public" | "private" = "public",
+  ): VbTypeStatement {
     const typeToken = this.state.advance(); // consume 'Type'
     const name = this.exprParser.parseIdentifier();
     this.state.skipNewlines();
@@ -181,7 +185,7 @@ export class DeclarationParser {
     this.state.expect(TokenType.Type);
 
     return {
-      type: 'VbTypeStatement',
+      type: "VbTypeStatement",
       name,
       members,
       visibility,
@@ -209,7 +213,7 @@ export class DeclarationParser {
     }
 
     return {
-      type: 'VbVariableDeclarator',
+      type: "VbVariableDeclarator",
       id,
       init: null,
       isArray,
@@ -224,9 +228,9 @@ export class DeclarationParser {
     const declarations = this.parseConstDeclarators();
 
     return {
-      type: 'VbConstStatement',
+      type: "VbConstStatement",
       declarations,
-      visibility: 'private',
+      visibility: "private",
       loc: createLocation(constToken, this.state.previous),
     };
   }
@@ -243,9 +247,9 @@ export class DeclarationParser {
     const declarations = this.parseConstDeclarators();
 
     return {
-      type: 'VbConstStatement',
+      type: "VbConstStatement",
       declarations,
-      visibility: 'public',
+      visibility: "public",
       loc: createLocation(constToken, this.state.previous),
     };
   }
@@ -255,9 +259,9 @@ export class DeclarationParser {
     const declarations = this.parseConstDeclarators();
 
     return {
-      type: 'VbConstStatement',
+      type: "VbConstStatement",
       declarations,
-      visibility: 'private',
+      visibility: "private",
       loc: createLocation(constToken, this.state.previous),
     };
   }
@@ -315,7 +319,7 @@ export class DeclarationParser {
     }
 
     return {
-      type: 'VbVariableDeclarator',
+      type: "VbVariableDeclarator",
       id,
       init,
       isArray,
@@ -340,7 +344,7 @@ export class DeclarationParser {
   parseTypeAnnotation(): TSTypeAnnotation {
     this.state.expect(TokenType.As);
     const typeToken = this.state.current;
-    let typeName = '';
+    let typeName = "";
     let isArray = false;
 
     if (
@@ -357,7 +361,7 @@ export class DeclarationParser {
         TokenType.Object,
         TokenType.Variant,
         TokenType.Byte,
-        TokenType.Identifier
+        TokenType.Identifier,
       )
     ) {
       typeName = this.state.advance().value;
@@ -371,30 +375,33 @@ export class DeclarationParser {
 
     const innerType = this.vbTypeNameToTSType(typeName, typeToken.loc);
     const tsType: TSType = isArray
-      ? { type: 'TSArrayType', elementType: innerType, loc: typeToken.loc }
+      ? { type: "TSArrayType", elementType: innerType, loc: typeToken.loc }
       : innerType;
 
     return {
-      type: 'TSTypeAnnotation',
+      type: "TSTypeAnnotation",
       typeAnnotation: tsType,
       loc: createLocation(typeToken, this.state.previous),
     };
   }
 
-  private vbTypeNameToTSType(typeName: string, loc: SourceLocation | null | undefined): TSType {
+  private vbTypeNameToTSType(
+    typeName: string,
+    loc: SourceLocation | null | undefined,
+  ): TSType {
     switch (typeName.toLowerCase()) {
-      case 'string':
-        return { type: 'TSStringKeyword', loc };
-      case 'boolean':
-        return { type: 'TSBooleanKeyword', loc };
-      case 'object':
-        return { type: 'TSObjectKeyword', loc };
-      case 'variant':
-        return { type: 'TSAnyKeyword', loc };
+      case "string":
+        return { type: "TSStringKeyword", loc };
+      case "boolean":
+        return { type: "TSBooleanKeyword", loc };
+      case "object":
+        return { type: "TSObjectKeyword", loc };
+      case "variant":
+        return { type: "TSAnyKeyword", loc };
       default:
         return {
-          type: 'TSTypeReference',
-          typeName: { type: 'Identifier', name: typeName || 'Variant', loc },
+          type: "TSTypeReference",
+          typeName: { type: "Identifier", name: typeName || "Variant", loc },
           loc,
         };
     }
@@ -422,7 +429,7 @@ export class DeclarationParser {
     }
 
     return {
-      type: 'VbConstDeclarator',
+      type: "VbConstDeclarator",
       id,
       init,
       typeAnnotation,

@@ -1,11 +1,14 @@
-import type { VbValue } from './values.ts';
-import { VbEmpty } from './values.ts';
-import { createVbError, VbErrorCodes } from './errors.ts';
-import { BUILTIN_ARITY } from './builtin-arity.ts';
+import type { VbValue } from "./values.ts";
+import { VbEmpty } from "./values.ts";
+import { createVbError, VbErrorCodes } from "./errors.ts";
+import { BUILTIN_ARITY } from "./builtin-arity.ts";
 
 export type VbFunction = (...args: VbValue[]) => VbValue;
 export type VbSub = (...args: VbValue[]) => void;
-export type VbUserFunction = (args: VbValue[], refs?: VbArgumentRef[]) => VbValue;
+export type VbUserFunction = (
+  args: VbValue[],
+  refs?: VbArgumentRef[],
+) => VbValue;
 
 export interface VbParameterInfo {
   name: string;
@@ -21,9 +24,13 @@ export interface VbParameterInfo {
  * The counts a declared procedure accepts, from its own parameter list. Everyone after the first optional
  * parameter may be left out, and a ParamArray takes as many as the caller writes.
  */
-export function declaredArity(params: VbParameterInfo[]): readonly [number, number] {
-  const variadic = params.some(param => param.isParamArray);
-  const firstOptional = params.findIndex(param => param.isOptional || param.isParamArray);
+export function declaredArity(
+  params: VbParameterInfo[],
+): readonly [number, number] {
+  const variadic = params.some((param) => param.isParamArray);
+  const firstOptional = params.findIndex(
+    (param) => param.isOptional || param.isParamArray,
+  );
   const required = firstOptional < 0 ? params.length : firstOptional;
   return [required, variadic ? Number.POSITIVE_INFINITY : params.length];
 }
@@ -67,12 +74,12 @@ export function checkArgumentRange(
   name: string,
   minArgs: number,
   maxArgs: number,
-  count: number
+  count: number,
 ): void {
   if (count >= minArgs && count <= maxArgs) return;
   throw createVbError(
     VbErrorCodes.InvalidQualifier,
-    `Wrong number of arguments or invalid property assignment: '${name}'`
+    `Wrong number of arguments or invalid property assignment: '${name}'`,
   );
 }
 
@@ -82,19 +89,24 @@ export class VbFunctionRegistry {
   register(
     name: string,
     func: VbFunction | VbSub | VbUserFunction,
-    options: Partial<VbFunctionInfo> = {}
+    options: Partial<VbFunctionInfo> = {},
   ): void {
     const lowerName = name.toLowerCase();
     // A declared procedure carries its own counts; a built-in takes the measured ones. A built-in is
     // registered with no parameter list at all, so an empty one is never read as "takes nothing".
-    const declared = options.params === undefined ? null : declaredArity(options.params);
+    const declared =
+      options.params === undefined ? null : declaredArity(options.params);
     const standard = BUILTIN_ARITY[lowerName];
     this.functions.set(lowerName, {
       name,
       func,
       isSub: options.isSub ?? false,
       minArgs: options.minArgs ?? declared?.[0] ?? standard?.[0] ?? 0,
-      maxArgs: options.maxArgs ?? declared?.[1] ?? standard?.[1] ?? Number.POSITIVE_INFINITY,
+      maxArgs:
+        options.maxArgs ??
+        declared?.[1] ??
+        standard?.[1] ??
+        Number.POSITIVE_INFINITY,
       params: options.params ?? [],
       isUserDefined: options.isUserDefined ?? false,
     });
@@ -138,7 +150,7 @@ export class VbFunctionRegistry {
 
     checkArgumentCount(info, args.length);
 
-    const values = args.map(arg => arg.value);
+    const values = args.map((arg) => arg.value);
 
     let result: VbValue;
     if (info.isUserDefined) {
@@ -150,7 +162,13 @@ export class VbFunctionRegistry {
     for (let i = 0; i < args.length && i < info.params.length; i++) {
       const param = info.params[i];
       const arg = args[i];
-      if (param && arg && param.byRef && arg.setValue && values[i] !== arg.value) {
+      if (
+        param &&
+        arg &&
+        param.byRef &&
+        arg.setValue &&
+        values[i] !== arg.value
+      ) {
         arg.setValue(values[i]!);
       }
     }

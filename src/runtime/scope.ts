@@ -2,9 +2,9 @@
  * Scope implementation with string interning for case-insensitive variable lookup.
  */
 
-import type { VbValue } from './values.ts';
-import { releaseValue } from './class-registry.ts';
-import { globalStringInterner } from './string-interner.ts';
+import type { VbValue } from "./values.ts";
+import { releaseValue } from "./class-registry.ts";
+import { globalStringInterner } from "./string-interner.ts";
 
 export class VbVariable {
   constructor(
@@ -13,7 +13,7 @@ export class VbVariable {
     public value: VbValue,
     public isByRef: boolean = false,
     public isArray: boolean = false,
-    public isConst: boolean = false
+    public isConst: boolean = false,
   ) {}
 }
 
@@ -28,7 +28,7 @@ export class Vbscope {
   declare(
     name: string,
     value: VbValue,
-    options: Partial<Omit<VbVariable, 'name' | 'originalName' | 'value'>> = {}
+    options: Partial<Omit<VbVariable, "name" | "originalName" | "value">> = {},
   ): VbVariable {
     const internedName = globalStringInterner.intern(name);
     const variable = new VbVariable(
@@ -37,7 +37,7 @@ export class Vbscope {
       value,
       options.isByRef ?? false,
       options.isArray ?? false,
-      options.isConst ?? false
+      options.isConst ?? false,
     );
     this.variables.set(internedName, variable);
     return variable;

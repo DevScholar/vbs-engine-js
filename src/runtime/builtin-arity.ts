@@ -20,7 +20,9 @@
  * functions nobody measured (MsgBox and InputBox are checked on the low side only, since a higher count
  * would have raised a dialog in the probe).
  */
-export const BUILTIN_ARITY: Readonly<Record<string, readonly [number, number]>> = {
+export const BUILTIN_ARITY: Readonly<
+  Record<string, readonly [number, number]>
+> = {
   abs: [1, 1],
   array: [0, Number.POSITIVE_INFINITY],
   asc: [1, 1],

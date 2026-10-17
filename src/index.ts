@@ -69,7 +69,7 @@ export {
   jsToVb,
   vbToJs,
   VBArray,
-} from './core/index.ts';
+} from "./core/index.ts";
 
 // Browser-specific exports
-export type { BrowserRuntimeOptions } from './browser/index.ts';
+export type { BrowserRuntimeOptions } from "./browser/index.ts";

@@ -4,17 +4,17 @@ import type {
   WithStatement,
   VbExitStatement,
   VbOptionExplicitStatement,
-} from '../ast/index.ts';
-import { ParserState } from './parser-state.ts';
-import { ExpressionParser } from './expression-parser.ts';
-import { createLocation } from './location.ts';
-import { TokenType } from '../lexer/token.ts';
+} from "../ast/index.ts";
+import { ParserState } from "./parser-state.ts";
+import { ExpressionParser } from "./expression-parser.ts";
+import { createLocation } from "./location.ts";
+import { TokenType } from "../lexer/token.ts";
 
 export class StatementsParser {
   constructor(
     private state: ParserState,
     private exprParser: ExpressionParser,
-    private parseStatement: () => Statement
+    private parseStatement: () => Statement,
   ) {}
 
   parseWithStatement(): WithStatement {
@@ -27,7 +27,7 @@ export class StatementsParser {
     this.state.expect(TokenType.With);
 
     return {
-      type: 'WithStatement',
+      type: "WithStatement",
       object,
       body,
       loc: createLocation(withToken, this.state.previous),
@@ -37,13 +37,13 @@ export class StatementsParser {
   parseExitStatement(): VbExitStatement {
     const exitToken = this.state.advance();
 
-    const targetTypes: Record<string, VbExitStatement['target']> = {
-      Sub: 'Sub',
-      Function: 'Function',
-      Property: 'Property',
-      Do: 'Do',
-      For: 'For',
-      Select: 'Select',
+    const targetTypes: Record<string, VbExitStatement["target"]> = {
+      Sub: "Sub",
+      Function: "Function",
+      Property: "Property",
+      Do: "Do",
+      For: "For",
+      Select: "Select",
     };
 
     const targetToken = this.state.current;
@@ -54,8 +54,8 @@ export class StatementsParser {
     }
 
     return {
-      type: 'VbExitStatement',
-      target: target ?? 'Sub',
+      type: "VbExitStatement",
+      target: target ?? "Sub",
       loc: createLocation(exitToken, this.state.previous),
     };
   }
@@ -65,7 +65,7 @@ export class StatementsParser {
     this.state.expect(TokenType.Explicit);
 
     return {
-      type: 'VbOptionExplicitStatement',
+      type: "VbOptionExplicitStatement",
       loc: createLocation(optionToken, this.state.previous),
     };
   }
@@ -79,12 +79,14 @@ export class StatementsParser {
       this.state.advance();
       args = this.parseCallArguments();
       this.state.expect(TokenType.RParen);
-    } else if (!this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
+    } else if (
+      !this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)
+    ) {
       args = this.parseCallArgumentsNoParens();
     }
 
     const callExpr = {
-      type: 'CallExpression' as const,
+      type: "CallExpression" as const,
       callee,
       arguments: args,
       optional: false,
@@ -94,7 +96,7 @@ export class StatementsParser {
     };
 
     return {
-      type: 'ExpressionStatement',
+      type: "ExpressionStatement",
       expression: callExpr,
       loc: createLocation(callToken, this.state.previous),
     };
@@ -107,8 +109,8 @@ export class StatementsParser {
     const right = this.exprParser.parseExpression();
 
     const assignment = {
-      type: 'AssignmentExpression',
-      operator: '=',
+      type: "AssignmentExpression",
+      operator: "=",
       left: left as Expression,
       right,
       isSet: true,
@@ -116,7 +118,7 @@ export class StatementsParser {
     } as Expression;
 
     return {
-      type: 'ExpressionStatement',
+      type: "ExpressionStatement",
       expression: assignment,
       loc: createLocation(setToken, this.state.previous),
     };
@@ -129,8 +131,8 @@ export class StatementsParser {
     if (this.state.match(TokenType.Resume)) {
       this.state.expect(TokenType.Next);
       return {
-        type: 'VbOnErrorHandlerStatement',
-        action: 'resume_next',
+        type: "VbOnErrorHandlerStatement",
+        action: "resume_next",
         loc: createLocation(onToken, this.state.previous),
       };
     }
@@ -138,24 +140,24 @@ export class StatementsParser {
     if (this.state.match(TokenType.Goto)) {
       if (this.state.check(TokenType.NumberLiteral)) {
         const numToken = this.state.advance();
-        if (String(numToken.value) === '0') {
+        if (String(numToken.value) === "0") {
           return {
-            type: 'VbOnErrorHandlerStatement',
-            action: 'goto_0',
+            type: "VbOnErrorHandlerStatement",
+            action: "goto_0",
             loc: createLocation(onToken, this.state.previous),
           };
         }
       }
       const label = this.exprParser.parseIdentifier();
       return {
-        type: 'VbOnErrorHandlerStatement',
-        action: 'goto_label',
+        type: "VbOnErrorHandlerStatement",
+        action: "goto_label",
         label,
         loc: createLocation(onToken, this.state.previous),
       };
     }
 
-    throw new Error('Expected Resume Next or Goto after On Error');
+    throw new Error("Expected Resume Next or Goto after On Error");
   }
 
   parseResumeStatement(): Statement {
@@ -163,14 +165,14 @@ export class StatementsParser {
 
     if (this.state.match(TokenType.Next)) {
       return {
-        type: 'VbResumeStatement',
-        target: 'next',
+        type: "VbResumeStatement",
+        target: "next",
         loc: createLocation(resumeToken, this.state.previous),
       };
     }
 
     return {
-      type: 'VbResumeStatement',
+      type: "VbResumeStatement",
       target: null,
       loc: createLocation(resumeToken, this.state.previous),
     };
@@ -185,11 +187,11 @@ export class StatementsParser {
     // `holder.DoIt`, `holder.GetIt` and `holder.Prop` run the method or property, and `holder` where the class
     // has no default member is 438. A statement that is a literal is a compile error there ("Empty" alone and
     // `5` alone are both refused), and this leaves those as they are.
-    if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
+    if (expr.type === "Identifier" || expr.type === "MemberExpression") {
       return {
-        type: 'ExpressionStatement',
+        type: "ExpressionStatement",
         expression: {
-          type: 'CallExpression',
+          type: "CallExpression",
           callee: expr,
           arguments: [],
           optional: false,
@@ -207,7 +209,7 @@ export class StatementsParser {
     // A whole statement that is a call is a Sub call rather than a read, which tells an array apart: a fresh
     // cscript answers `arr(9)` written as a statement with error 13 while `x = arr(9)` indexes it, so the
     // mark is carried on the call the statement already had.
-    if (expr.type === 'CallExpression') {
+    if (expr.type === "CallExpression") {
       expr.statementCall = true;
       // Parentheses around the arguments of a statement call hand them over by value, which a fresh cscript
       // shows: `FillWithNine a` changes the caller's array and `FillWithNine(a)` does not. A call written
@@ -218,7 +220,7 @@ export class StatementsParser {
     }
 
     return {
-      type: 'ExpressionStatement',
+      type: "ExpressionStatement",
       expression: expr,
       loc: expr.loc,
     };
@@ -230,7 +232,10 @@ export class StatementsParser {
     while (!this.state.isEOF) {
       this.state.skipStatementSeparators();
 
-      if (this.state.check(TokenType.End) && this.state.peek(1).type === TokenType.With) {
+      if (
+        this.state.check(TokenType.End) &&
+        this.state.peek(1).type === TokenType.With
+      ) {
         break;
       }
 
@@ -241,7 +246,7 @@ export class StatementsParser {
     }
 
     return {
-      type: 'BlockStatement',
+      type: "BlockStatement",
       body,
     };
   }
@@ -260,9 +265,9 @@ export class StatementsParser {
         // Handle empty arguments (consecutive commas)
         if (this.state.check(TokenType.Comma)) {
           args.push({
-            type: 'VbEmptyLiteral',
+            type: "VbEmptyLiteral",
             value: undefined,
-            raw: '',
+            raw: "",
             loc: this.state.current.loc,
           });
         } else {
@@ -285,7 +290,9 @@ export class StatementsParser {
   private parseCallArgumentsNoParens(): Expression[] {
     const args: Expression[] = [];
 
-    while (!this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)) {
+    while (
+      !this.state.checkAny(TokenType.Newline, TokenType.Colon, TokenType.EOF)
+    ) {
       args.push(this.exprParser.parseExpression());
       if (!this.state.match(TokenType.Comma)) {
         break;

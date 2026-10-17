@@ -9,16 +9,16 @@ import type {
   BinaryExpression,
   LogicalExpression,
   AssignmentExpression,
-} from '../ast/index.ts';
-import type { Token } from '../lexer/index.ts';
-import { TokenType } from '../lexer/token.ts';
-import { NAMEABLE_KEYWORDS } from '../lexer/keywords.ts';
-import { ParserState } from './parser-state.ts';
+} from "../ast/index.ts";
+import type { Token } from "../lexer/index.ts";
+import { TokenType } from "../lexer/token.ts";
+import { NAMEABLE_KEYWORDS } from "../lexer/keywords.ts";
+import { ParserState } from "./parser-state.ts";
 import {
   createLocation,
   createLocationFromNode,
   createLocationFromNodeAndToken,
-} from './location.ts';
+} from "./location.ts";
 
 /**
  * Converts a call-expression chain (as produced by parseCall() for `name(args)`
@@ -30,15 +30,15 @@ import {
  * Returns null if the base isn't ultimately an Identifier/MemberExpression.
  */
 function callChainToMemberChain(expr: Expression): MemberExpression | null {
-  if (expr.type === 'Identifier' || expr.type === 'MemberExpression') {
+  if (expr.type === "Identifier" || expr.type === "MemberExpression") {
     return expr as MemberExpression;
   }
-  if (expr.type !== 'CallExpression') {
+  if (expr.type !== "CallExpression") {
     return null;
   }
   const call = expr as CallExpression;
   const object =
-    call.callee.type === 'Identifier' || call.callee.type === 'MemberExpression'
+    call.callee.type === "Identifier" || call.callee.type === "MemberExpression"
       ? (call.callee as Expression)
       : callChainToMemberChain(call.callee as Expression);
   if (!object) {
@@ -48,10 +48,12 @@ function callChainToMemberChain(expr: Expression): MemberExpression | null {
     // `o.P() = v` targets the property itself. A bare `a() = v` is not the same thing -- the
     // real engine raises a runtime Type mismatch for that one -- so only a member target is
     // converted here, and an identifier is left to fail as it already does.
-    return object.type === 'MemberExpression' ? (object as MemberExpression) : null;
+    return object.type === "MemberExpression"
+      ? (object as MemberExpression)
+      : null;
   }
   return {
-    type: 'MemberExpression',
+    type: "MemberExpression",
     object,
     property: call.arguments[0],
     // Keeps every subscript for `a(i, j) = v`; `property` stays the first one so that
@@ -106,43 +108,43 @@ export class ExpressionParser {
     // unchanged; the postfix loop below (Dot/Bang/LBracket chaining) already
     // works uniformly regardless of what `expr` started as.
     let expr: Expression;
-    if (this.state.check('LParen' as TokenType)) {
+    if (this.state.check("LParen" as TokenType)) {
       this.state.advance();
       expr = this.parseExpression();
-      this.state.expect('RParen' as TokenType);
+      this.state.expect("RParen" as TokenType);
     } else {
       expr = this.parseIdentifierOnly();
     }
 
     while (true) {
-      if (this.state.check('Dot' as TokenType)) {
+      if (this.state.check("Dot" as TokenType)) {
         this.state.advance();
         const property = this.parsePropertyName();
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property,
           computed: false,
           optional: false,
           loc: createLocationFromNode(expr, property),
         } as MemberExpression;
-      } else if (this.state.check('Bang' as TokenType)) {
+      } else if (this.state.check("Bang" as TokenType)) {
         this.state.advance();
         const property = this.parsePropertyName();
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property,
           computed: true,
           optional: false,
           loc: createLocationFromNode(expr, property),
         } as MemberExpression;
-      } else if (this.state.check('LBracket' as TokenType)) {
+      } else if (this.state.check("LBracket" as TokenType)) {
         this.state.advance();
         const index = this.parseExpression();
-        const rbracket = this.state.expect('RBracket' as TokenType);
+        const rbracket = this.state.expect("RBracket" as TokenType);
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property: index,
           computed: true,
@@ -158,13 +160,13 @@ export class ExpressionParser {
   }
 
   private parseIdentifierOnly(): Expression {
-    if (this.state.check('Dot' as TokenType)) {
+    if (this.state.check("Dot" as TokenType)) {
       return this.parseWithMemberExpression();
     }
 
-    const token = this.state.expect('Identifier' as TokenType);
+    const token = this.state.expect("Identifier" as TokenType);
     return {
-      type: 'Identifier',
+      type: "Identifier",
       name: token.value,
       loc: token.loc,
     };
@@ -177,14 +179,14 @@ export class ExpressionParser {
     // discarded, the variable is never written, and nothing is raised. `Dim Step` on its own
     // parses, so the failure is silent rather than visible.
     if (
-      this.state.check('Identifier' as TokenType) ||
-      this.state.check('Dot' as TokenType) ||
+      this.state.check("Identifier" as TokenType) ||
+      this.state.check("Dot" as TokenType) ||
       NAMEABLE_KEYWORDS.has(this.state.current.type)
     ) {
       const savedState = this.state.save();
       const left = this.parseCall();
 
-      if (left.type === 'CallExpression') {
+      if (left.type === "CallExpression") {
         // `name(args)` is ambiguous in VBScript between an array-index read/write
         // and a sub/function call - parseCall() always builds a (possibly nested,
         // for chained/jagged access like `arr(0)(4)`) CallExpression for it, since
@@ -201,13 +203,13 @@ export class ExpressionParser {
         // are left unconverted - assignToMember only supports a single index per
         // level today, so converting those here would silently mis-handle them
         // rather than fix them; that's a separate, narrower gap.
-        const memberChain = this.state.check('Eq' as TokenType)
+        const memberChain = this.state.check("Eq" as TokenType)
           ? callChainToMemberChain(left as CallExpression)
           : null;
         if (memberChain) {
           const op = this.state.advance();
           const right = this.parseStatementAssignment();
-          return this.createAssignmentExpression(memberChain, '=', right, op);
+          return this.createAssignmentExpression(memberChain, "=", right, op);
         }
 
         // A Comma immediately following a single call-chain (not `=`) means this is a
@@ -226,15 +228,15 @@ export class ExpressionParser {
         // `arr(0)(1), 2` (jagged-array read result comma-continued) isn't a real
         // statement-call pattern and shouldn't be coerced into one.
         if (
-          this.state.check('Comma' as TokenType) &&
-          (left as CallExpression).callee.type !== 'CallExpression'
+          this.state.check("Comma" as TokenType) &&
+          (left as CallExpression).callee.type !== "CallExpression"
         ) {
           const args = [...(left as CallExpression).arguments];
-          while (this.state.match('Comma' as TokenType)) {
+          while (this.state.match("Comma" as TokenType)) {
             args.push(this.parseExpression());
           }
           const callExpr: CallExpression = {
-            type: 'CallExpression',
+            type: "CallExpression",
             callee: (left as CallExpression).callee,
             arguments: args,
             optional: false,
@@ -264,16 +266,16 @@ export class ExpressionParser {
         return this.parseStringConcat();
       }
 
-      if (this.state.check('Eq' as TokenType)) {
-        if (left.type === 'Identifier' || left.type === 'MemberExpression') {
+      if (this.state.check("Eq" as TokenType)) {
+        if (left.type === "Identifier" || left.type === "MemberExpression") {
           const op = this.state.advance();
           const right = this.parseStatementAssignment();
-          return this.createAssignmentExpression(left, '=', right, op);
+          return this.createAssignmentExpression(left, "=", right, op);
         }
       }
 
       if (
-        (left.type === 'Identifier' || left.type === 'MemberExpression') &&
+        (left.type === "Identifier" || left.type === "MemberExpression") &&
         // A bare Comma right after the callee (no parens at all) is real, valid
         // VBScript too: `PlayersReel.SetValue, PlayersPlayingGame` deliberately
         // omits the first positional argument, same idiom as `Foo(, x)` inside
@@ -283,11 +285,11 @@ export class ExpressionParser {
         // above (Chance, Playmatic 1971) - a second, distinct instance of the
         // "statement-call arg list starts unusually" gap, not a duplicate.
         (this.isStatementCallArgumentStart(atStatementLevel) ||
-          this.state.check('Comma' as TokenType))
+          this.state.check("Comma" as TokenType))
       ) {
         const args = this.parseStatementCallArguments();
         const callExpr: CallExpression = {
-          type: 'CallExpression',
+          type: "CallExpression",
           callee: left,
           arguments: args,
           optional: false,
@@ -305,12 +307,12 @@ export class ExpressionParser {
   }
 
   private continueStringConcat(left: Expression): Expression {
-    while (this.state.check('Ampersand' as TokenType)) {
+    while (this.state.check("Ampersand" as TokenType)) {
       this.state.advance();
       const right = this.parseLogicalOr();
       left = {
-        type: 'BinaryExpression',
-        operator: '&',
+        type: "BinaryExpression",
+        operator: "&",
         left,
         right,
         loc: createLocationFromNode(left, right),
@@ -324,20 +326,23 @@ export class ExpressionParser {
     // -5, and "x - 1" where x is a plain variable is a type mismatch rather than an arithmetic statement.
     // An assignment's right hand side is the other way round ("y = x + i" is an addition, not a call), so
     // this reading is taken only at the statement level, where a call is the only thing a bare name can be.
-    if (atStatementLevel && this.state.checkAny('Minus' as TokenType, 'Plus' as TokenType)) {
+    if (
+      atStatementLevel &&
+      this.state.checkAny("Minus" as TokenType, "Plus" as TokenType)
+    ) {
       return true;
     }
     return this.state.checkAny(
-      'StringLiteral' as TokenType,
-      'NumberLiteral' as TokenType,
-      'DateLiteral' as TokenType,
-      'BooleanLiteral' as TokenType,
-      'NothingLiteral' as TokenType,
-      'NullLiteral' as TokenType,
-      'EmptyLiteral' as TokenType,
-      'Identifier' as TokenType,
-      'LParen' as TokenType,
-      'New' as TokenType,
+      "StringLiteral" as TokenType,
+      "NumberLiteral" as TokenType,
+      "DateLiteral" as TokenType,
+      "BooleanLiteral" as TokenType,
+      "NothingLiteral" as TokenType,
+      "NullLiteral" as TokenType,
+      "EmptyLiteral" as TokenType,
+      "Identifier" as TokenType,
+      "LParen" as TokenType,
+      "New" as TokenType,
       // `Not` - a real, common no-parens call pattern (found via Wine's own
       // vbscript.dll conformance test suite, dlls/vbscript/tests/lang.vbs:
       // `ok not false, "msg"` failed with "Unexpected token: Comma" because
@@ -353,28 +358,34 @@ export class ExpressionParser {
       // (`For-To loop` etc. silently computed 0 instead of 15) before ever
       // reaching the wine-conformance harness. Minus/Plus genuinely cannot
       // be disambiguated from the next token alone at this decision point.
-      'Not' as TokenType
+      "Not" as TokenType,
     );
   }
 
   private parseStatementCallArguments(): Expression[] {
     const args: Expression[] = [];
 
-    while (!this.state.checkAny('Newline' as TokenType, 'Colon' as TokenType, 'EOF' as TokenType)) {
+    while (
+      !this.state.checkAny(
+        "Newline" as TokenType,
+        "Colon" as TokenType,
+        "EOF" as TokenType,
+      )
+    ) {
       // Omitted positional argument (leading or consecutive Comma, no expression
       // between) - same VbEmptyLiteral representation parseArguments() already
       // uses for the parenthesized-call equivalent (`Foo(, x)`).
-      if (this.state.check('Comma' as TokenType)) {
+      if (this.state.check("Comma" as TokenType)) {
         args.push({
-          type: 'VbEmptyLiteral',
+          type: "VbEmptyLiteral",
           value: undefined,
-          raw: '',
+          raw: "",
           loc: this.state.current.loc,
         } as Expression);
       } else {
         args.push(this.parseExpression());
       }
-      if (!this.state.match('Comma' as TokenType)) {
+      if (!this.state.match("Comma" as TokenType)) {
         break;
       }
     }
@@ -385,10 +396,10 @@ export class ExpressionParser {
   private parseAssignment(): Expression {
     const expr = this.parseStringConcat();
 
-    if (this.state.checkAny('Eq' as TokenType)) {
+    if (this.state.checkAny("Eq" as TokenType)) {
       const op = this.state.advance();
       const right = this.parseAssignment();
-      return this.createAssignmentExpression(expr, '=', right, op);
+      return this.createAssignmentExpression(expr, "=", right, op);
     }
 
     return expr;
@@ -398,12 +409,12 @@ export class ExpressionParser {
     left: Expression,
     operator: string,
     right: Expression,
-    token: Token
+    token: Token,
   ): AssignmentExpression {
     return {
-      type: 'AssignmentExpression',
-      operator: operator as AssignmentExpression['operator'],
-      left: left as AssignmentExpression['left'],
+      type: "AssignmentExpression",
+      operator: operator as AssignmentExpression["operator"],
+      left: left as AssignmentExpression["left"],
       right,
       loc: createLocationFromNodeAndToken(left, token),
     };
@@ -412,12 +423,12 @@ export class ExpressionParser {
   private parseStringConcat(): Expression {
     let left = this.parseLogicalOr();
 
-    while (this.state.check('Ampersand' as TokenType)) {
+    while (this.state.check("Ampersand" as TokenType)) {
       this.state.advance();
       const right = this.parseLogicalOr();
       left = {
-        type: 'BinaryExpression',
-        operator: '&',
+        type: "BinaryExpression",
+        operator: "&",
         left,
         right,
         loc: createLocationFromNode(left, right),
@@ -430,12 +441,12 @@ export class ExpressionParser {
   private parseLogicalOr(): Expression {
     let left = this.parseLogicalAnd();
 
-    while (this.state.check('Or' as TokenType)) {
+    while (this.state.check("Or" as TokenType)) {
       this.state.advance();
       const right = this.parseLogicalAnd();
       left = {
-        type: 'LogicalExpression',
-        operator: '||',
+        type: "LogicalExpression",
+        operator: "||",
         left,
         right,
         loc: createLocationFromNode(left, right),
@@ -448,15 +459,18 @@ export class ExpressionParser {
   private parseLogicalAnd(): Expression {
     let left = this.parseLogicalNot();
 
-    while (this.state.check('And' as TokenType)) {
+    while (this.state.check("And" as TokenType)) {
       this.state.advance();
       const right = this.parseLogicalNot();
       left = {
-        type: 'LogicalExpression',
-        operator: '&&',
+        type: "LogicalExpression",
+        operator: "&&",
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -466,7 +480,13 @@ export class ExpressionParser {
   private parseLogicalNot(): Expression {
     let left = this.parseComparison();
 
-    while (this.state.checkAny('Xor' as TokenType, 'Eqv' as TokenType, 'Imp' as TokenType)) {
+    while (
+      this.state.checkAny(
+        "Xor" as TokenType,
+        "Eqv" as TokenType,
+        "Imp" as TokenType,
+      )
+    ) {
       const op = this.state.advance();
       const right = this.parseComparison();
       // LogicalExpression['operator'] declares these capitalized ('Xor' |
@@ -478,13 +498,20 @@ export class ExpressionParser {
       // bug unrelated to (found while verifying) the Null-propagation/
       // bitwise-math fixes elsewhere in this codebase.
       const operator =
-        op.value.toLowerCase() === 'xor' ? 'Xor' : op.value.toLowerCase() === 'eqv' ? 'Eqv' : 'Imp';
+        op.value.toLowerCase() === "xor"
+          ? "Xor"
+          : op.value.toLowerCase() === "eqv"
+            ? "Eqv"
+            : "Imp";
       left = {
-        type: 'LogicalExpression',
-        operator: operator as LogicalExpression['operator'],
+        type: "LogicalExpression",
+        operator: operator as LogicalExpression["operator"],
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -519,12 +546,12 @@ export class ExpressionParser {
   // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs,
   // before writing this.
   private parseComparisonOperand(): Expression {
-    if (this.state.check('Not' as TokenType)) {
+    if (this.state.check("Not" as TokenType)) {
       const op = this.state.advance();
       const argument = this.parseComparison();
       return {
-        type: 'UnaryExpression',
-        operator: '!',
+        type: "UnaryExpression",
+        operator: "!",
         prefix: true,
         argument,
         loc: createLocation(op, { loc: argument.loc! } as Token),
@@ -539,60 +566,66 @@ export class ExpressionParser {
 
     while (
       this.state.checkAny(
-        'Eq' as TokenType,
-        'Lt' as TokenType,
-        'Gt' as TokenType,
-        'Le' as TokenType,
-        'Ge' as TokenType,
-        'Ne' as TokenType
+        "Eq" as TokenType,
+        "Lt" as TokenType,
+        "Gt" as TokenType,
+        "Le" as TokenType,
+        "Ge" as TokenType,
+        "Ne" as TokenType,
       )
     ) {
       const op = this.state.advance();
       const right = this.parseComparisonOperand();
       const operator = this.getComparisonOperator(op);
       left = {
-        type: 'BinaryExpression',
+        type: "BinaryExpression",
         operator,
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
     return left;
   }
 
-  private getComparisonOperator(token: Token): BinaryExpression['operator'] {
+  private getComparisonOperator(token: Token): BinaryExpression["operator"] {
     switch (token.type) {
-      case 'Eq':
-        return '==';
-      case 'Lt':
-        return '<';
-      case 'Gt':
-        return '>';
-      case 'Le':
-        return '<=';
-      case 'Ge':
-        return '>=';
-      case 'Ne':
-        return '!=';
+      case "Eq":
+        return "==";
+      case "Lt":
+        return "<";
+      case "Gt":
+        return ">";
+      case "Le":
+        return "<=";
+      case "Ge":
+        return ">=";
+      case "Ne":
+        return "!=";
       default:
-        return '==';
+        return "==";
     }
   }
 
   private parseIs(): Expression {
     const left = this.parseConcatenation();
 
-    if (this.state.check('Is' as TokenType)) {
+    if (this.state.check("Is" as TokenType)) {
       this.state.advance();
       const right = this.parseConcatenation();
       return {
-        type: 'BinaryExpression',
-        operator: 'Is',
+        type: "BinaryExpression",
+        operator: "Is",
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       } as BinaryExpression;
     }
 
@@ -606,15 +639,18 @@ export class ExpressionParser {
   private parseAdditive(): Expression {
     let left = this.parseMultiplicative();
 
-    while (this.state.checkAny('Plus' as TokenType, 'Minus' as TokenType)) {
+    while (this.state.checkAny("Plus" as TokenType, "Minus" as TokenType)) {
       const op = this.state.advance();
       const right = this.parseMultiplicative();
       left = {
-        type: 'BinaryExpression',
-        operator: op.type === 'Plus' ? '+' : '-',
+        type: "BinaryExpression",
+        operator: op.type === "Plus" ? "+" : "-",
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -624,15 +660,18 @@ export class ExpressionParser {
   private parseMultiplicative(): Expression {
     let left = this.parseIntegerDivision();
 
-    while (this.state.checkAny('Asterisk' as TokenType, 'Slash' as TokenType)) {
+    while (this.state.checkAny("Asterisk" as TokenType, "Slash" as TokenType)) {
       const op = this.state.advance();
       const right = this.parseIntegerDivision();
       left = {
-        type: 'BinaryExpression',
-        operator: op.type === 'Asterisk' ? '*' : '/',
+        type: "BinaryExpression",
+        operator: op.type === "Asterisk" ? "*" : "/",
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -642,15 +681,18 @@ export class ExpressionParser {
   private parseIntegerDivision(): Expression {
     let left = this.parseMod();
 
-    while (this.state.check('Backslash' as TokenType)) {
+    while (this.state.check("Backslash" as TokenType)) {
       this.state.advance();
       const right = this.parseMod();
       left = {
-        type: 'BinaryExpression',
-        operator: '\\' as BinaryExpression['operator'],
+        type: "BinaryExpression",
+        operator: "\\" as BinaryExpression["operator"],
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -660,15 +702,18 @@ export class ExpressionParser {
   private parseMod(): Expression {
     let left = this.parsePower();
 
-    while (this.state.check('Mod' as TokenType)) {
+    while (this.state.check("Mod" as TokenType)) {
       this.state.advance();
       const right = this.parsePower();
       left = {
-        type: 'BinaryExpression',
-        operator: '%' as BinaryExpression['operator'],
+        type: "BinaryExpression",
+        operator: "%" as BinaryExpression["operator"],
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -678,15 +723,18 @@ export class ExpressionParser {
   private parsePower(): Expression {
     let left = this.parseUnary();
 
-    while (this.state.check('Caret' as TokenType)) {
+    while (this.state.check("Caret" as TokenType)) {
       this.state.advance();
       const right = this.parseUnary();
       left = {
-        type: 'BinaryExpression',
-        operator: '**' as BinaryExpression['operator'],
+        type: "BinaryExpression",
+        operator: "**" as BinaryExpression["operator"],
         left,
         right,
-        loc: createLocation({ loc: left.loc! } as Token, { loc: right.loc! } as Token),
+        loc: createLocation(
+          { loc: left.loc! } as Token,
+          { loc: right.loc! } as Token,
+        ),
       };
     }
 
@@ -694,24 +742,24 @@ export class ExpressionParser {
   }
 
   private parseUnary(): Expression {
-    if (this.state.check('Minus' as TokenType)) {
+    if (this.state.check("Minus" as TokenType)) {
       const op = this.state.advance();
       const argument = this.parseUnary();
       return {
-        type: 'UnaryExpression',
-        operator: '-',
+        type: "UnaryExpression",
+        operator: "-",
         prefix: true,
         argument,
         loc: createLocation(op, { loc: argument.loc! } as Token),
       };
     }
 
-    if (this.state.check('Plus' as TokenType)) {
+    if (this.state.check("Plus" as TokenType)) {
       const op = this.state.advance();
       const argument = this.parseUnary();
       return {
-        type: 'UnaryExpression',
-        operator: '+',
+        type: "UnaryExpression",
+        operator: "+",
         prefix: true,
         argument,
         loc: createLocation(op, { loc: argument.loc! } as Token),
@@ -729,45 +777,51 @@ export class ExpressionParser {
     let expr = this.parsePrimary();
 
     while (true) {
-      if (this.state.check('Dot' as TokenType)) {
+      if (this.state.check("Dot" as TokenType)) {
         this.state.advance();
         const property = this.parsePropertyName();
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property,
           computed: false,
           optional: false,
-          loc: createLocation({ loc: expr.loc! } as Token, { loc: property.loc! } as Token),
+          loc: createLocation(
+            { loc: expr.loc! } as Token,
+            { loc: property.loc! } as Token,
+          ),
         } as MemberExpression;
-      } else if (this.state.check('Bang' as TokenType)) {
+      } else if (this.state.check("Bang" as TokenType)) {
         this.state.advance();
         const property = this.parsePropertyName();
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property,
           computed: true,
           optional: false,
-          loc: createLocation({ loc: expr.loc! } as Token, { loc: property.loc! } as Token),
+          loc: createLocation(
+            { loc: expr.loc! } as Token,
+            { loc: property.loc! } as Token,
+          ),
         } as MemberExpression;
-      } else if (this.state.check('LParen' as TokenType)) {
+      } else if (this.state.check("LParen" as TokenType)) {
         this.state.advance();
         const args = this.parseArguments();
-        const rparen = this.state.expect('RParen' as TokenType);
+        const rparen = this.state.expect("RParen" as TokenType);
         expr = {
-          type: 'CallExpression',
+          type: "CallExpression",
           callee: expr,
           arguments: args,
           optional: false,
           loc: createLocation({ loc: expr.loc! } as Token, rparen),
         } as CallExpression;
-      } else if (this.state.check('LBracket' as TokenType)) {
+      } else if (this.state.check("LBracket" as TokenType)) {
         this.state.advance();
         const index = this.parseExpression();
-        const rbracket = this.state.expect('RBracket' as TokenType);
+        const rbracket = this.state.expect("RBracket" as TokenType);
         expr = {
-          type: 'MemberExpression',
+          type: "MemberExpression",
           object: expr,
           property: index,
           computed: true,
@@ -785,21 +839,21 @@ export class ExpressionParser {
   private parseArguments(): Expression[] {
     const args: Expression[] = [];
 
-    if (!this.state.check('RParen' as TokenType)) {
+    if (!this.state.check("RParen" as TokenType)) {
       while (true) {
         this.state.skipOptionalNewlines();
 
-        if (this.state.check('RParen' as TokenType)) {
+        if (this.state.check("RParen" as TokenType)) {
           break;
         }
 
         // Handle empty arguments (consecutive commas)
-        if (this.state.check('Comma' as TokenType)) {
+        if (this.state.check("Comma" as TokenType)) {
           // Empty argument - push Empty literal
           args.push({
-            type: 'VbEmptyLiteral',
+            type: "VbEmptyLiteral",
             value: undefined,
-            raw: '',
+            raw: "",
             loc: this.state.current.loc,
           });
         } else {
@@ -808,7 +862,7 @@ export class ExpressionParser {
 
         this.state.skipOptionalNewlines();
 
-        if (this.state.check('Comma' as TokenType)) {
+        if (this.state.check("Comma" as TokenType)) {
           this.state.advance();
         } else {
           break;
@@ -820,39 +874,39 @@ export class ExpressionParser {
   }
 
   parsePrimary(): Expression {
-    if (this.state.check('LParen' as TokenType)) {
+    if (this.state.check("LParen" as TokenType)) {
       return this.parseParenExpression();
     }
 
-    if (this.state.check('StringLiteral' as TokenType)) {
+    if (this.state.check("StringLiteral" as TokenType)) {
       return this.parseStringLiteral();
     }
 
-    if (this.state.check('NumberLiteral' as TokenType)) {
+    if (this.state.check("NumberLiteral" as TokenType)) {
       return this.parseNumberLiteral();
     }
 
-    if (this.state.check('DateLiteral' as TokenType)) {
+    if (this.state.check("DateLiteral" as TokenType)) {
       return this.parseDateLiteral();
     }
 
-    if (this.state.check('BooleanLiteral' as TokenType)) {
+    if (this.state.check("BooleanLiteral" as TokenType)) {
       return this.parseBooleanLiteral();
     }
 
-    if (this.state.check('NothingLiteral' as TokenType)) {
+    if (this.state.check("NothingLiteral" as TokenType)) {
       return this.parseNothingLiteral();
     }
 
-    if (this.state.check('NullLiteral' as TokenType)) {
+    if (this.state.check("NullLiteral" as TokenType)) {
       return this.parseNullLiteral();
     }
 
-    if (this.state.check('EmptyLiteral' as TokenType)) {
+    if (this.state.check("EmptyLiteral" as TokenType)) {
       return this.parseEmptyLiteral();
     }
 
-    if (this.state.check('New' as TokenType)) {
+    if (this.state.check("New" as TokenType)) {
       return this.parseNewExpression();
     }
 
@@ -865,48 +919,48 @@ export class ExpressionParser {
     // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/
     // lang.vbs (a chained-call test: `(New testclass).publicSub()` style
     // code returning `Me` from a method).
-    if (this.state.check('Me' as TokenType)) {
+    if (this.state.check("Me" as TokenType)) {
       const token = this.state.advance();
-      return { type: 'ThisExpression', loc: token.loc } as Expression;
+      return { type: "ThisExpression", loc: token.loc } as Expression;
     }
 
-    if (this.state.check('Dot' as TokenType)) {
+    if (this.state.check("Dot" as TokenType)) {
       return this.parseWithMemberExpression();
     }
 
     if (
       this.state.checkAny(
-        'Identifier' as TokenType,
+        "Identifier" as TokenType,
         // Type-annotation keywords (Dim x As String, etc. - see parseTypeAnnotation() in
         // declarations.ts) double as ordinary identifiers everywhere else, same as any other
         // built-in name shadowing in real VBScript. See parseFlexibleIdentifier()'s comment.
-        'Integer' as TokenType,
-        'Long' as TokenType,
-        'LongLong' as TokenType,
-        'Single' as TokenType,
-        'Double' as TokenType,
-        'Currency' as TokenType,
-        'String' as TokenType,
-        'Boolean' as TokenType,
-        'Date' as TokenType,
-        'Object' as TokenType,
-        'Variant' as TokenType,
-        'Byte' as TokenType,
+        "Integer" as TokenType,
+        "Long" as TokenType,
+        "LongLong" as TokenType,
+        "Single" as TokenType,
+        "Double" as TokenType,
+        "Currency" as TokenType,
+        "String" as TokenType,
+        "Boolean" as TokenType,
+        "Date" as TokenType,
+        "Object" as TokenType,
+        "Variant" as TokenType,
+        "Byte" as TokenType,
         // `Property` too, when NOT immediately starting a real Property
         // Get/Let/Set block (that case is already routed to
         // parsePropertyStatement() before parsePrimary() is ever reached) -
         // e.g. `Dim Property` then later `Property = true`. Found via
         // Wine's own vbscript.dll conformance suite, dlls/vbscript/tests/
         // lang.vbs.
-        'Property' as TokenType,
+        "Property" as TokenType,
         // `Error`/`Explicit`/`Step` too (each declared via `Dim` then
         // assigned as a plain variable, e.g. `Dim step : step = "xx"`) -
         // same rule, same suite (Wine's lang.vbs `test_identifiers` sub
         // exhaustively exercises every VBScript keyword that's also
         // required to work as an ordinary identifier).
-        'Error' as TokenType,
-        'Explicit' as TokenType,
-        'Step' as TokenType
+        "Error" as TokenType,
+        "Explicit" as TokenType,
+        "Step" as TokenType,
       )
     ) {
       return this.parseIdentifierOrCall();
@@ -915,17 +969,20 @@ export class ExpressionParser {
     // Carries the token so the engine can report WHERE the parse stopped. Without it the
     // message names a token type and nothing else, which in a long script is not enough to
     // find the line it came from.
-    throw Object.assign(new Error(`Unexpected token: ${this.state.current.type}`), {
-      token: this.state.current,
-    });
+    throw Object.assign(
+      new Error(`Unexpected token: ${this.state.current.type}`),
+      {
+        token: this.state.current,
+      },
+    );
   }
 
   private parseWithMemberExpression(): MemberExpression {
     const dotToken = this.state.advance();
     const property = this.parsePropertyName();
     return {
-      type: 'MemberExpression',
-      object: { type: 'VbWithObject', loc: dotToken.loc } as Expression,
+      type: "MemberExpression",
+      object: { type: "VbWithObject", loc: dotToken.loc } as Expression,
       property,
       computed: false,
       optional: false,
@@ -938,14 +995,14 @@ export class ExpressionParser {
     this.state.skipOptionalNewlines();
     const expr = this.parseExpression();
     this.state.skipOptionalNewlines();
-    this.state.expect('RParen' as TokenType);
+    this.state.expect("RParen" as TokenType);
     return expr;
   }
 
   private parseStringLiteral(): Literal {
     const token = this.state.advance();
     return {
-      type: 'Literal',
+      type: "Literal",
       value: token.value,
       raw: token.raw ?? undefined,
       loc: token.loc,
@@ -955,11 +1012,13 @@ export class ExpressionParser {
   private parseNumberLiteral(): Literal {
     const token = this.state.advance();
     const value =
-      token.value.includes('.') || token.value.includes('e') || token.value.includes('E')
+      token.value.includes(".") ||
+      token.value.includes("e") ||
+      token.value.includes("E")
         ? parseFloat(token.value)
         : parseInt(token.value, 10);
     return {
-      type: 'Literal',
+      type: "Literal",
       value,
       raw: token.raw ?? token.value,
       loc: token.loc,
@@ -969,7 +1028,7 @@ export class ExpressionParser {
   private parseDateLiteral(): Literal {
     const token = this.state.advance();
     return {
-      type: 'Literal',
+      type: "Literal",
       value: new Date(token.value),
       raw: token.raw ?? undefined,
       loc: token.loc,
@@ -979,8 +1038,8 @@ export class ExpressionParser {
   private parseBooleanLiteral(): Literal {
     const token = this.state.advance();
     return {
-      type: 'Literal',
-      value: token.value.toLowerCase() === 'true',
+      type: "Literal",
+      value: token.value.toLowerCase() === "true",
       raw: token.raw ?? undefined,
       loc: token.loc,
     };
@@ -989,8 +1048,8 @@ export class ExpressionParser {
   private parseNothingLiteral(): Literal {
     const token = this.state.advance();
     return {
-      type: 'Literal',
-      value: Symbol.for('Nothing'),
+      type: "Literal",
+      value: Symbol.for("Nothing"),
       raw: token.raw ?? undefined,
       loc: token.loc,
     };
@@ -999,7 +1058,7 @@ export class ExpressionParser {
   private parseNullLiteral(): Literal {
     const token = this.state.advance();
     return {
-      type: 'Literal',
+      type: "Literal",
       value: null,
       raw: token.raw ?? undefined,
       loc: token.loc,
@@ -1009,7 +1068,7 @@ export class ExpressionParser {
   private parseEmptyLiteral(): VbEmptyLiteral {
     const token = this.state.advance();
     return {
-      type: 'VbEmptyLiteral',
+      type: "VbEmptyLiteral",
       value: undefined,
       raw: token.raw ?? undefined,
       loc: token.loc,
@@ -1021,31 +1080,32 @@ export class ExpressionParser {
 
     // Parse the first identifier, then consume any dot-chained members
     // so that `New Forms.Form` and `New NS.Sub.Class` are supported.
-    let callee: import('../ast/types.ts').Identifier | import('../ast/types.ts').MemberExpression =
-      this.parseIdentifier();
+    let callee:
+      | import("../ast/types.ts").Identifier
+      | import("../ast/types.ts").MemberExpression = this.parseIdentifier();
 
-    while (this.state.check('Dot' as TokenType)) {
+    while (this.state.check("Dot" as TokenType)) {
       this.state.advance();
       const prop = this.parseIdentifier();
       callee = {
-        type: 'MemberExpression',
+        type: "MemberExpression",
         object: callee,
         property: prop,
         computed: false,
         optional: false,
         loc: callee.loc,
-      } as import('../ast/types.ts').MemberExpression;
+      } as import("../ast/types.ts").MemberExpression;
     }
 
     let args: Expression[] = [];
-    if (this.state.check('LParen' as TokenType)) {
+    if (this.state.check("LParen" as TokenType)) {
       this.state.advance();
       args = this.parseArguments();
-      this.state.expect('RParen' as TokenType);
+      this.state.expect("RParen" as TokenType);
     }
 
     return {
-      type: 'NewExpression',
+      type: "NewExpression",
       callee,
       arguments: args,
       loc: createLocation(newToken, this.state.previous),
@@ -1055,12 +1115,12 @@ export class ExpressionParser {
   private parseIdentifierOrCall(): Expression {
     const id = this.parseFlexibleIdentifier();
 
-    if (this.state.check('LParen' as TokenType)) {
+    if (this.state.check("LParen" as TokenType)) {
       this.state.advance();
       const args = this.parseArguments();
-      const rparen = this.state.expect('RParen' as TokenType);
+      const rparen = this.state.expect("RParen" as TokenType);
       return {
-        type: 'CallExpression',
+        type: "CallExpression",
         callee: id,
         arguments: args,
         optional: false,
@@ -1072,9 +1132,9 @@ export class ExpressionParser {
   }
 
   parseIdentifier(): Identifier {
-    const token = this.state.expect('Identifier' as TokenType);
+    const token = this.state.expect("Identifier" as TokenType);
     return {
-      type: 'Identifier',
+      type: "Identifier",
       name: token.value,
       loc: token.loc,
     };
@@ -1097,17 +1157,17 @@ export class ExpressionParser {
   private parsePropertyName(): Identifier {
     const token = this.state.current;
     if (
-      token.type === ('Identifier' as TokenType) ||
-      (token.type !== ('EOF' as TokenType) &&
-        token.type !== ('Newline' as TokenType) &&
-        token.type !== ('LParen' as TokenType) &&
-        token.type !== ('RParen' as TokenType) &&
-        token.type !== ('Comma' as TokenType) &&
-        token.type !== ('Colon' as TokenType))
+      token.type === ("Identifier" as TokenType) ||
+      (token.type !== ("EOF" as TokenType) &&
+        token.type !== ("Newline" as TokenType) &&
+        token.type !== ("LParen" as TokenType) &&
+        token.type !== ("RParen" as TokenType) &&
+        token.type !== ("Comma" as TokenType) &&
+        token.type !== ("Colon" as TokenType))
     ) {
       this.state.advance();
       return {
-        type: 'Identifier',
+        type: "Identifier",
         name: token.value,
         loc: token.loc,
       };

@@ -1,4 +1,4 @@
-import type { ExecFileSyncOptions } from 'node:child_process';
+import type { ExecFileSyncOptions } from "node:child_process";
 
 /**
  * Node-only helpers shared by the MsgBox and InputBox GUI backends.
@@ -14,19 +14,23 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 type ExecFileSync = (
   file: string,
   args?: string[],
-  options?: ExecFileSyncOptions
+  options?: ExecFileSyncOptions,
 ) => Buffer | string;
 
 let cached: ExecFileSync | null | undefined;
 
 export function getExecFileSync(): ExecFileSync | null {
   if (cached !== undefined) return cached;
-  if (typeof process === 'undefined' || typeof process.getBuiltinModule !== 'function') {
+  if (
+    typeof process === "undefined" ||
+    typeof process.getBuiltinModule !== "function"
+  ) {
     cached = null;
     return cached;
   }
   try {
-    cached = process.getBuiltinModule('node:child_process').execFileSync as ExecFileSync;
+    cached = process.getBuiltinModule("node:child_process")
+      .execFileSync as ExecFileSync;
   } catch {
     cached = null;
   }
@@ -104,10 +108,14 @@ $owner.Activate();
  */
 export function runPowerShellDialog(body: string): string {
   const exec = getExecFileSync()!;
-  const script = PS_PREAMBLE + '\n' + body;
-  const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  const out = exec('powershell', ['-NoProfile', '-STA', '-EncodedCommand', encoded], {
-    encoding: 'utf8',
-  });
+  const script = PS_PREAMBLE + "\n" + body;
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  const out = exec(
+    "powershell",
+    ["-NoProfile", "-STA", "-EncodedCommand", encoded],
+    {
+      encoding: "utf8",
+    },
+  );
   return String(out);
 }

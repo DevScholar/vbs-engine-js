@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { formatVbDateTime, VbDateTimeFormat } from '../runtime/vb-date.ts';
-import { LCID_TO_LOCALE } from '../builtins/locale-data.generated.ts';
+import { describe, it, expect } from "vitest";
+import { formatVbDateTime, VbDateTimeFormat } from "../runtime/vb-date.ts";
+import { LCID_TO_LOCALE } from "../builtins/locale-data.ts";
 
 // FormatDateTime against the real vbscript.dll.
 //
@@ -11,41 +11,42 @@ import { LCID_TO_LOCALE } from '../builtins/locale-data.generated.ts';
 //
 // The engine's own values come from the Windows NLS patterns shipped with it, not from CLDR: for the ten
 // locales below Intl disagrees with vbscript.dll on at least one format, which is why the table exists.
-const ENGINE_LOCALE = (lcid: number): string => LCID_TO_LOCALE.get(lcid) ?? 'en-us';
+const ENGINE_LOCALE = (lcid: number): string =>
+  LCID_TO_LOCALE.get(lcid) ?? "en-us";
 
 /** The measured value of one FormatDateTime call, keyed by LCID and named format. */
 const MEASURED: Record<number, Record<number, string>> = {
   // de-DE: day and month padded, 24-hour clock, long date with a comma.
   1031: {
-    0: '05.01.2026 09:05:00',
-    1: 'Montag, 5. Januar 2026',
-    2: '05.01.2026',
-    3: '09:05:00',
-    4: '09:05',
+    0: "05.01.2026 09:05:00",
+    1: "Montag, 5. Januar 2026",
+    2: "05.01.2026",
+    3: "09:05:00",
+    4: "09:05",
   },
   // en-US: the one common locale with an unpadded short date and a 12-hour clock.
   1033: {
-    0: '1/5/2026 9:05:00 AM',
-    1: 'Monday, January 5, 2026',
-    2: '1/5/2026',
-    3: '9:05:00 AM',
-    4: '09:05',
+    0: "1/5/2026 9:05:00 AM",
+    1: "Monday, January 5, 2026",
+    2: "1/5/2026",
+    3: "9:05:00 AM",
+    4: "09:05",
   },
   // zh-CN: ideographic long date, unpadded numeric date, 24-hour clock with no leading zero.
   2052: {
-    0: '2026/1/5 9:05:00',
-    1: '2026\u5e741\u67085\u65e5',
-    2: '2026/1/5',
-    3: '9:05:00',
-    4: '09:05',
+    0: "2026/1/5 9:05:00",
+    1: "2026\u5e741\u67085\u65e5",
+    2: "2026/1/5",
+    3: "9:05:00",
+    4: "09:05",
   },
   // ko-KR: the clock carries its AM/PM designator first, the long date its weekday last.
   1042: {
-    0: '2026-01-05 \uc624\uc804 9:05:00',
-    1: '2026\ub144 1\uc6d4 5\uc77c \uc6d4\uc694\uc77c',
-    2: '2026-01-05',
-    3: '\uc624\uc804 9:05:00',
-    4: '09:05',
+    0: "2026-01-05 \uc624\uc804 9:05:00",
+    1: "2026\ub144 1\uc6d4 5\uc77c \uc6d4\uc694\uc77c",
+    2: "2026-01-05",
+    3: "\uc624\uc804 9:05:00",
+    4: "09:05",
   },
   // ar-SA, measured in a fresh process: the two date formats are Hijri and NOT the Gregorian date CStr
   // prints, while GeneralDate, the long time and the short time are Gregorian. The Hijri short date also
@@ -54,57 +55,58 @@ const MEASURED: Record<number, Record<number, string>> = {
   // The long date is the whole Hijri date with the calendar's own month name, and Windows separates its
   // three fields with the SHORT date's "/" rather than the space and the comma the picture string asks for.
   1025: {
-    0: '05/01/2026 09:05:00 \u0635',
-    1: '\u200f16/\u200f\u0631\u062c\u0628/\u200f1447',
-    2: '\u200f16/\u200f07/\u200f47',
-    3: '09:05:00 \u0635',
-    4: '09:05',
+    0: "05/01/2026 09:05:00 \u0635",
+    1: "\u200f16/\u200f\u0631\u062c\u0628/\u200f1447",
+    2: "\u200f16/\u200f07/\u200f47",
+    3: "09:05:00 \u0635",
+    4: "09:05",
   },
   // sv-SE: a long date with a word in front of the day.
   1053: {
-    0: '2026-01-05 09:05:00',
-    1: 'den 5 januari 2026',
-    2: '2026-01-05',
-    3: '09:05:00',
-    4: '09:05',
+    0: "2026-01-05 09:05:00",
+    1: "den 5 januari 2026",
+    2: "2026-01-05",
+    3: "09:05:00",
+    4: "09:05",
   },
   // en-GB: day before month, no leading comma in the long date.
   2057: {
-    0: '05/01/2026 09:05:00',
-    1: '05 January 2026',
-    2: '05/01/2026',
-    3: '09:05:00',
-    4: '09:05',
+    0: "05/01/2026 09:05:00",
+    1: "05 January 2026",
+    2: "05/01/2026",
+    3: "09:05:00",
+    4: "09:05",
   },
   // hi-IN: a dash separates the short date where most locales use a slash or a dot.
   1081: {
-    0: '05-01-2026 09:05:00',
-    1: '05 \u091c\u0928\u0935\u0930\u0940 2026',
-    2: '05-01-2026',
-    3: '09:05:00',
-    4: '09:05',
+    0: "05-01-2026 09:05:00",
+    1: "05 \u091c\u0928\u0935\u0930\u0940 2026",
+    2: "05-01-2026",
+    3: "09:05:00",
+    4: "09:05",
   },
   // fr-FR: an unpadded day, and a long date with no weekday at all.
   1036: {
-    0: '05/01/2026 09:05:00',
-    1: 'lundi 5 janvier 2026',
-    2: '05/01/2026',
-    3: '09:05:00',
-    4: '09:05',
+    0: "05/01/2026 09:05:00",
+    1: "lundi 5 janvier 2026",
+    2: "05/01/2026",
+    3: "09:05:00",
+    4: "09:05",
   },
   // es-ES with the traditional sort order: "de" between the fields, and a single-digit long-time hour.
   1034: {
-    0: '05/01/2026 9:05:00',
-    1: 'lunes, 05 de enero de 2026',
-    2: '05/01/2026',
-    3: '9:05:00',
-    4: '09:05',
+    0: "05/01/2026 9:05:00",
+    1: "lunes, 05 de enero de 2026",
+    2: "05/01/2026",
+    3: "9:05:00",
+    4: "09:05",
   },
 };
 
-const instant = (hour: number, minute: number): Date => new Date(2026, 0, 5, hour, minute, 0);
+const instant = (hour: number, minute: number): Date =>
+  new Date(2026, 0, 5, hour, minute, 0);
 
-describe('FormatDateTime', () => {
+describe("FormatDateTime", () => {
   for (const [lcidText, formats] of Object.entries(MEASURED)) {
     const lcid = Number(lcidText);
     it(`matches vbscript.dll for every named format under ${lcid}`, () => {
@@ -112,13 +114,13 @@ describe('FormatDateTime', () => {
         const style = Number(styleText);
         expect(
           formatVbDateTime(instant(9, 5), lcid, style, ENGINE_LOCALE(lcid)),
-          `LCID ${lcid} (${ENGINE_LOCALE(lcid)}), format ${style}`
+          `LCID ${lcid} (${ENGINE_LOCALE(lcid)}), format ${style}`,
         ).toBe(expected);
       }
     });
   }
 
-  it('names the formats as the OLE Automation constants do', () => {
+  it("names the formats as the OLE Automation constants do", () => {
     expect(VbDateTimeFormat).toEqual({
       GeneralDate: 0,
       LongDate: 1,
@@ -130,105 +132,199 @@ describe('FormatDateTime', () => {
 
   // Measured on 1031 and 1033: midnight of an ordinary day gives the date alone for GeneralDate, while
   // the three date formats are unchanged and the two clocks still read as a clock.
-  it('drops the time from GeneralDate at midnight, as vbscript.dll does', () => {
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.GeneralDate, 'de-de')).toBe(
-      '05.01.2026'
-    );
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.GeneralDate, 'en-us')).toBe(
-      '1/5/2026'
-    );
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.LongTime, 'en-us')).toBe(
-      '12:00:00 AM'
-    );
-    expect(formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.ShortTime, 'en-us')).toBe(
-      '00:00'
-    );
+  it("drops the time from GeneralDate at midnight, as vbscript.dll does", () => {
+    expect(
+      formatVbDateTime(
+        instant(0, 0),
+        1031,
+        VbDateTimeFormat.GeneralDate,
+        "de-de",
+      ),
+    ).toBe("05.01.2026");
+    expect(
+      formatVbDateTime(
+        instant(0, 0),
+        1033,
+        VbDateTimeFormat.GeneralDate,
+        "en-us",
+      ),
+    ).toBe("1/5/2026");
+    expect(
+      formatVbDateTime(instant(0, 0), 1033, VbDateTimeFormat.LongTime, "en-us"),
+    ).toBe("12:00:00 AM");
+    expect(
+      formatVbDateTime(
+        instant(0, 0),
+        1033,
+        VbDateTimeFormat.ShortTime,
+        "en-us",
+      ),
+    ).toBe("00:00");
   });
 
   // Measured: style 4 is the locale's own LOCALE_SSHORTTIME with the designator gone and a padded hour,
   // not a hard-coded "HH:mm". Finnish and Indonesian keep their own separator, Korean drops its "\uc624\uc804".
-  it('keeps the locale separator in the short time and pads the hour', () => {
-    expect(formatVbDateTime(instant(9, 5), 1035, VbDateTimeFormat.ShortTime, 'fi-fi')).toBe(
-      '09.05'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1057, VbDateTimeFormat.ShortTime, 'id-id')).toBe(
-      '09.05'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1042, VbDateTimeFormat.ShortTime, 'ko-kr')).toBe(
-      '09:05'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1026, VbDateTimeFormat.ShortTime, 'bg-bg')).toBe(
-      '09:05'
-    );
+  it("keeps the locale separator in the short time and pads the hour", () => {
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1035,
+        VbDateTimeFormat.ShortTime,
+        "fi-fi",
+      ),
+    ).toBe("09.05");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1057,
+        VbDateTimeFormat.ShortTime,
+        "id-id",
+      ),
+    ).toBe("09.05");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1042,
+        VbDateTimeFormat.ShortTime,
+        "ko-kr",
+      ),
+    ).toBe("09:05");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1026,
+        VbDateTimeFormat.ShortTime,
+        "bg-bg",
+      ),
+    ).toBe("09:05");
   });
 
   // Measured in a fresh process: Thai writes its year in the Buddhist calendar in every style, CStr
   // included, and its long date carries no weekday although LOCALE_SLONGDATE asks for one ("5 มกราคม
   // 2569" out of "'วัน'dddd'ที่' d MMMM yyyy"). An earlier version of this test recorded error 5 for both
   // date formats, which is what a capture made with SetLocale inside one process reported.
-  it('writes the Thai year in the Buddhist calendar, without a weekday in the long date', () => {
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongDate, 'th-th')).toBe(
-      '5 \u0e21\u0e01\u0e23\u0e32\u0e04\u0e21 2569'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortDate, 'th-th')).toBe(
-      '5/1/2569'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe(
-      '5/1/2569 9:05:00'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongTime, 'th-th')).toBe(
-      '9:05:00'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.ShortTime, 'th-th')).toBe(
-      '09:05'
-    );
+  it("writes the Thai year in the Buddhist calendar, without a weekday in the long date", () => {
+    expect(
+      formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongDate, "th-th"),
+    ).toBe("5 \u0e21\u0e01\u0e23\u0e32\u0e04\u0e21 2569");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1054,
+        VbDateTimeFormat.ShortDate,
+        "th-th",
+      ),
+    ).toBe("5/1/2569");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1054,
+        VbDateTimeFormat.GeneralDate,
+        "th-th",
+      ),
+    ).toBe("5/1/2569 9:05:00");
+    expect(
+      formatVbDateTime(instant(9, 5), 1054, VbDateTimeFormat.LongTime, "th-th"),
+    ).toBe("9:05:00");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1054,
+        VbDateTimeFormat.ShortTime,
+        "th-th",
+      ),
+    ).toBe("09:05");
   });
 
   // Measured in a fresh process, over a whole day at a time: on day 0 a locale prints the time alone for
   // GeneralDate, ar-SA included. The engine used to keep the Hijri date there, which a later capture of the
   // same cells in a fresh process did not repeat: FormatDateTime(CDate(0)) is "12:00:00 \u0635" under 1025 and
   // "12:00:00 AM" under 1033, and TimeSerial(13, 5, 9) prints the clock alone in both.
-  it('prints the time alone on day 0 for GeneralDate, in every locale', () => {
+  it("prints the time alone on day 0 for GeneralDate, in every locale", () => {
     const dayZero = new Date(1899, 11, 30, 9, 5, 0);
-    expect(formatVbDateTime(dayZero, 1026, VbDateTimeFormat.GeneralDate, 'bg-bg')).toBe('9:05:00');
-    expect(formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, 'ar-sa')).toBe(
-      '09:05:00 \u0635'
-    );
-    expect(formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, 'th-th')).toBe('9:05:00');
+    expect(
+      formatVbDateTime(dayZero, 1026, VbDateTimeFormat.GeneralDate, "bg-bg"),
+    ).toBe("9:05:00");
+    expect(
+      formatVbDateTime(dayZero, 1025, VbDateTimeFormat.GeneralDate, "ar-sa"),
+    ).toBe("09:05:00 \u0635");
+    expect(
+      formatVbDateTime(dayZero, 1054, VbDateTimeFormat.GeneralDate, "th-th"),
+    ).toBe("9:05:00");
   });
 
   // Measured over the whole calendar, one day at a time: the long and the short date are error 5 for a day
   // Windows' own date writers cannot write. Every locale starts at 1601-01-01, and ar-SA stops at the end of
   // the Hijri range its calendar covers, 30 December 1500, which is 16 November 2077.
-  it('refuses a day the date styles cannot write', () => {
+  it("refuses a day the date styles cannot write", () => {
     const day = (year: number, month: number, date: number) =>
       new Date(year, month - 1, date, 9, 5, 0);
     expect(() =>
-      formatVbDateTime(day(1600, 12, 31), 1033, VbDateTimeFormat.ShortDate, 'en-us')
+      formatVbDateTime(
+        day(1600, 12, 31),
+        1033,
+        VbDateTimeFormat.ShortDate,
+        "en-us",
+      ),
     ).toThrow();
-    expect(formatVbDateTime(day(1601, 1, 1), 1033, VbDateTimeFormat.ShortDate, 'en-us')).toBe(
-      '1/1/1601'
-    );
+    expect(
+      formatVbDateTime(
+        day(1601, 1, 1),
+        1033,
+        VbDateTimeFormat.ShortDate,
+        "en-us",
+      ),
+    ).toBe("1/1/1601");
     // The GeneralDate of the same days is written, which is why the refusal belongs to the date styles.
-    expect(formatVbDateTime(day(1600, 12, 31), 1033, VbDateTimeFormat.GeneralDate, 'en-us')).toBe(
-      '12/31/1600 9:05:00 AM'
-    );
+    expect(
+      formatVbDateTime(
+        day(1600, 12, 31),
+        1033,
+        VbDateTimeFormat.GeneralDate,
+        "en-us",
+      ),
+    ).toBe("12/31/1600 9:05:00 AM");
     expect(() =>
-      formatVbDateTime(day(1900, 4, 29), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')
+      formatVbDateTime(
+        day(1900, 4, 29),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
     ).toThrow();
-    expect(formatVbDateTime(day(1900, 4, 30), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
-      '\u200f01/\u200f01/\u200f18'
-    );
-    expect(formatVbDateTime(day(2077, 11, 16), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
-      '\u200f30/\u200f12/\u200f00'
-    );
+    expect(
+      formatVbDateTime(
+        day(1900, 4, 30),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f01/\u200f01/\u200f18");
+    expect(
+      formatVbDateTime(
+        day(2077, 11, 16),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f30/\u200f12/\u200f00");
     expect(() =>
-      formatVbDateTime(day(2077, 11, 17), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')
+      formatVbDateTime(
+        day(2077, 11, 17),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
     ).toThrow();
     // The Hebrew locale is the one that answers a different number for the same refusal.
     const hebrew = (() => {
       try {
-        formatVbDateTime(day(1600, 12, 31), 1037, VbDateTimeFormat.ShortDate, 'he-il');
+        formatVbDateTime(
+          day(1600, 12, 31),
+          1037,
+          VbDateTimeFormat.ShortDate,
+          "he-il",
+        );
         return 0;
       } catch (error) {
         return (error as { number?: number }).number;
@@ -239,94 +335,143 @@ describe('FormatDateTime', () => {
 
   // Measured over the years: the Hijri dates come from the Umm al-Qura table .NET ships, because ICU's
   // islamic-umalqura calendar is a day behind Windows for about a fifth of the days it covers.
-  it('writes the Hijri date from the Umm al-Qura table', () => {
+  it("writes the Hijri date from the Umm al-Qura table", () => {
     const day = (year: number, month: number, date: number) =>
       new Date(year, month - 1, date, 9, 5, 0);
-    expect(formatVbDateTime(day(1900, 6, 15), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
-      '\u200f18/\u200f02/\u200f18'
-    );
-    expect(formatVbDateTime(day(1929, 6, 15), 1025, VbDateTimeFormat.LongDate, 'ar-sa')).toBe(
-      '\u200f08/\u200f\u0645\u062d\u0631\u0645/\u200f1348'
-    );
-    expect(formatVbDateTime(day(2031, 6, 15), 1025, VbDateTimeFormat.ShortDate, 'ar-sa')).toBe(
-      '\u200f25/\u200f02/\u200f53'
-    );
+    expect(
+      formatVbDateTime(
+        day(1900, 6, 15),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f18/\u200f02/\u200f18");
+    expect(
+      formatVbDateTime(
+        day(1929, 6, 15),
+        1025,
+        VbDateTimeFormat.LongDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f08/\u200f\u0645\u062d\u0631\u0645/\u200f1348");
+    expect(
+      formatVbDateTime(
+        day(2031, 6, 15),
+        1025,
+        VbDateTimeFormat.ShortDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f25/\u200f02/\u200f53");
     // A Hijri month name is read from that month's own first day, so it is the name the picture is writing
     // even where ICU would put the day in another month, as it does before the table starts.
-    expect(formatVbDateTime(day(1900, 4, 30), 1025, VbDateTimeFormat.LongDate, 'ar-sa')).toBe(
-      '\u200f01/\u200f\u0645\u062d\u0631\u0645/\u200f1318'
-    );
+    expect(
+      formatVbDateTime(
+        day(1900, 4, 30),
+        1025,
+        VbDateTimeFormat.LongDate,
+        "ar-sa",
+      ),
+    ).toBe("\u200f01/\u200f\u0645\u062d\u0631\u0645/\u200f1318");
   });
 
   // Measured: a picture that asks for a two digit year writes four digits outside 1950 to 2049, which
   // GeneralDate and CStr do while the short date keeps the two digits its picture asks for.
-  it('widens a two digit year outside 1950 to 2049 for GeneralDate and CStr', () => {
+  it("widens a two digit year outside 1950 to 2049 for GeneralDate and CStr", () => {
     const day = (year: number) => new Date(year, 5, 15);
-    expect(formatVbDateTime(day(1949), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
-      '15.06.1949'
-    );
-    expect(formatVbDateTime(day(1950), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
-      '15.06.50'
-    );
-    expect(formatVbDateTime(day(2049), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
-      '15.06.49'
-    );
-    expect(formatVbDateTime(day(2050), 1059, VbDateTimeFormat.GeneralDate, 'be-by')).toBe(
-      '15.06.2050'
-    );
-    expect(formatVbDateTime(day(1949), 1059, VbDateTimeFormat.ShortDate, 'be-by')).toBe('15.06.49');
-    expect(formatVbDateTime(day(2050), 1059, VbDateTimeFormat.ShortDate, 'be-by')).toBe('15.06.50');
+    expect(
+      formatVbDateTime(day(1949), 1059, VbDateTimeFormat.GeneralDate, "be-by"),
+    ).toBe("15.06.1949");
+    expect(
+      formatVbDateTime(day(1950), 1059, VbDateTimeFormat.GeneralDate, "be-by"),
+    ).toBe("15.06.50");
+    expect(
+      formatVbDateTime(day(2049), 1059, VbDateTimeFormat.GeneralDate, "be-by"),
+    ).toBe("15.06.49");
+    expect(
+      formatVbDateTime(day(2050), 1059, VbDateTimeFormat.GeneralDate, "be-by"),
+    ).toBe("15.06.2050");
+    expect(
+      formatVbDateTime(day(1949), 1059, VbDateTimeFormat.ShortDate, "be-by"),
+    ).toBe("15.06.49");
+    expect(
+      formatVbDateTime(day(2050), 1059, VbDateTimeFormat.ShortDate, "be-by"),
+    ).toBe("15.06.50");
   });
 
-  it('keeps the whole date at midnight for the date formats, unlike GeneralDate', () => {
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.LongDate, 'de-de')).toBe(
-      'Montag, 5. Januar 2026'
-    );
-    expect(formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.ShortDate, 'de-de')).toBe(
-      '05.01.2026'
-    );
+  it("keeps the whole date at midnight for the date formats, unlike GeneralDate", () => {
+    expect(
+      formatVbDateTime(instant(0, 0), 1031, VbDateTimeFormat.LongDate, "de-de"),
+    ).toBe("Montag, 5. Januar 2026");
+    expect(
+      formatVbDateTime(
+        instant(0, 0),
+        1031,
+        VbDateTimeFormat.ShortDate,
+        "de-de",
+      ),
+    ).toBe("05.01.2026");
   });
 
   // Measured: he-IL marks every field of a date and not one of a clock, and GeneralDate's short date is
   // unmarked where ShortDate's is marked. U+200F is written out here rather than left invisible.
-  it('marks the Arabic and Hebrew date fields, except in GeneralDate', () => {
-    expect(formatVbDateTime(instant(9, 5), 10241, VbDateTimeFormat.ShortDate, 'ar-sy')).toBe(
-      '\u200f05/\u200f01/\u200f2026'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1037, VbDateTimeFormat.LongDate, 'he-il')).toBe(
-      '\u200fיום\u00a0שני \u200f05 \u200fינואר \u200f2026'
-    );
-    expect(formatVbDateTime(instant(9, 5), 10241, VbDateTimeFormat.GeneralDate, 'ar-sy')).toBe(
-      '05/01/2026 09:05:00 \u0635'
-    );
+  it("marks the Arabic and Hebrew date fields, except in GeneralDate", () => {
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        10241,
+        VbDateTimeFormat.ShortDate,
+        "ar-sy",
+      ),
+    ).toBe("\u200f05/\u200f01/\u200f2026");
+    expect(
+      formatVbDateTime(instant(9, 5), 1037, VbDateTimeFormat.LongDate, "he-il"),
+    ).toBe("\u200fיום\u00a0שני \u200f05 \u200fינואר \u200f2026");
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        10241,
+        VbDateTimeFormat.GeneralDate,
+        "ar-sy",
+      ),
+    ).toBe("05/01/2026 09:05:00 \u0635");
     // Urdu is written in the Arabic script and is not marked, which is why the rule follows the language.
-    expect(formatVbDateTime(instant(9, 5), 1056, VbDateTimeFormat.ShortDate, 'ur-pk')).toBe(
-      '05/01/2026'
-    );
+    expect(
+      formatVbDateTime(
+        instant(9, 5),
+        1056,
+        VbDateTimeFormat.ShortDate,
+        "ur-pk",
+      ),
+    ).toBe("05/01/2026");
   });
 
   // Measured: Windows keeps its own spelling for a few locales, which Intl has since moved away from. Each
   // one is a name the engine ships, so a change to CLDR cannot move it.
-  it('writes the names Windows shipped where CLDR has changed them', () => {
+  it("writes the names Windows shipped where CLDR has changed them", () => {
     // The Vietnamese name carries a combining acute (U+0301) after the "a", which is how the shipped data
     // and Windows both write it.
-    expect(formatVbDateTime(instant(9, 5), 1066, VbDateTimeFormat.LongDate, 'vi-vn')).toBe(
-      '05 Th\u0061\u0301ng Gi\u00eang 2026'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1062, VbDateTimeFormat.LongDate, 'lv-lv')).toBe(
-      'pirmdiena, 2026. gada 5. janv\u0101ris'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1072, VbDateTimeFormat.LongDate, 'st-za')).toBe(
-      '2026 Phesekgong 5, Mmantaha'
-    );
-    expect(formatVbDateTime(instant(9, 5), 1073, VbDateTimeFormat.LongDate, 'ts')).toBe(
-      '2026 Sunguti 5, Musumbhunuku'
-    );
     expect(
-      formatVbDateTime(new Date(1899, 11, 30, 9, 5, 0), 1081, VbDateTimeFormat.LongDate, 'hi-in')
-    ).toBe('30 \u0926\u093f\u0938\u092e\u094d\u092c\u0930 1899');
-    expect(formatVbDateTime(instant(9, 5), 5121, VbDateTimeFormat.LongDate, 'ar-dz')).toBe(
-      '\u200f05 \u200fجانفييه, \u200f2026'
-    );
+      formatVbDateTime(instant(9, 5), 1066, VbDateTimeFormat.LongDate, "vi-vn"),
+    ).toBe("05 Th\u0061\u0301ng Gi\u00eang 2026");
+    expect(
+      formatVbDateTime(instant(9, 5), 1062, VbDateTimeFormat.LongDate, "lv-lv"),
+    ).toBe("pirmdiena, 2026. gada 5. janv\u0101ris");
+    expect(
+      formatVbDateTime(instant(9, 5), 1072, VbDateTimeFormat.LongDate, "st-za"),
+    ).toBe("2026 Phesekgong 5, Mmantaha");
+    expect(
+      formatVbDateTime(instant(9, 5), 1073, VbDateTimeFormat.LongDate, "ts"),
+    ).toBe("2026 Sunguti 5, Musumbhunuku");
+    expect(
+      formatVbDateTime(
+        new Date(1899, 11, 30, 9, 5, 0),
+        1081,
+        VbDateTimeFormat.LongDate,
+        "hi-in",
+      ),
+    ).toBe("30 \u0926\u093f\u0938\u092e\u094d\u092c\u0930 1899");
+    expect(
+      formatVbDateTime(instant(9, 5), 5121, VbDateTimeFormat.LongDate, "ar-dz"),
+    ).toBe("\u200f05 \u200fجانفييه, \u200f2026");
   });
 });

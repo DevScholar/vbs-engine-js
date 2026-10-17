@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { VbsEngine, type VbsHostError } from '../core/index.ts';
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { VbsEngine, type VbsHostError } from "../core/index.ts";
 
 /**
  * The shape a browser hands a page is the one Internet Explorer handed JScript in document mode 10, read off an
@@ -13,7 +13,7 @@ import { VbsEngine, type VbsHostError } from '../core/index.ts';
  * different message instead, the one line `cscript` printed, which `features.test.ts` holds.
  */
 const BROWSER_OPTIONS = {
-  mode: 'browser' as const,
+  mode: "browser" as const,
   parseScriptElement: false,
   parseInlineEventAttributes: false,
   parseEventSubNames: false,
@@ -24,47 +24,57 @@ const BROWSER_OPTIONS = {
 };
 
 beforeAll(() => {
-  vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {} });
-  vi.stubGlobal('document', { readyState: 'complete' });
+  vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+  vi.stubGlobal("document", { readyState: "complete" });
 });
 
 afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-describe('the error shape a browser hands a page', () => {
-  it('hands a page the shape Internet Explorer handed JScript', () => {
+describe("the error shape a browser hands a page", () => {
+  it("hands a page the shape Internet Explorer handed JScript", () => {
     const engine = new VbsEngine(BROWSER_OPTIONS);
     const owns = (object: object, name: string): boolean =>
       Object.prototype.hasOwnProperty.call(object, name);
     let caught: VbsHostError | null = null;
     try {
-      engine.executeStatementThrows('Dim divisor\n  divisor = 0\nx = 1 / divisor');
+      engine.executeStatementThrows(
+        "Dim divisor\n  divisor = 0\nx = 1 / divisor",
+      );
     } catch (e) {
       caught = e as VbsHostError;
     }
 
     expect(caught).toBeInstanceOf(Error);
-    expect(caught!.name).toBe('Error');
+    expect(caught!.name).toBe("Error");
     expect(caught!.number).toBe(-2146828277); // 0x800A000B
-    expect(caught!.description).toBe('Division by zero');
-    expect(caught!.message).toBe('Division by zero');
+    expect(caught!.description).toBe("Division by zero");
+    expect(caught!.message).toBe("Division by zero");
 
     // Written by the engine, and so enumerable the way the host's own `description` and `number` were. The host
     // listed its stack here too, so this one is enumerated as well. The order is the host's business, so only the
     // set is compared: the host listed `description,number,stack` and this one sorts out as the same.
-    expect(Object.keys(caught!).sort()).toEqual(['description', 'number', 'stack']);
+    expect(Object.keys(caught!).sort()).toEqual([
+      "description",
+      "number",
+      "stack",
+    ]);
     // JavaScript's own, so not enumerated, and inherited from `Error.prototype` rather than written.
-    expect(owns(caught!, 'message')).toBe(true);
-    expect(owns(caught!, 'name')).toBe(false);
+    expect(owns(caught!, "message")).toBe(true);
+    expect(owns(caught!, "name")).toBe(false);
     // The host kept its stack as an own property, and this one is the host's own rather than a copy.
-    expect(owns(caught!, 'stack')).toBe(true);
-    expect(caught!.stack).toContain('Division by zero');
+    expect(owns(caught!, "stack")).toBe(true);
+    expect(caught!.stack).toContain("Division by zero");
     // The host gave a page no position on the error object, so there is none here.
-    expect(owns(caught!, 'line')).toBe(false);
-    expect(owns(caught!, 'column')).toBe(false);
-    expect((caught as unknown as Record<string, unknown>).lineNumber).toBeUndefined();
-    expect((caught as unknown as Record<string, unknown>).columnNumber).toBeUndefined();
+    expect(owns(caught!, "line")).toBe(false);
+    expect(owns(caught!, "column")).toBe(false);
+    expect(
+      (caught as unknown as Record<string, unknown>).lineNumber,
+    ).toBeUndefined();
+    expect(
+      (caught as unknown as Record<string, unknown>).columnNumber,
+    ).toBeUndefined();
 
     // A browser host that names its code, and says where that code stands, still gets the description as the
     // message: Internet Explorer printed no line like the one Windows Script Host printed. The position reaches
@@ -75,20 +85,20 @@ describe('the error shape a browser hands a page', () => {
     // failing `<script>` block and carries on. The other half of that rule, an engine that stands for no host and
     // raises, is held in `host-integration.test.ts`.
     expect(() =>
-      engine.addCode('Dim divisor\n  divisor = 0\nx = 1 / divisor', {
-        name: 'C:\\work\\demo.vbs',
+      engine.addCode("Dim divisor\n  divisor = 0\nx = 1 / divisor", {
+        name: "C:\\work\\demo.vbs",
         // Counted from zero, so three puts the code's first line on the script's fourth line and its failing third
         // line on the sixth.
         startingLineNumber: 3,
-      })
+      }),
     ).not.toThrow();
     expect(engine.error!.line).toBe(6);
-    let named = '';
+    let named = "";
     try {
-      engine.executeStatementThrows('x = 1 / divisor');
+      engine.executeStatementThrows("x = 1 / divisor");
     } catch (e) {
       named = (e as Error).message;
     }
-    expect(named).toBe('Division by zero');
+    expect(named).toBe("Division by zero");
   });
 });

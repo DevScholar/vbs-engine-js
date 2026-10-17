@@ -1,13 +1,13 @@
-import { VbsEngine } from '../src/index.ts';
+import { VbsEngine } from "../src/index.ts";
 
 // Optional dependency: @devscholar/node-ps1-dotnet provides GetObject for
 // COM moniker binding in Node.js. Install it separately before running this example:
 //   npm install @devscholar/node-ps1-dotnet
-const activexModuleName = '@devscholar/node-ps1-dotnet/activex';
+const activexModuleName = "@devscholar/node-ps1-dotnet/activex";
 const { GetObject } = await import(activexModuleName).catch(() => {
   throw new Error(
-    'This example requires the optional dependency @devscholar/node-ps1-dotnet. ' +
-      'Install it first with: npm install @devscholar/node-ps1-dotnet'
+    "This example requires the optional dependency @devscholar/node-ps1-dotnet. " +
+      "Install it first with: npm install @devscholar/node-ps1-dotnet",
   );
 });
 
@@ -39,5 +39,5 @@ engine.addCode(`
 `);
 
 if (engine.error) {
-  console.error('VBS Error:', JSON.stringify(engine.error));
+  console.error("VBS Error:", JSON.stringify(engine.error));
 }

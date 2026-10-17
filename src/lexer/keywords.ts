@@ -1,4 +1,4 @@
-import { TokenType } from './token.ts';
+import { TokenType } from "./token.ts";
 
 export const KEYWORDS: Record<string, TokenType> = {
   dim: TokenType.Dim,

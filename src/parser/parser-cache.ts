@@ -7,7 +7,7 @@
  * 3. Hash-based cache key for fast lookup
  */
 
-import type { Program } from '../ast/index.ts';
+import type { Program } from "../ast/index.ts";
 
 interface CacheEntry {
   ast: Program;
@@ -147,7 +147,8 @@ export class ParserCache {
       size: this.cache.size,
       maxSize: this.maxSize,
       totalAccessCount,
-      averageAccessCount: this.cache.size > 0 ? totalAccessCount / this.cache.size : 0,
+      averageAccessCount:
+        this.cache.size > 0 ? totalAccessCount / this.cache.size : 0,
     };
   }
 
@@ -176,7 +177,10 @@ export const globalParserCache = new ParserCache();
  * Cached parse function that wraps the original parser.
  * Use this instead of the original parse() for better performance.
  */
-export function parseWithCache(source: string, parseFn: (source: string) => Program): Program {
+export function parseWithCache(
+  source: string,
+  parseFn: (source: string) => Program,
+): Program {
   // Try to get from cache
   const cached = globalParserCache.get(source);
   if (cached) {

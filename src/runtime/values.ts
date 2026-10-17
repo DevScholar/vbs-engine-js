@@ -1,133 +1,133 @@
-import { createVbError, VbErrorCodes } from './errors.ts';
+import { createVbError, VbErrorCodes } from "./errors.ts";
 import {
   dateToSerial,
   formatVbDate,
   parseVbDate,
   parseVbDateAsCdate,
   serialToDate,
-} from './vb-date.ts';
+} from "./vb-date.ts";
 import {
   CURRENCY_DIGITS,
   formatVbCurrencyText,
   formatVbNumberText,
   parseVbNumericString,
-} from './nls-number.ts';
-import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
+} from "./nls-number.ts";
+import { currentLcid, getCurrentBCP47Locale } from "../builtins/locale.ts";
 
 /**
  * Represents all possible VBScript value types.
  * These correspond to the Variant subtypes in VBScript.
  */
 export type VbValueType =
-  | 'Empty'
-  | 'Null'
-  | 'Boolean'
-  | 'Integer'
-  | 'Long'
-  | 'LongLong'
-  | 'Single'
-  | 'Double'
-  | 'Currency'
-  | 'Date'
-  | 'String'
-  | 'Object'
-  | 'Error'
-  | 'Variant'
-  | 'Byte'
-  | 'Array';
+  | "Empty"
+  | "Null"
+  | "Boolean"
+  | "Integer"
+  | "Long"
+  | "LongLong"
+  | "Single"
+  | "Double"
+  | "Currency"
+  | "Date"
+  | "String"
+  | "Object"
+  | "Error"
+  | "Variant"
+  | "Byte"
+  | "Array";
 
 /** Represents an uninitialized variable in VBScript */
 export interface VbEmptyValue {
-  type: 'Empty';
+  type: "Empty";
   value: undefined;
 }
 
 /** Represents a Null value in VBScript (no valid data) */
 export interface VbNullValue {
-  type: 'Null';
+  type: "Null";
   value: null;
 }
 
 /** Represents a Boolean value (True or False) */
 export interface VbBooleanValue {
-  type: 'Boolean';
+  type: "Boolean";
   value: boolean;
 }
 
 /** Represents a 16-bit signed integer (-32,768 to 32,767) */
 export interface VbIntegerValue {
-  type: 'Integer';
+  type: "Integer";
   value: number;
 }
 
 /** Represents a 32-bit signed integer (-2,147,483,648 to 2,147,483,647) */
 export interface VbLongValue {
-  type: 'Long';
+  type: "Long";
   value: number;
 }
 
 /** Represents a 64-bit signed integer (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807) */
 export interface VbLongLongValue {
-  type: 'LongLong';
+  type: "LongLong";
   value: bigint;
 }
 
 /** Represents a single-precision floating-point number */
 export interface VbSingleValue {
-  type: 'Single';
+  type: "Single";
   value: number;
 }
 
 /** Represents a double-precision floating-point number */
 export interface VbDoubleValue {
-  type: 'Double';
+  type: "Double";
   value: number;
 }
 
 /** Represents a currency value: the amount held as a 64-bit integer count of ten-thousandths. */
 export interface VbCurrencyValue {
-  type: 'Currency';
+  type: "Currency";
   value: bigint;
 }
 
 /** Represents a date/time value */
 export interface VbDateValue {
-  type: 'Date';
+  type: "Date";
   value: Date;
 }
 
 /** Represents a string value */
 export interface VbStringValue {
-  type: 'String';
+  type: "String";
   value: string;
 }
 
 /** Represents an unsigned 8-bit integer (0 to 255) */
 export interface VbByteValue {
-  type: 'Byte';
+  type: "Byte";
   value: number;
 }
 
 export interface VbArrayValue {
-  type: 'Array';
+  type: "Array";
   value: unknown;
 }
 
 /** Represents an object reference */
 export interface VbObjectValue {
-  type: 'Object';
+  type: "Object";
   value: unknown;
 }
 
 /** Represents an error value */
 export interface VbErrorValue {
-  type: 'Error';
+  type: "Error";
   value: number;
 }
 
 /** Represents a Variant that can hold any type */
 export interface VbVariantValue {
-  type: 'Variant';
+  type: "Variant";
   value: unknown;
 }
 
@@ -170,13 +170,13 @@ export interface VbObjectValueData {
 }
 
 /** A singleton representing an Empty value in VBScript */
-export const VbEmpty: VbEmptyValue = { type: 'Empty', value: undefined };
+export const VbEmpty: VbEmptyValue = { type: "Empty", value: undefined };
 
 /** A singleton representing a Null value in VBScript */
-export const VbNull: VbNullValue = { type: 'Null', value: null };
+export const VbNull: VbNullValue = { type: "Null", value: null };
 
 /** A singleton representing a Nothing object reference in VBScript */
-export const VbNothing: VbObjectValue = { type: 'Object', value: null };
+export const VbNothing: VbObjectValue = { type: "Object", value: null };
 
 /**
  * Creates a VbValue from a JavaScript value.
@@ -188,26 +188,27 @@ export const VbNothing: VbObjectValue = { type: 'Object', value: null };
 export function createVbValue(value: unknown): VbValue {
   if (value === undefined) return VbEmpty;
   if (value === null) return VbNull;
-  if (value === Symbol.for('Nothing')) return VbNothing;
-  if (typeof value === 'boolean') return { type: 'Boolean', value };
-  if (typeof value === 'number') {
+  if (value === Symbol.for("Nothing")) return VbNothing;
+  if (typeof value === "boolean") return { type: "Boolean", value };
+  if (typeof value === "number") {
     if (Number.isInteger(value)) {
       if (value >= -32768 && value <= 32767) {
-        return { type: 'Integer', value };
+        return { type: "Integer", value };
       }
       // A VBScript Long is 32 bits, and a whole number past that is a Double: measured with TypeName,
       // 32767 is an Integer, 2147483647 a Long and 2147483648 a Double, and so is 1000000 * 1000000.
       if (value >= -2147483648 && value <= 2147483647) {
-        return { type: 'Long', value };
+        return { type: "Long", value };
       }
     }
-    return { type: 'Double', value };
+    return { type: "Double", value };
   }
-  if (typeof value === 'string') return { type: 'String', value };
-  if (value instanceof Date) return { type: 'Date', value };
-  if (Array.isArray(value)) return { type: 'Array', value };
-  if (typeof value === 'object') return { type: 'Object', value: value as VbObjectValueData };
-  return { type: 'Variant', value };
+  if (typeof value === "string") return { type: "String", value };
+  if (value instanceof Date) return { type: "Date", value };
+  if (Array.isArray(value)) return { type: "Array", value };
+  if (typeof value === "object")
+    return { type: "Object", value: value as VbObjectValueData };
+  return { type: "Variant", value };
 }
 
 /**
@@ -231,50 +232,56 @@ export function createVbValue(value: unknown): VbValue {
  * @throws Error if the value cannot be converted
  */
 export function toBoolean(value: VbValue): boolean {
-  if (value.type === 'Boolean') return value.value;
-  if (value.type === 'Empty') return false;
+  if (value.type === "Boolean") return value.value;
+  if (value.type === "Empty") return false;
   // Real VBScript's error 94 ("Invalid use of Null") for exactly this case - must be a real, catchable
   // VbError (not a plain Error) so `On Error Resume Next` around a construct that puts Null in a boolean
   // context (CBool, `If Null Then`, ...) can actually suppress it. A condition reads Null as False instead:
   // see toConditionBoolean in statement-executor.ts.
-  if (value.type === 'Null')
-    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
-  if (value.type === 'String') {
+  if (value.type === "Null")
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, "Invalid use of Null");
+  if (value.type === "String") {
     const text = value.value.trim();
     if (/^true$/i.test(text)) return true;
     if (/^false$/i.test(text)) return false;
     const parsed = parseVbNumericString(text);
     if (parsed === null) {
-      throw createVbError(VbErrorCodes.TypeMismatch, `Type mismatch: ${value.value}`);
+      throw createVbError(
+        VbErrorCodes.TypeMismatch,
+        `Type mismatch: ${value.value}`,
+      );
     }
     return parsed !== 0;
   }
-  if (value.type === 'Array') {
-    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Array');
+  if (value.type === "Array") {
+    throw createVbError(VbErrorCodes.TypeMismatch, "Type mismatch: Array");
   }
-  if (value.type === 'Object') {
+  if (value.type === "Object") {
     // Nothing is the object variable that is not set, and any other object is asked for its default member,
     // which it does not have: `Not Nothing` is 91 and `Not someObject` is 438 on a fresh cscript.
     if (value.value === null) {
-      throw createVbError(VbErrorCodes.ObjectVariableNotSet, 'Object variable not set');
+      throw createVbError(
+        VbErrorCodes.ObjectVariableNotSet,
+        "Object variable not set",
+      );
     }
     throw createVbError(
       VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
-      "Object doesn't support this property or method"
+      "Object doesn't support this property or method",
     );
   }
   if (
-    value.type === 'Integer' ||
-    value.type === 'Long' ||
-    value.type === 'Double' ||
-    value.type === 'Single' ||
-    value.type === 'Byte' ||
-    value.type === 'Currency' ||
-    value.type === 'Date'
+    value.type === "Integer" ||
+    value.type === "Long" ||
+    value.type === "Double" ||
+    value.type === "Single" ||
+    value.type === "Byte" ||
+    value.type === "Currency" ||
+    value.type === "Date"
   ) {
     return Number(value.value) !== 0;
   }
-  if (value.type === 'LongLong') {
+  if (value.type === "LongLong") {
     return value.value !== BigInt(0);
   }
   return true;
@@ -289,42 +296,42 @@ export function toBoolean(value: VbValue): boolean {
  * @throws Error if the value cannot be converted
  */
 export function toNumber(value: VbValue): number {
-  if (value.type === 'Empty') return 0;
-  if (value.type === 'Null')
-    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
-  if (value.type === 'Boolean') return value.value ? -1 : 0;
+  if (value.type === "Empty") return 0;
+  if (value.type === "Null")
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, "Invalid use of Null");
+  if (value.type === "Boolean") return value.value ? -1 : 0;
   if (
-    value.type === 'Integer' ||
-    value.type === 'Long' ||
-    value.type === 'Double' ||
-    value.type === 'Single' ||
-    value.type === 'Byte'
+    value.type === "Integer" ||
+    value.type === "Long" ||
+    value.type === "Double" ||
+    value.type === "Single" ||
+    value.type === "Byte"
   ) {
     return value.value;
   }
-  if (value.type === 'Currency') {
+  if (value.type === "Currency") {
     return currencyToNumber(value.value);
   }
-  if (value.type === 'LongLong') {
+  if (value.type === "LongLong") {
     return Number(value.value);
   }
-  if (value.type === 'String') {
+  if (value.type === "String") {
     // An empty string and a string of spaces are a type mismatch, which a fresh cscript confirms for both
     // CDbl("") and CDbl(" ").
     const num = parseVbNumericString(value.value.trim());
     if (num === null)
       throw createVbError(
         VbErrorCodes.TypeMismatch,
-        `Type mismatch: "${value.value}" cannot be converted to Number`
+        `Type mismatch: "${value.value}" cannot be converted to Number`,
       );
     return num;
   }
-  if (value.type === 'Date') {
+  if (value.type === "Date") {
     return dateToSerial(value.value);
   }
   throw createVbError(
     VbErrorCodes.TypeMismatch,
-    `Type mismatch: ${value.type} cannot be converted to Number`
+    `Type mismatch: ${value.type} cannot be converted to Number`,
   );
 }
 
@@ -334,12 +341,15 @@ export function toNumber(value: VbValue): number {
  * Read structurally so that this module need not import the class registry, which imports this one.
  */
 export function isVbClassInstance(value: unknown): boolean {
-  const candidate = value as { classInfo?: unknown; isMemberVisible?: unknown } | null;
+  const candidate = value as {
+    classInfo?: unknown;
+    isMemberVisible?: unknown;
+  } | null;
   return (
-    typeof value === 'object' &&
+    typeof value === "object" &&
     value !== null &&
-    typeof candidate?.classInfo === 'object' &&
-    typeof candidate?.isMemberVisible === 'function'
+    typeof candidate?.classInfo === "object" &&
+    typeof candidate?.isMemberVisible === "function"
   );
 }
 
@@ -357,7 +367,7 @@ const CURRENCY_MAX = 9223372036854775807n;
  */
 export function checkCurrencyRange(scaled: bigint): bigint {
   if (scaled > CURRENCY_MAX || scaled < -CURRENCY_MAX) {
-    throw createVbError(VbErrorCodes.Overflow, 'Overflow: Currency');
+    throw createVbError(VbErrorCodes.Overflow, "Overflow: Currency");
   }
   return scaled;
 }
@@ -387,17 +397,20 @@ export const LONG_MIN = -2147483648;
  * default member to read. Measured on a fresh cscript: UBound(o), LBound(o) and Join(o, ",") are all 91 after
  * `Set o = Nothing` and all 438 after `Set o = New Holder` for a class that has no default member.
  */
-export function rejectObjectArgument(value: VbValue, functionName: string): void {
-  if (value.type !== 'Object') return;
+export function rejectObjectArgument(
+  value: VbValue,
+  functionName: string,
+): void {
+  if (value.type !== "Object") return;
   if (value.value === null) {
     throw createVbError(
       VbErrorCodes.ObjectVariableNotSet,
-      'Object variable or With block variable not set'
+      "Object variable or With block variable not set",
     );
   }
   throw createVbError(
     VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
-    `Object doesn't support this property or method: '${functionName}'`
+    `Object doesn't support this property or method: '${functionName}'`,
   );
 }
 
@@ -411,7 +424,7 @@ export function rejectObjectArgument(value: VbValue, functionName: string): void
 export function toWholeNumber(value: number): number {
   const rounded = roundHalfToEven(value);
   if (!Number.isFinite(value) || rounded > LONG_MAX || rounded < LONG_MIN) {
-    throw createVbError(VbErrorCodes.Overflow, 'Overflow');
+    throw createVbError(VbErrorCodes.Overflow, "Overflow");
   }
   return rounded;
 }
@@ -422,8 +435,11 @@ export function toWholeNumber(value: number): number {
  * a value outside the range of a Long is Overflow, which a(3000000000) is.
  */
 export function toSubscript(value: VbValue): number {
-  if (value.type === 'Null') {
-    throw createVbError(VbErrorCodes.TypeMismatch, 'Type mismatch: Null subscript');
+  if (value.type === "Null") {
+    throw createVbError(
+      VbErrorCodes.TypeMismatch,
+      "Type mismatch: Null subscript",
+    );
   }
   return toWholeNumber(toNumber(value));
 }
@@ -439,7 +455,7 @@ const LONG_LONG_MAX = 9223372036854775807n;
 /** Guards a whole number against the 64 bit range, which is what CLngLng raises Overflow for. */
 export function checkLongLongRange(value: bigint): bigint {
   if (value > LONG_LONG_MAX || value < -LONG_LONG_MAX - 1n) {
-    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CLngLng');
+    throw createVbError(VbErrorCodes.Overflow, "Overflow: CLngLng");
   }
   return value;
 }
@@ -454,7 +470,7 @@ export function checkLongLongRange(value: bigint): bigint {
  */
 export function toLongLong(number: number): bigint {
   if (!Number.isFinite(number) || Math.abs(number) >= 9223372036854775808) {
-    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CLngLng');
+    throw createVbError(VbErrorCodes.Overflow, "Overflow: CLngLng");
   }
   return BigInt(roundHalfToEven(number));
 }
@@ -465,15 +481,15 @@ export function toLongLong(number: number): bigint {
  */
 export function isPlainNumber(value: VbValue): boolean {
   return (
-    value.type === 'Integer' ||
-    value.type === 'Long' ||
-    value.type === 'LongLong' ||
-    value.type === 'Double' ||
-    value.type === 'Single' ||
-    value.type === 'Byte' ||
-    value.type === 'Currency' ||
-    value.type === 'Boolean' ||
-    value.type === 'Empty'
+    value.type === "Integer" ||
+    value.type === "Long" ||
+    value.type === "LongLong" ||
+    value.type === "Double" ||
+    value.type === "Single" ||
+    value.type === "Byte" ||
+    value.type === "Currency" ||
+    value.type === "Boolean" ||
+    value.type === "Empty"
   );
 }
 
@@ -481,7 +497,9 @@ export function isPlainNumber(value: VbValue): boolean {
 export function floorScaled(scaled: bigint): bigint {
   const wholeUnits = scaled / CURRENCY_SCALE;
   const hasFraction = scaled % CURRENCY_SCALE !== 0n;
-  return (hasFraction && scaled < 0n ? wholeUnits - 1n : wholeUnits) * CURRENCY_SCALE;
+  return (
+    (hasFraction && scaled < 0n ? wholeUnits - 1n : wholeUnits) * CURRENCY_SCALE
+  );
 }
 
 /** A Currency with its fraction dropped, toward zero. */
@@ -528,12 +546,16 @@ export function currencyToNumber(scaled: bigint): number {
  * the fraction before it was rounded.
  */
 export function toCurrencyScaled(value: number): bigint {
-  if (!Number.isFinite(value)) throw createVbError(VbErrorCodes.Overflow, 'Overflow: CCur');
+  if (!Number.isFinite(value))
+    throw createVbError(VbErrorCodes.Overflow, "Overflow: CCur");
   const wholePart = Math.trunc(value);
   const fractionPart = Math.abs(value - wholePart);
   const scaledWhole = BigInt(wholePart) * CURRENCY_SCALE;
-  const scaledFraction = BigInt(Math.round(fractionPart * Number(CURRENCY_SCALE)));
-  const scaled = value < 0 ? scaledWhole - scaledFraction : scaledWhole + scaledFraction;
+  const scaledFraction = BigInt(
+    Math.round(fractionPart * Number(CURRENCY_SCALE)),
+  );
+  const scaled =
+    value < 0 ? scaledWhole - scaledFraction : scaledWhole + scaledFraction;
   return checkCurrencyRange(scaled);
 }
 
@@ -544,7 +566,7 @@ export function toCurrencyScaled(value: number): bigint {
  */
 export function toSinglePrecision(value: number): number {
   if (!Number.isFinite(value) || Math.abs(value) > SINGLE_MAX) {
-    throw createVbError(VbErrorCodes.Overflow, 'Overflow: CSng');
+    throw createVbError(VbErrorCodes.Overflow, "Overflow: CSng");
   }
   return Math.fround(value);
 }
@@ -560,45 +582,49 @@ export function toSinglePrecision(value: number): number {
  * @returns The string representation
  */
 export function toString(value: VbValue): string {
-  if (value.type === 'Empty') return '';
-  if (value.type === 'Null')
-    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
-  if (value.type === 'Boolean') return value.value ? 'True' : 'False';
-  if (value.type === 'String') return value.value;
-  if (value.type === 'Integer' || value.type === 'Long' || value.type === 'Byte') {
+  if (value.type === "Empty") return "";
+  if (value.type === "Null")
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, "Invalid use of Null");
+  if (value.type === "Boolean") return value.value ? "True" : "False";
+  if (value.type === "String") return value.value;
+  if (
+    value.type === "Integer" ||
+    value.type === "Long" ||
+    value.type === "Byte"
+  ) {
     return String(Math.floor(value.value));
   }
-  if (value.type === 'LongLong') {
+  if (value.type === "LongLong") {
     return String(value.value);
   }
-  if (value.type === 'Double' || value.type === 'Single') {
+  if (value.type === "Double" || value.type === "Single") {
     return formatVbNumberText(
       value.value,
       currentLcid(),
-      value.type === 'Single' ? 'single' : 'double'
+      value.type === "Single" ? "single" : "double",
     );
   }
-  if (value.type === 'Currency') {
+  if (value.type === "Currency") {
     return formatVbCurrencyText(value.value, currentLcid());
   }
-  if (value.type === 'Date') {
+  if (value.type === "Date") {
     return formatVbDate(value.value, currentLcid(), getCurrentBCP47Locale());
   }
-  if (value.type === 'Object') {
-    if (value.value === null) return 'Nothing';
+  if (value.type === "Object") {
+    if (value.value === null) return "Nothing";
     // An object of a class has no text of its own, and asking it for one is error 438: measured,
     // CStr(anInstance) answers 438 on a fresh cscript, where the engine used to answer "[object]". A host
     // object keeps the older reading, since its text is the host's business.
     if (isVbClassInstance(value.value)) {
       throw createVbError(
         VbErrorCodes.ObjectDoesntSupportPropertyOrMethod,
-        "Object doesn't support this property or method"
+        "Object doesn't support this property or method",
       );
     }
-    return '[object]';
+    return "[object]";
   }
-  if (value.type === 'Array') {
-    return '[array]';
+  if (value.type === "Array") {
+    return "[array]";
   }
   return String(value.value);
 }
@@ -612,17 +638,17 @@ export function toString(value: VbValue): string {
  * @throws Error if the value cannot be converted to a date
  */
 export function toVbDate(value: VbValue): Date {
-  if (value.type === 'Date') return value.value;
-  if (value.type === 'Null')
-    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
-  if (value.type === 'String') {
+  if (value.type === "Date") return value.value;
+  if (value.type === "Null")
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, "Invalid use of Null");
+  if (value.type === "String") {
     const str = value.value;
     // Only what parseVbDate reads, so that IsDate answers True for exactly the strings CDate accepts.
     const date = parseVbDate(str, getCurrentBCP47Locale());
     if (date === null) {
       throw createVbError(
         VbErrorCodes.TypeMismatch,
-        `Type mismatch: "${str}" cannot be converted to Date`
+        `Type mismatch: "${str}" cannot be converted to Date`,
       );
     }
     return date;
@@ -632,7 +658,7 @@ export function toVbDate(value: VbValue): Date {
   }
   throw createVbError(
     VbErrorCodes.TypeMismatch,
-    `Type mismatch: ${value.type} cannot be converted to Date`
+    `Type mismatch: ${value.type} cannot be converted to Date`,
   );
 }
 
@@ -641,7 +667,7 @@ export function toVbDate(value: VbValue): Date {
  * number standing for a day count. See parseVbDateAsCdate for the measurements behind it.
  */
 export function toVbDateForCdate(value: VbValue): Date {
-  if (value.type === 'String') {
+  if (value.type === "String") {
     const date = parseVbDateAsCdate(value.value, getCurrentBCP47Locale());
     if (date !== null) return date;
   }
@@ -657,44 +683,44 @@ export function toVbDateForCdate(value: VbValue): Date {
  */
 export function isNumeric(value: VbValue): boolean {
   if (
-    value.type === 'Integer' ||
-    value.type === 'Long' ||
-    value.type === 'LongLong' ||
-    value.type === 'Double' ||
-    value.type === 'Single' ||
-    value.type === 'Currency' ||
-    value.type === 'Byte'
+    value.type === "Integer" ||
+    value.type === "Long" ||
+    value.type === "LongLong" ||
+    value.type === "Double" ||
+    value.type === "Single" ||
+    value.type === "Currency" ||
+    value.type === "Byte"
   ) {
     return true;
   }
-  if (value.type === 'String') {
+  if (value.type === "String") {
     // The same reading the conversions use, so that IsNumeric answers True for exactly the strings CDbl
     // reads: "1 234" and "5abc" are False, where a loose parse would call them numbers.
     return parseVbNumericString(value.value.trim()) !== null;
   }
-  if (value.type === 'Boolean') return true;
-  if (value.type === 'Empty') return true;
+  if (value.type === "Boolean") return true;
+  if (value.type === "Empty") return true;
   return false;
 }
 
 /** Checks if a VbValue is Empty (uninitialized) */
 export function isEmpty(value: VbValue): boolean {
-  return value.type === 'Empty';
+  return value.type === "Empty";
 }
 
 /** Checks if a VbValue is Null */
 export function isNull(value: VbValue): boolean {
-  return value.type === 'Null';
+  return value.type === "Null";
 }
 
 /** Checks if a VbValue is an Object */
 export function isObject(value: VbValue): boolean {
-  return value.type === 'Object';
+  return value.type === "Object";
 }
 
 /** Checks if a VbValue is an Array */
 export function isArray(value: VbValue): boolean {
-  return value.type === 'Array';
+  return value.type === "Array";
 }
 
 /**
@@ -704,15 +730,15 @@ export function isArray(value: VbValue): boolean {
  */
 export function getNumericValue(value: VbValue): number {
   switch (value.type) {
-    case 'Integer':
-    case 'Long':
-    case 'Double':
-    case 'Single':
-    case 'Byte':
+    case "Integer":
+    case "Long":
+    case "Double":
+    case "Single":
+    case "Byte":
       return value.value;
-    case 'Currency':
+    case "Currency":
       return currencyToNumber(value.value);
-    case 'LongLong':
+    case "LongLong":
       return Number(value.value);
     default:
       return toNumber(value);
@@ -725,7 +751,7 @@ export function getNumericValue(value: VbValue): number {
  * @returns The string value
  */
 export function getStringValue(value: VbValue): string {
-  if (value.type === 'String') return value.value;
+  if (value.type === "String") return value.value;
   return toString(value);
 }
 
@@ -735,6 +761,6 @@ export function getStringValue(value: VbValue): string {
  * @returns The boolean value
  */
 export function getBooleanValue(value: VbValue): boolean {
-  if (value.type === 'Boolean') return value.value;
+  if (value.type === "Boolean") return value.value;
   return toBoolean(value);
 }

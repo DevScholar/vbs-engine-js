@@ -1,8 +1,8 @@
-import dotnet from '@devscholar/node-ps1-dotnet';
-import { VbsEngine } from '../src/index.ts';
+import dotnet from "@devscholar/node-ps1-dotnet";
+import { VbsEngine } from "../src/index.ts";
 
-dotnet.load('System.Windows.Forms');
-dotnet.load('System.Drawing');
+dotnet.load("System.Windows.Forms");
+dotnet.load("System.Drawing");
 
 const System = (dotnet as any).System;
 
@@ -56,5 +56,5 @@ Engine.addCode(`
 `);
 
 if (Engine.error) {
-  console.error('VBS Error:', JSON.stringify(Engine.error));
+  console.error("VBS Error:", JSON.stringify(Engine.error));
 }

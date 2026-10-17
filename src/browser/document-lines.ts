@@ -44,8 +44,8 @@ export function indentationAtIndex(text: string, index: number): number {
   let spaces = 0;
   for (let at = index - 1; at >= 0; at--) {
     const character = text[at] as string;
-    if (character === ' ') spaces += 1;
-    else if (character === '\n') break;
+    if (character === " ") spaces += 1;
+    else if (character === "\n") break;
     else return 0;
   }
   return spaces;
@@ -67,7 +67,7 @@ export function textStartWithinElement(serialisedElement: string): number {
       quote = character;
       continue;
     }
-    if (character === '>') return at + 1;
+    if (character === ">") return at + 1;
   }
   return -1;
 }
@@ -80,9 +80,12 @@ export function textStartWithinElement(serialisedElement: string): number {
  */
 export function linesBeforeHtmlElement(
   hasDoctype: boolean,
-  commentLineCounts: readonly number[]
+  commentLineCounts: readonly number[],
 ): number {
-  return (hasDoctype ? 1 : 0) + commentLineCounts.reduce((total, lines) => total + lines, 0);
+  return (
+    (hasDoctype ? 1 : 0) +
+    commentLineCounts.reduce((total, lines) => total + lines, 0)
+  );
 }
 
 /** The line counts of the comments the document still holds from before the `<html>` element. */
@@ -90,7 +93,8 @@ function commentsBeforeHtml(): number[] {
   // 8 is a comment node, written out rather than read from a global so that this file needs no DOM to load.
   const lineCounts: number[] = [];
   for (const child of Array.from(document.childNodes)) {
-    if (child.nodeType === 8) lineCounts.push(1 + countNewlines((child as Comment).data));
+    if (child.nodeType === 8)
+      lineCounts.push(1 + countNewlines((child as Comment).data));
   }
   return lineCounts;
 }
@@ -103,8 +107,8 @@ let searchFrom = 0;
  * the caller with the line within the block.
  */
 export function documentLineOfText(element: Element): number | null {
-  const raw = element.textContent ?? '';
-  if (raw === '') return null;
+  const raw = element.textContent ?? "";
+  if (raw === "") return null;
 
   const firstContent = firstNonWhitespaceIndex(raw);
   if (firstContent < 0) return null;
@@ -142,12 +146,16 @@ export function documentLineOfText(element: Element): number | null {
  * the document, and with the indentation the trim took off that first line put back so its column stands too. The
  * code itself is unchanged: leading blank lines and spaces mean nothing to a script.
  */
-export function withDocumentLineNumbers(code: string, element: Element): string {
+export function withDocumentLineNumbers(
+  code: string,
+  element: Element,
+): string {
   const line = documentLineOfText(element);
   if (line === null || line <= 1) return code;
 
-  const raw = element.textContent ?? '';
+  const raw = element.textContent ?? "";
   const firstContent = firstNonWhitespaceIndex(raw);
-  const indentation = firstContent < 0 ? 0 : indentationAtIndex(raw, firstContent);
-  return `${'\n'.repeat(line - 1)}${' '.repeat(indentation)}${code}`;
+  const indentation =
+    firstContent < 0 ? 0 : indentationAtIndex(raw, firstContent);
+  return `${"\n".repeat(line - 1)}${" ".repeat(indentation)}${code}`;
 }

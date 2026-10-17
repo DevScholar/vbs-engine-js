@@ -5,30 +5,30 @@
  * and measure performance improvements.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { VbsEngine } from '../core/index.ts';
-import { globalStringInterner } from '../runtime/string-interner.ts';
-import { globalParserCache } from '../parser/parser-cache.ts';
+import { describe, it, expect, beforeEach } from "vitest";
+import { VbsEngine } from "../core/index.ts";
+import { globalStringInterner } from "../runtime/string-interner.ts";
+import { globalParserCache } from "../parser/parser-cache.ts";
 
-describe('Performance Optimizations', () => {
+describe("Performance Optimizations", () => {
   beforeEach(() => {
     // Clear caches before each test
     globalStringInterner.clear();
     globalParserCache.clear();
   });
 
-  describe('String Interning', () => {
-    it('should intern strings correctly', () => {
-      const str1 = globalStringInterner.intern('HelloWorld');
-      const str2 = globalStringInterner.intern('helloworld');
-      const str3 = globalStringInterner.intern('HELLOWORLD');
+  describe("String Interning", () => {
+    it("should intern strings correctly", () => {
+      const str1 = globalStringInterner.intern("HelloWorld");
+      const str2 = globalStringInterner.intern("helloworld");
+      const str3 = globalStringInterner.intern("HELLOWORLD");
 
       // All should be the same reference
       expect(str1).toBe(str2);
       expect(str2).toBe(str3);
     });
 
-    it('should handle variable names case-insensitively', () => {
+    it("should handle variable names case-insensitively", () => {
       const engine = new VbsEngine();
 
       // Declare with one case
@@ -41,13 +41,13 @@ describe('Performance Optimizations', () => {
       `);
 
       // Access with different case
-      const result = engine.run('test');
+      const result = engine.run("test");
       expect(result).toBe(42);
     });
   });
 
-  describe('Value Pool', () => {
-    it('should cache small integers', () => {
+  describe("Value Pool", () => {
+    it("should cache small integers", () => {
       const engine = new VbsEngine();
 
       engine.addCode(`
@@ -61,11 +61,11 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('SumLoop');
+      const result = engine.run("SumLoop");
       expect(result).toBe(5050);
     });
 
-    it('should cache boolean values', () => {
+    it("should cache boolean values", () => {
       const engine = new VbsEngine();
 
       engine.addCode(`
@@ -77,13 +77,13 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('BoolTest');
+      const result = engine.run("BoolTest");
       expect(result).toBe(true);
     });
   });
 
-  describe('Parser Cache', () => {
-    it('should cache parsed AST', () => {
+  describe("Parser Cache", () => {
+    it("should cache parsed AST", () => {
       const code = `
         Function Add(a, b)
           Add = a + b
@@ -100,7 +100,7 @@ describe('Performance Optimizations', () => {
       expect(stats.size).toBeGreaterThanOrEqual(0);
     });
 
-    it('should reuse cached AST for identical code', () => {
+    it("should reuse cached AST for identical code", () => {
       const engine = new VbsEngine();
 
       // Add same code multiple times
@@ -118,8 +118,8 @@ describe('Performance Optimizations', () => {
     });
   });
 
-  describe('Optimized Scope', () => {
-    it('should handle nested scopes efficiently', () => {
+  describe("Optimized Scope", () => {
+    it("should handle nested scopes efficiently", () => {
       const engine = new VbsEngine();
 
       // Note: VBScript doesn't support nested functions in the traditional sense
@@ -138,29 +138,29 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('Outer');
+      const result = engine.run("Outer");
       expect(result).toBe(30);
     });
 
-    it('should handle many variables', () => {
+    it("should handle many variables", () => {
       const engine = new VbsEngine();
 
-      let code = 'Function ManyVars()\n';
+      let code = "Function ManyVars()\n";
       for (let i = 0; i < 100; i++) {
         code += `  Dim var${i}\n`;
         code += `  var${i} = ${i}\n`;
       }
-      code += '  ManyVars = var50\n';
-      code += 'End Function';
+      code += "  ManyVars = var50\n";
+      code += "End Function";
 
       engine.addCode(code);
-      const result = engine.run('ManyVars');
+      const result = engine.run("ManyVars");
       expect(result).toBe(50);
     });
   });
 
-  describe('Function Call Optimization', () => {
-    it('should handle built-in functions efficiently', () => {
+  describe("Function Call Optimization", () => {
+    it("should handle built-in functions efficiently", () => {
       const engine = new VbsEngine();
 
       engine.addCode(`
@@ -172,13 +172,13 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('StringOps');
+      const result = engine.run("StringOps");
       expect(result).toBe(11); // "Hello World" has 11 characters
     });
   });
 
-  describe('Integration Tests', () => {
-    it('should run complex scripts efficiently', () => {
+  describe("Integration Tests", () => {
+    it("should run complex scripts efficiently", () => {
       const engine = new VbsEngine();
 
       engine.addCode(`
@@ -203,11 +203,11 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('CalculatePrimes', 50);
+      const result = engine.run("CalculatePrimes", 50);
       expect(result).toBe(15); // 15 primes between 2 and 50
     });
 
-    it('should handle loops efficiently', () => {
+    it("should handle loops efficiently", () => {
       const engine = new VbsEngine();
 
       engine.addCode(`
@@ -223,7 +223,7 @@ describe('Performance Optimizations', () => {
         End Function
       `);
 
-      const result = engine.run('SumLoop');
+      const result = engine.run("SumLoop");
       expect(result).toBe(110); // 0+2+4+6+8+10+12+14+16+18+20
     });
   });
@@ -232,8 +232,8 @@ describe('Performance Optimizations', () => {
 /**
  * Benchmark tests (not run by default, use --reporter=verbose to see)
  */
-describe('Performance Benchmarks', () => {
-  it('benchmark: loop performance', () => {
+describe("Performance Benchmarks", () => {
+  it("benchmark: loop performance", () => {
     const engine = new VbsEngine();
 
     engine.addCode(`
@@ -248,14 +248,14 @@ describe('Performance Benchmarks', () => {
     `);
 
     const start = performance.now();
-    const result = engine.run('BenchmarkLoop');
+    const result = engine.run("BenchmarkLoop");
     const end = performance.now();
 
     console.log(`Loop benchmark: ${end - start}ms, result: ${result}`);
     expect(result).toBe(50005000);
   });
 
-  it('benchmark: function call overhead', () => {
+  it("benchmark: function call overhead", () => {
     const engine = new VbsEngine();
 
     engine.addCode(`
@@ -274,7 +274,7 @@ describe('Performance Benchmarks', () => {
     `);
 
     const start = performance.now();
-    const result = engine.run('BenchmarkCalls');
+    const result = engine.run("BenchmarkCalls");
     const end = performance.now();
 
     console.log(`Function call benchmark: ${end - start}ms`);

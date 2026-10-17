@@ -1,8 +1,15 @@
-import type { VbsEngine } from '../core/index.ts';
-import { extractVbscriptCode, isVbscriptElement, setupForEventScript } from './script-parser.ts';
-import { setupElementInlineEvents, setupNamedEventHandlers } from './event-handlers.ts';
-import type { BrowserRuntimeOptions } from './types.ts';
-import type { BoundNamedHandler } from './event-handlers.ts';
+import type { VbsEngine } from "../core/index.ts";
+import {
+  extractVbscriptCode,
+  isVbscriptElement,
+  setupForEventScript,
+} from "./script-parser.ts";
+import {
+  setupElementInlineEvents,
+  setupNamedEventHandlers,
+} from "./event-handlers.ts";
+import type { BrowserRuntimeOptions } from "./types.ts";
+import type { BoundNamedHandler } from "./event-handlers.ts";
 
 export interface ObserverContext {
   observer: MutationObserver;
@@ -11,22 +18,22 @@ export interface ObserverContext {
 export function startObserver(
   engine: VbsEngine,
   options: Required<BrowserRuntimeOptions>,
-  boundNamedHandlers: Map<string, BoundNamedHandler>
+  boundNamedHandlers: Map<string, BoundNamedHandler>,
 ): ObserverContext {
-  const observer = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(node => {
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element;
 
           if (
             options.parseScriptElement &&
-            element.tagName.toLowerCase() === 'script' &&
+            element.tagName.toLowerCase() === "script" &&
             isVbscriptElement(element)
           ) {
             const code = extractVbscriptCode(element);
-            const forAttr = element.getAttribute('for');
-            const eventAttr = element.getAttribute('event');
+            const forAttr = element.getAttribute("for");
+            const eventAttr = element.getAttribute("event");
 
             if (forAttr && eventAttr) {
               setupForEventScript(engine, forAttr, eventAttr, code);
@@ -44,12 +51,12 @@ export function startObserver(
           }
 
           if (options.parseScriptElement) {
-            const scripts = element.querySelectorAll('script');
-            scripts.forEach(script => {
+            const scripts = element.querySelectorAll("script");
+            scripts.forEach((script) => {
               if (isVbscriptElement(script)) {
                 const code = extractVbscriptCode(script);
-                const forAttr = script.getAttribute('for');
-                const eventAttr = script.getAttribute('event');
+                const forAttr = script.getAttribute("for");
+                const eventAttr = script.getAttribute("event");
 
                 if (forAttr && eventAttr) {
                   setupForEventScript(engine, forAttr, eventAttr, code);
@@ -65,8 +72,8 @@ export function startObserver(
           }
 
           if (options.parseInlineEventAttributes) {
-            const childElements = element.querySelectorAll('*');
-            childElements.forEach(child => {
+            const childElements = element.querySelectorAll("*");
+            childElements.forEach((child) => {
               setupElementInlineEvents(engine, child);
             });
           }

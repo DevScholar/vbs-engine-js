@@ -1,4 +1,4 @@
-import type { VbValue } from '../runtime/index.ts';
+import type { VbValue } from "../runtime/index.ts";
 import {
   createVbError,
   rejectObjectArgument,
@@ -11,9 +11,9 @@ import {
   toVbDate,
   VbErrorCodes,
   VbNull,
-} from '../runtime/index.ts';
-import { NLS_FIRST_DAY_OF_WEEK } from '../runtime/nls-first-day.generated.ts';
-import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
+} from "../runtime/index.ts";
+import { NLS_FIRST_DAY_OF_WEEK } from "../runtime/nls-first-day.ts";
+import { currentLcid, getCurrentBCP47Locale } from "./locale.ts";
 
 /**
  * The month or weekday index a name function was handed, which is a whole number from 1 to the last one.
@@ -23,13 +23,17 @@ import { currentLcid, getCurrentBCP47Locale } from './locale.ts';
  * range is error 5 rather than an empty name, MonthName(0), MonthName(13), MonthName(-1), MonthName(Empty)
  * and MonthName(True) alike. A Nothing is error 91 and a Null is 94.
  */
-function readNameIndex(value: VbValue, last: number, functionName: string): number {
+function readNameIndex(
+  value: VbValue,
+  last: number,
+  functionName: string,
+): number {
   rejectObjectArgument(value, functionName);
   const index = roundHalfToEven(toNumber(value));
   if (index < 1 || index > last) {
     throw createVbError(
       VbErrorCodes.InvalidProcedureCall,
-      `Invalid procedure call or argument: ${functionName}`
+      `Invalid procedure call or argument: ${functionName}`,
     );
   }
   return index;
@@ -46,12 +50,12 @@ function readAbbreviate(value: VbValue | undefined): boolean {
  * or Empty is a type mismatch there even though CDate reads them, and Null is error 94.
  */
 function toVbDateArgument(value: VbValue): Date {
-  if (value.type === 'Null')
-    throw createVbError(VbErrorCodes.InvalidUseOfNull, 'Invalid use of Null');
-  if (value.type !== 'String' && value.type !== 'Date') {
+  if (value.type === "Null")
+    throw createVbError(VbErrorCodes.InvalidUseOfNull, "Invalid use of Null");
+  if (value.type !== "String" && value.type !== "Date") {
     throw createVbError(
       VbErrorCodes.TypeMismatch,
-      `Type mismatch: ${value.type} cannot be converted to Date`
+      `Type mismatch: ${value.type} cannot be converted to Date`,
     );
   }
   return toVbDate(value);
@@ -59,7 +63,10 @@ function toVbDateArgument(value: VbValue): Date {
 
 /** The name of the error a Null in an argument that is no date raises, which is not what a Null date does. */
 function nullArgument(functionName: string): never {
-  throw createVbError(VbErrorCodes.InvalidUseOfNull, `Invalid use of Null: ${functionName}`);
+  throw createVbError(
+    VbErrorCodes.InvalidUseOfNull,
+    `Invalid use of Null: ${functionName}`,
+  );
 }
 
 /**
@@ -71,77 +78,91 @@ function nullArgument(functionName: string): never {
  * error 94), and DateSerial and TimeSerial refuse a Null in every position.
  */
 function readDateArgument(value: VbValue): Date | null {
-  if (value.type === 'Null') return null;
-  return value.type === 'Date' ? (value.value as Date) : serialToDate(toNumber(value));
+  if (value.type === "Null") return null;
+  return value.type === "Date"
+    ? (value.value as Date)
+    : serialToDate(toNumber(value));
 }
 
 export const dateFunctions = {
   Now: (): VbValue => {
-    return { type: 'Date', value: new Date() };
+    return { type: "Date", value: new Date() };
   },
 
   Date: (): VbValue => {
     const now = new Date();
-    return { type: 'Date', value: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
+    return {
+      type: "Date",
+      value: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+    };
   },
 
   Time: (): VbValue => {
     const now = new Date();
     return {
-      type: 'Date',
-      value: new Date(1899, 11, 30, now.getHours(), now.getMinutes(), now.getSeconds()),
+      type: "Date",
+      value: new Date(
+        1899,
+        11,
+        30,
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+      ),
     };
   },
 
   Year: (date: VbValue): VbValue => {
     const d = readDateArgument(date);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getFullYear() };
+    return { type: "Integer", value: d.getFullYear() };
   },
 
   Month: (date: VbValue): VbValue => {
     const d = readDateArgument(date);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getMonth() + 1 };
+    return { type: "Integer", value: d.getMonth() + 1 };
   },
 
   Day: (date: VbValue): VbValue => {
     const d = readDateArgument(date);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getDate() };
+    return { type: "Integer", value: d.getDate() };
   },
 
   Weekday: (date: VbValue, firstDayOfWeek?: VbValue): VbValue => {
     const d = readDateArgument(date);
     if (d === null) return VbNull;
-    if (firstDayOfWeek && firstDayOfWeek.type === 'Null') nullArgument('Weekday');
+    if (firstDayOfWeek && firstDayOfWeek.type === "Null")
+      nullArgument("Weekday");
     const firstDay = firstDayOfWeek ? Math.floor(toNumber(firstDayOfWeek)) : 1;
     let day = d.getDay() + 1;
     day = day - firstDay + 1;
     if (day < 1) day += 7;
-    return { type: 'Integer', value: day };
+    return { type: "Integer", value: day };
   },
 
   Hour: (time: VbValue): VbValue => {
     const d = readDateArgument(time);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getHours() };
+    return { type: "Integer", value: d.getHours() };
   },
 
   Minute: (time: VbValue): VbValue => {
     const d = readDateArgument(time);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getMinutes() };
+    return { type: "Integer", value: d.getMinutes() };
   },
 
   Second: (time: VbValue): VbValue => {
     const d = readDateArgument(time);
     if (d === null) return VbNull;
-    return { type: 'Integer', value: d.getSeconds() };
+    return { type: "Integer", value: d.getSeconds() };
   },
 
   DateAdd: (interval: VbValue, number: VbValue, date: VbValue): VbValue => {
-    if (interval.type === 'Null' || number.type === 'Null') nullArgument('DateAdd');
+    if (interval.type === "Null" || number.type === "Null")
+      nullArgument("DateAdd");
     const d = readDateArgument(date);
     if (d === null) return VbNull;
     const intv = toString(interval).toLowerCase();
@@ -149,35 +170,35 @@ export const dateFunctions = {
     const shifted = new Date(d);
 
     switch (intv) {
-      case 'yyyy':
+      case "yyyy":
         shifted.setFullYear(shifted.getFullYear() + num);
         break;
-      case 'q':
+      case "q":
         shifted.setMonth(shifted.getMonth() + num * 3);
         break;
-      case 'm':
+      case "m":
         shifted.setMonth(shifted.getMonth() + num);
         break;
-      case 'y':
-      case 'd':
-      case 'w':
+      case "y":
+      case "d":
+      case "w":
         shifted.setDate(shifted.getDate() + num);
         break;
-      case 'ww':
+      case "ww":
         shifted.setDate(shifted.getDate() + num * 7);
         break;
-      case 'h':
+      case "h":
         shifted.setHours(shifted.getHours() + num);
         break;
-      case 'n':
+      case "n":
         shifted.setMinutes(shifted.getMinutes() + num);
         break;
-      case 's':
+      case "s":
         shifted.setSeconds(shifted.getSeconds() + num);
         break;
     }
 
-    return { type: 'Date', value: shifted };
+    return { type: "Date", value: shifted };
   },
 
   DateDiff: (
@@ -185,11 +206,11 @@ export const dateFunctions = {
     date1: VbValue,
     date2: VbValue,
     _firstDayOfWeek?: VbValue,
-    _firstWeekOfYear?: VbValue
+    _firstWeekOfYear?: VbValue,
   ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
-    if (interval.type === 'Null') nullArgument('DateDiff');
+    if (interval.type === "Null") nullArgument("DateDiff");
     const d1 = readDateArgument(date1);
     const d2 = readDateArgument(date2);
     if (d1 === null || d2 === null) return VbNull;
@@ -198,135 +219,151 @@ export const dateFunctions = {
 
     let result: number;
     switch (intv) {
-      case 'yyyy':
+      case "yyyy":
         result = d2.getFullYear() - d1.getFullYear();
         break;
-      case 'q':
+      case "q":
         result = Math.floor(
-          (d2.getFullYear() - d1.getFullYear()) * 4 + (d2.getMonth() - d1.getMonth()) / 3
+          (d2.getFullYear() - d1.getFullYear()) * 4 +
+            (d2.getMonth() - d1.getMonth()) / 3,
         );
         break;
-      case 'm':
-        result = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+      case "m":
+        result =
+          (d2.getFullYear() - d1.getFullYear()) * 12 +
+          (d2.getMonth() - d1.getMonth());
         break;
-      case 'y':
-      case 'd':
+      case "y":
+      case "d":
         result = Math.floor(diff / 86400000);
         break;
-      case 'w':
+      case "w":
         result = Math.floor(diff / 86400000);
         break;
-      case 'ww':
+      case "ww":
         result = Math.floor(diff / (86400000 * 7));
         break;
-      case 'h':
+      case "h":
         result = Math.floor(diff / 3600000);
         break;
-      case 'n':
+      case "n":
         result = Math.floor(diff / 60000);
         break;
-      case 's':
+      case "s":
         result = Math.floor(diff / 1000);
         break;
       default:
         result = 0;
     }
 
-    return { type: 'Long', value: result };
+    return { type: "Long", value: result };
   },
 
   DatePart: (
     interval: VbValue,
     date: VbValue,
     _firstDayOfWeek?: VbValue,
-    _firstWeekOfYear?: VbValue
+    _firstWeekOfYear?: VbValue,
   ): VbValue => {
     void _firstDayOfWeek; // Intentionally unused - matches VBScript signature
     void _firstWeekOfYear; // Intentionally unused - matches VBScript signature
-    if (interval.type === 'Null') nullArgument('DatePart');
+    if (interval.type === "Null") nullArgument("DatePart");
     const d = readDateArgument(date);
     if (d === null) return VbNull;
     const intv = toString(interval).toLowerCase();
 
     let result: number;
     switch (intv) {
-      case 'yyyy':
+      case "yyyy":
         result = d.getFullYear();
         break;
-      case 'q':
+      case "q":
         result = Math.floor(d.getMonth() / 3) + 1;
         break;
-      case 'm':
+      case "m":
         result = d.getMonth() + 1;
         break;
-      case 'y': {
+      case "y": {
         const startOfYear = new Date(d.getFullYear(), 0, 1);
-        result = Math.floor((d.getTime() - startOfYear.getTime()) / 86400000) + 1;
+        result =
+          Math.floor((d.getTime() - startOfYear.getTime()) / 86400000) + 1;
         break;
       }
-      case 'd':
+      case "d":
         result = d.getDate();
         break;
-      case 'w':
+      case "w":
         result = d.getDay() + 1;
         break;
-      case 'ww': {
+      case "ww": {
         const startOfYear2 = new Date(d.getFullYear(), 0, 1);
-        result = Math.floor((d.getTime() - startOfYear2.getTime()) / (86400000 * 7)) + 1;
+        result =
+          Math.floor((d.getTime() - startOfYear2.getTime()) / (86400000 * 7)) +
+          1;
         break;
       }
-      case 'h':
+      case "h":
         result = d.getHours();
         break;
-      case 'n':
+      case "n":
         result = d.getMinutes();
         break;
-      case 's':
+      case "s":
         result = d.getSeconds();
         break;
       default:
         result = 0;
     }
 
-    return { type: 'Integer', value: result };
+    return { type: "Integer", value: result };
   },
 
   DateSerial: (year: VbValue, month: VbValue, day: VbValue): VbValue => {
     const y = Math.floor(toNumber(year));
     const m = Math.floor(toNumber(month));
     const d = Math.floor(toNumber(day));
-    return { type: 'Date', value: new Date(y, m - 1, d) };
+    return { type: "Date", value: new Date(y, m - 1, d) };
   },
 
   TimeSerial: (hour: VbValue, minute: VbValue, second: VbValue): VbValue => {
     const h = Math.floor(toNumber(hour));
     const m = Math.floor(toNumber(minute));
     const s = Math.floor(toNumber(second));
-    return { type: 'Date', value: new Date(1899, 11, 30, h, m, s) };
+    return { type: "Date", value: new Date(1899, 11, 30, h, m, s) };
   },
 
   DateValue: (date: VbValue): VbValue => {
     const d = toVbDateArgument(date);
-    return { type: 'Date', value: new Date(d.getFullYear(), d.getMonth(), d.getDate()) };
+    return {
+      type: "Date",
+      value: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+    };
   },
 
   TimeValue: (time: VbValue): VbValue => {
     const d = toVbDateArgument(time);
     return {
-      type: 'Date',
-      value: new Date(1899, 11, 30, d.getHours(), d.getMinutes(), d.getSeconds()),
+      type: "Date",
+      value: new Date(
+        1899,
+        11,
+        30,
+        d.getHours(),
+        d.getMinutes(),
+        d.getSeconds(),
+      ),
     };
   },
 
   MonthName: (month: VbValue, abbreviate?: VbValue): VbValue => {
-    const m = readNameIndex(month, 12, 'MonthName');
+    const m = readNameIndex(month, 12, "MonthName");
     return {
-      type: 'String',
+      type: "String",
       value: standaloneMonthName(
         currentLcid(),
         getCurrentBCP47Locale(),
         m,
-        readAbbreviate(abbreviate)
+        readAbbreviate(abbreviate),
       ),
     };
   },
@@ -336,28 +373,33 @@ export const dateFunctions = {
   // Saturday, and 0 counts from the locale's own first day, which is Monday for most of Europe and Saturday
   // for the Arabic locales. Anything outside 0 to 7 is error 5, and leaving the argument out counts from
   // Sunday, whatever the locale's own day is.
-  WeekdayName: (weekday: VbValue, abbreviate?: VbValue, firstDayOfWeek?: VbValue): VbValue => {
-    const w = readNameIndex(weekday, 7, 'WeekdayName');
+  WeekdayName: (
+    weekday: VbValue,
+    abbreviate?: VbValue,
+    firstDayOfWeek?: VbValue,
+  ): VbValue => {
+    const w = readNameIndex(weekday, 7, "WeekdayName");
     let first = 1;
     if (firstDayOfWeek !== undefined) {
-      rejectObjectArgument(firstDayOfWeek, 'WeekdayName');
+      rejectObjectArgument(firstDayOfWeek, "WeekdayName");
       const given = roundHalfToEven(toNumber(firstDayOfWeek));
       if (given < 0 || given > 7) {
         throw createVbError(
           VbErrorCodes.InvalidProcedureCall,
-          'Invalid procedure call or argument: WeekdayName'
+          "Invalid procedure call or argument: WeekdayName",
         );
       }
-      first = given === 0 ? (NLS_FIRST_DAY_OF_WEEK.get(currentLcid()) ?? 1) : given;
+      first =
+        given === 0 ? (NLS_FIRST_DAY_OF_WEEK.get(currentLcid()) ?? 1) : given;
     }
     const day = ((first - 1 + (w - 1)) % 7) + 1;
     return {
-      type: 'String',
+      type: "String",
       value: standaloneWeekdayName(
         currentLcid(),
         getCurrentBCP47Locale(),
         day,
-        readAbbreviate(abbreviate)
+        readAbbreviate(abbreviate),
       ),
     };
   },
@@ -365,7 +407,7 @@ export const dateFunctions = {
   Timer: (): VbValue => {
     const now = new Date();
     return {
-      type: 'Single',
+      type: "Single",
       value:
         now.getHours() * 3600 +
         now.getMinutes() * 60 +

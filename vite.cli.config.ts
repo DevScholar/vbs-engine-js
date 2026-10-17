@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
+import { defineConfig } from "vite";
+import { resolve } from "path";
 
 // Dedicated build for the run-script CLI. The library build (vite.config.ts)
 // targets the browser/neutral platform and is intentionally kept free of Node
@@ -9,16 +9,16 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/cli/run-script.ts'),
-      formats: ['es'],
-      fileName: 'run-script',
+      entry: resolve(__dirname, "src/cli/run-script.ts"),
+      formats: ["es"],
+      fileName: "run-script",
     },
     rollupOptions: {
       external: [/^node:/],
     },
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: false,
-    target: 'node18',
+    target: "node18",
     sourcemap: false,
     minify: false,
   },

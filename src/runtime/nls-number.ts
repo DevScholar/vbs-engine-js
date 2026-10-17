@@ -1,9 +1,9 @@
-import { nlsNumberFormat, type NlsNumberFormat } from './nls-number-table.generated.ts';
-import { currentLcid } from '../builtins/locale.ts';
+import { nlsNumberFormat, type NlsNumberFormat } from "./nls-number-table.ts";
+import { currentLcid } from "../builtins/locale.ts";
 
 /**
  * Writes a number the way vbscript.dll writes it, and reads one the way it reads it, from the Windows NLS
- * values in nls-number-table.generated.ts. The reader is at the end of the file: parseVbNumericString.
+ * values in nls-number-table.ts. The reader is at the end of the file: parseVbNumericString.
  *
  * Why this is not Intl.NumberFormat with a few characters swapped:
  *
@@ -23,7 +23,7 @@ import { currentLcid } from '../builtins/locale.ts';
  */
 
 /** Which of VBScript's three writers is asking. */
-export type NlsNumberStyle = 'number' | 'currency' | 'percent';
+export type NlsNumberStyle = "number" | "currency" | "percent";
 
 /** VBScript's own arguments, before the locale fills in what the caller left out. */
 export interface NlsNumberOptions {
@@ -39,27 +39,27 @@ export interface NlsNumberOptions {
 
 /** The neutral row used for the one LCID Windows has no name for (1084). */
 const ASCII_FALLBACK: NlsNumberFormat = {
-  decimal: '.',
-  thousand: ',',
-  grouping: '3;0',
+  decimal: ".",
+  thousand: ",",
+  grouping: "3;0",
   digits: 2,
   leadingZero: 1,
   negativeNumber: 1,
-  negativeSign: '-',
-  positiveSign: '',
-  currencySymbol: '',
-  currencyCode: '',
+  negativeSign: "-",
+  positiveSign: "",
+  currencySymbol: "",
+  currencyCode: "",
   currencyDigits: 2,
   currencyPosition: 0,
   negativeCurrency: 0,
-  monDecimal: '.',
-  monThousand: ',',
-  monGrouping: '3;0',
-  nativeDigits: '0123456789',
+  monDecimal: ".",
+  monThousand: ",",
+  monGrouping: "3;0",
+  nativeDigits: "0123456789",
 };
 
 const roundedMagnitude = (value: number, digits: number): string =>
-  new Intl.NumberFormat('en-US', {
+  new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
     useGrouping: false,
@@ -75,9 +75,9 @@ const roundedMagnitude = (value: number, digits: number): string =>
  */
 function groupSizes(pattern: string): number[] {
   const sizes = pattern
-    .split(';')
-    .map(part => Number(part.trim()))
-    .filter(size => Number.isFinite(size));
+    .split(";")
+    .map((part) => Number(part.trim()))
+    .filter((size) => Number.isFinite(size));
   if (sizes.length === 0 || sizes[0] <= 0) return [];
   return [sizes[0], sizes[0]];
 }
@@ -86,7 +86,7 @@ function groupSizes(pattern: string): number[] {
 function groupInteger(integer: string, mark: string, pattern: string): string {
   const [primary, secondary] = groupSizes(pattern);
   if (!mark || primary === undefined) return integer;
-  let grouped = '';
+  let grouped = "";
   let rest = integer;
   let width = primary;
   while (rest.length > width) {
@@ -103,17 +103,21 @@ function writeMagnitude(
   digits: number,
   facts: NlsNumberFormat,
   useMoney: boolean,
-  group: boolean
+  group: boolean,
 ): string {
   const magnitude = roundedMagnitude(value, digits);
-  const dot = magnitude.indexOf('.');
+  const dot = magnitude.indexOf(".");
   let integer = dot < 0 ? magnitude : magnitude.slice(0, dot);
-  const fraction = dot < 0 ? '' : magnitude.slice(dot + 1);
-  if (integer === '0' && facts.leadingZero === 0) integer = '';
+  const fraction = dot < 0 ? "" : magnitude.slice(dot + 1);
+  if (integer === "0" && facts.leadingZero === 0) integer = "";
   const decimalMark = useMoney ? facts.monDecimal : facts.decimal;
   const groupMark = useMoney ? facts.monThousand : facts.thousand;
   const grouped = group
-    ? groupInteger(integer, groupMark, useMoney ? facts.monGrouping : facts.grouping)
+    ? groupInteger(
+        integer,
+        groupMark,
+        useMoney ? facts.monGrouping : facts.grouping,
+      )
     : integer;
   return digits > 0 ? grouped + decimalMark + fraction : grouped;
 }
@@ -122,13 +126,13 @@ function writeMagnitude(
 function negativeNumber(text: string, sign: string, pattern: number): string {
   switch (pattern) {
     case 0:
-      return '(' + text + ')';
+      return "(" + text + ")";
     case 2:
-      return sign + ' ' + text;
+      return sign + " " + text;
     case 3:
       return text + sign;
     case 4:
-      return text + ' ' + sign;
+      return text + " " + sign;
     default:
       return sign + text;
   }
@@ -139,34 +143,39 @@ function negativeNumber(text: string, sign: string, pattern: number): string {
  * spaces are the ones Windows writes.
  */
 const NEGATIVE_CURRENCY: readonly string[] = [
-  '(sn)',
-  '-sn',
-  's-n',
-  'sn-',
-  '(ns)',
-  '-ns',
-  'n-s',
-  'ns-',
-  '-n s',
-  '-s n',
-  's n-',
-  'n s-',
-  's -n',
-  'n- s',
-  '(s n)',
-  '(n s)',
+  "(sn)",
+  "-sn",
+  "s-n",
+  "sn-",
+  "(ns)",
+  "-ns",
+  "n-s",
+  "ns-",
+  "-n s",
+  "-s n",
+  "s n-",
+  "n s-",
+  "s -n",
+  "n- s",
+  "(s n)",
+  "(n s)",
 ];
 
 /** The four LOCALE_ICURRENCY placements: 0 "$1", 1 "1$", 2 "$ 1", 3 "1 $". */
-const POSITIVE_CURRENCY: readonly string[] = ['sn', 'ns', 's n', 'n s'];
+const POSITIVE_CURRENCY: readonly string[] = ["sn", "ns", "s n", "n s"];
 
 /** Fills one of the currency shapes above with the amount and the symbol. */
-function fillCurrency(shape: string, text: string, symbol: string, sign: string): string {
-  let written = '';
+function fillCurrency(
+  shape: string,
+  text: string,
+  symbol: string,
+  sign: string,
+): string {
+  let written = "";
   for (const shapeCharacter of shape) {
-    if (shapeCharacter === 'n') written += text;
-    else if (shapeCharacter === 's') written += symbol;
-    else if (shapeCharacter === '-') written += sign;
+    if (shapeCharacter === "n") written += text;
+    else if (shapeCharacter === "s") written += symbol;
+    else if (shapeCharacter === "-") written += sign;
     else written += shapeCharacter;
   }
   return written;
@@ -174,20 +183,25 @@ function fillCurrency(shape: string, text: string, symbol: string, sign: string)
 
 /** One of the currency shapes above with its sign replaced by parentheses, or as it stands. */
 function currencyShapeWithParens(shape: string): string {
-  const withoutSign = shape.replace('-', '');
-  return withoutSign.includes('(') ? withoutSign : '(' + withoutSign + ')';
+  const withoutSign = shape.replace("-", "");
+  return withoutSign.includes("(") ? withoutSign : "(" + withoutSign + ")";
 }
 
 /** One of the currency shapes above with parentheses replaced by a minus sign, or as it stands. */
 function currencyShapeWithMinus(shape: string): string {
-  const withoutParens = shape.replace(/[()]/g, '');
-  return withoutParens.includes('-') ? withoutParens : '-' + withoutParens;
+  const withoutParens = shape.replace(/[()]/g, "");
+  return withoutParens.includes("-") ? withoutParens : "-" + withoutParens;
 }
 
 /** What a caller left out is taken from the locale, which is what -1 and -2 mean in VBScript. */
-function localeDigits(style: NlsNumberStyle, facts: NlsNumberFormat, asked?: number): number {
+function localeDigits(
+  style: NlsNumberStyle,
+  facts: NlsNumberFormat,
+  asked?: number,
+): number {
   if (asked !== undefined && asked >= 0) return asked;
-  if (style === 'currency') return facts.currencyDigits >= 0 ? facts.currencyDigits : facts.digits;
+  if (style === "currency")
+    return facts.currencyDigits >= 0 ? facts.currencyDigits : facts.digits;
   return facts.digits >= 0 ? facts.digits : 2;
 }
 
@@ -201,7 +215,8 @@ function localeDigits(style: NlsNumberStyle, facts: NlsNumberFormat, asked?: num
  */
 function negativeShape(facts: NlsNumberFormat, parens?: number): number {
   if (parens === -1) return 0;
-  if (parens === 0) return facts.negativeNumber === 0 ? 1 : facts.negativeNumber;
+  if (parens === 0)
+    return facts.negativeNumber === 0 ? 1 : facts.negativeNumber;
   return facts.negativeNumber;
 }
 
@@ -217,11 +232,11 @@ export function formatNlsNumber(
   value: number,
   lcid: number,
   style: NlsNumberStyle,
-  options: NlsNumberOptions = {}
+  options: NlsNumberOptions = {},
 ): string {
   const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
-  const money = style === 'currency';
-  const scaled = style === 'percent' ? value * 100 : value;
+  const money = style === "currency";
+  const scaled = style === "percent" ? value * 100 : value;
   const digits = localeDigits(style, facts, options.digits);
 
   // The locale's leading-zero setting, unless the caller asked for one or the other.
@@ -232,17 +247,23 @@ export function formatNlsNumber(
         ? { ...facts, leadingZero: 0 }
         : facts;
 
-  const group = options.group === 0 ? false : options.group === -1 ? true : true;
+  const group =
+    options.group === 0 ? false : options.group === -1 ? true : true;
   const text = writeMagnitude(scaled, digits, withFacts, money, group);
   const negative = scaled < 0 || Object.is(scaled, -0);
-  const sign = facts.negativeSign || '-';
+  const sign = facts.negativeSign || "-";
 
   if (money) {
     const symbol = facts.currencySymbol;
     if (!negative) {
-      return fillCurrency(POSITIVE_CURRENCY[facts.currencyPosition] ?? 'sn', text, symbol, sign);
+      return fillCurrency(
+        POSITIVE_CURRENCY[facts.currencyPosition] ?? "sn",
+        text,
+        symbol,
+        sign,
+      );
     }
-    const own = NEGATIVE_CURRENCY[facts.negativeCurrency] ?? '-sn';
+    const own = NEGATIVE_CURRENCY[facts.negativeCurrency] ?? "-sn";
     // useParensForNegativeNumbers changes only the sign of the locale's own shape, measured under 1031 and
     // 1033: True puts the amount in parentheses ("(1.234,50 €)" and "(50,00%)"), False writes a minus
     // ("-$1,234.50" where the locale's own shape is "($1,234.50)"), and anything else leaves it alone.
@@ -255,11 +276,13 @@ export function formatNlsNumber(
     return fillCurrency(shape, text, symbol, sign);
   }
 
-  if (style === 'percent') {
-    if (!negative) return text + '%';
+  if (style === "percent") {
+    if (!negative) return text + "%";
     // The percent sign sits inside the parentheses when the caller asks for them: "(50.00%)".
-    if (options.parens === -1) return '(' + text + '%)';
-    return negativeNumber(text, sign, negativeShape(facts, options.parens)) + '%';
+    if (options.parens === -1) return "(" + text + "%)";
+    return (
+      negativeNumber(text, sign, negativeShape(facts, options.parens)) + "%"
+    );
   }
 
   if (!negative) return text;
@@ -286,7 +309,10 @@ export function formatNlsNumber(
  */
 
 /** How many significant digits each type keeps. */
-const SIGNIFICANT_DIGITS: Record<'single' | 'double', number> = { single: 7, double: 15 };
+const SIGNIFICANT_DIGITS: Record<"single" | "double", number> = {
+  single: 7,
+  double: 15,
+};
 
 /** How many decimal places a Currency keeps, which is what its scaled integer counts. */
 export const CURRENCY_DIGITS = 4;
@@ -311,35 +337,44 @@ function significantText(value: number, significantDigits: number): string {
   const magnitude = Math.abs(value);
   // A negative zero keeps its sign, which a fresh cscript shows: CStr(-CDbl(0)) is "-0" and not "0". A
   // Currency has no such value, since it is held as a scaled whole number, and neither has an Integer.
-  if (magnitude === 0) return Object.is(value, -0) ? '-0' : '0';
-  const sign = value < 0 ? '-' : '';
+  if (magnitude === 0) return Object.is(value, -0) ? "-0" : "0";
+  const sign = value < 0 ? "-" : "";
   const precise = magnitude.toPrecision(significantDigits);
-  const [rawMantissa, rawExponent] = precise.split('e');
-  let digits = rawMantissa.replace('.', '');
+  const [rawMantissa, rawExponent] = precise.split("e");
+  let digits = rawMantissa.replace(".", "");
   let roundedPower =
     rawExponent === undefined
-      ? (rawMantissa.includes('.') ? rawMantissa.indexOf('.') : rawMantissa.length) - 1
+      ? (rawMantissa.includes(".")
+          ? rawMantissa.indexOf(".")
+          : rawMantissa.length) - 1
       : Number(rawExponent);
   // A mantissa below one starts with zeros that are not significant: drop them and move the power with
   // them, so the first digit written is the first significant one.
-  const leadingZeros = digits.length - digits.replace(/^0+/, '').length;
-  digits = digits.slice(leadingZeros).replace(/0+$/, '');
+  const leadingZeros = digits.length - digits.replace(/^0+/, "").length;
+  digits = digits.slice(leadingZeros).replace(/0+$/, "");
   roundedPower -= leadingZeros;
 
   const plain =
     roundedPower < 0
-      ? '0.' + '0'.repeat(-roundedPower - 1) + digits
+      ? "0." + "0".repeat(-roundedPower - 1) + digits
       : digits.length <= roundedPower + 1
-        ? digits + '0'.repeat(roundedPower + 1 - digits.length)
-        : digits.slice(0, roundedPower + 1) + '.' + digits.slice(roundedPower + 1);
-  const ownPower = Number(magnitude.toExponential().split('e')[1]);
+        ? digits + "0".repeat(roundedPower + 1 - digits.length)
+        : digits.slice(0, roundedPower + 1) +
+          "." +
+          digits.slice(roundedPower + 1);
+  const ownPower = Number(magnitude.toExponential().split("e")[1]);
   const plainFits =
-    ownPower >= -significantDigits && ownPower <= significantDigits - 1 && plain.length <= 17;
+    ownPower >= -significantDigits &&
+    ownPower <= significantDigits - 1 &&
+    plain.length <= 17;
   if (plainFits) return sign + plain;
 
-  const mantissa = digits.length === 1 ? digits : digits[0] + '.' + digits.slice(1);
-  const exponent = (roundedPower < 0 ? '-' : '+') + String(Math.abs(roundedPower)).padStart(2, '0');
-  return sign + mantissa + 'E' + exponent;
+  const mantissa =
+    digits.length === 1 ? digits : digits[0] + "." + digits.slice(1);
+  const exponent =
+    (roundedPower < 0 ? "-" : "+") +
+    String(Math.abs(roundedPower)).padStart(2, "0");
+  return sign + mantissa + "E" + exponent;
 }
 
 /**
@@ -352,11 +387,11 @@ function significantText(value: number, significantDigits: number): string {
 export function formatVbNumberText(
   value: number,
   lcid: number,
-  kind: 'single' | 'double' = 'double'
+  kind: "single" | "double" = "double",
 ): string {
   const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
   const written = significantText(value, SIGNIFICANT_DIGITS[kind]);
-  return facts.decimal === '.' ? written : written.replace('.', facts.decimal);
+  return facts.decimal === "." ? written : written.replace(".", facts.decimal);
 }
 
 /**
@@ -370,12 +405,13 @@ export function formatVbNumberText(
  */
 export function formatVbCurrencyText(scaled: bigint, lcid: number): string {
   const facts = nlsNumberFormat(lcid) ?? ASCII_FALLBACK;
-  const digits = (scaled < 0n ? -scaled : scaled).toString().padStart(5, '0');
+  const digits = (scaled < 0n ? -scaled : scaled).toString().padStart(5, "0");
   const wholePart = digits.slice(0, -CURRENCY_DIGITS);
-  const fractionPart = digits.slice(-CURRENCY_DIGITS).replace(/0+$/, '');
-  const written = fractionPart === '' ? wholePart : wholePart + '.' + fractionPart;
-  const signed = scaled < 0n ? '-' + written : written;
-  return facts.decimal === '.' ? signed : signed.replace('.', facts.decimal);
+  const fractionPart = digits.slice(-CURRENCY_DIGITS).replace(/0+$/, "");
+  const written =
+    fractionPart === "" ? wholePart : wholePart + "." + fractionPart;
+  const signed = scaled < 0n ? "-" + written : written;
+  return facts.decimal === "." ? signed : signed.replace(".", facts.decimal);
 }
 
 const HEX_STRING_RE = /^&[hH]([0-9a-fA-F]+)&?$/;
@@ -384,7 +420,7 @@ const DECIMAL_STRING_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eEdD][+-]?\d+)?$/;
 
 /** A regular expression that matches one character of text and nothing else. */
 function escapeForPattern(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -412,21 +448,21 @@ function escapeForPattern(text: string): string {
  * its neighbours. Returns null rather than throwing, so the callers can decide what to do.
  */
 export function parseVbNumericString(trimmed: string): number | null {
-  if (trimmed === '') return null;
+  if (trimmed === "") return null;
   const hexMatch = HEX_STRING_RE.exec(trimmed);
   if (hexMatch) return parseInt(hexMatch[1]!, 16);
   const octalMatch = OCTAL_STRING_RE.exec(trimmed);
   if (octalMatch) return parseInt(octalMatch[1]!, 8);
 
   const facts = nlsNumberFormat(currentLcid());
-  const decimalMarks = [facts?.decimal ?? '.', facts?.monDecimal ?? '.'];
-  const groupMarks = [facts?.thousand ?? '', facts?.monThousand ?? ''];
+  const decimalMarks = [facts?.decimal ?? ".", facts?.monDecimal ?? "."];
+  const groupMarks = [facts?.thousand ?? "", facts?.monThousand ?? ""];
   // A plain space groups a number in every locale whose own group mark is a space.
-  if (facts !== undefined && /\s/.test(facts.thousand)) groupMarks.push(' ');
-  const currencySymbol = facts?.currencySymbol ?? '';
+  if (facts !== undefined && /\s/.test(facts.thousand)) groupMarks.push(" ");
+  const currencySymbol = facts?.currencySymbol ?? "";
 
   let written = trimmed;
-  if (currencySymbol !== '') {
+  if (currencySymbol !== "") {
     const afterPrefix = written.startsWith(currencySymbol)
       ? written.slice(currencySymbol.length).trim()
       : written;
@@ -435,26 +471,29 @@ export function parseVbNumericString(trimmed: string): number | null {
       : afterPrefix;
   }
   let negative = false;
-  if (written.startsWith('(') && written.endsWith(')')) {
+  if (written.startsWith("(") && written.endsWith(")")) {
     negative = true;
     written = written.slice(1, -1).trim();
   }
-  if (written.startsWith('+') || written.startsWith('-')) {
-    if (written.startsWith('-')) negative = !negative;
+  if (written.startsWith("+") || written.startsWith("-")) {
+    if (written.startsWith("-")) negative = !negative;
     written = written.slice(1);
   }
   for (const groupMark of groupMarks) {
     // A mark that is also a fraction mark is read as a fraction mark, never as grouping.
-    if (groupMark === '' || decimalMarks.includes(groupMark)) continue;
-    written = written.replace(new RegExp(`(?<=\\d)${escapeForPattern(groupMark)}`, 'g'), '');
+    if (groupMark === "" || decimalMarks.includes(groupMark)) continue;
+    written = written.replace(
+      new RegExp(`(?<=\\d)${escapeForPattern(groupMark)}`, "g"),
+      "",
+    );
   }
   // A full stop this locale does not name as one of its two fraction marks is not part of a number.
-  if (!decimalMarks.includes('.') && written.includes('.')) return null;
+  if (!decimalMarks.includes(".") && written.includes(".")) return null;
   for (const decimalMark of decimalMarks) {
-    if (decimalMark !== '.') written = written.split(decimalMark).join('.');
+    if (decimalMark !== ".") written = written.split(decimalMark).join(".");
   }
   if (!DECIMAL_STRING_RE.test(written)) return null;
-  const num = parseFloat(written.replace(/[dD]/, 'e'));
+  const num = parseFloat(written.replace(/[dD]/, "e"));
   if (isNaN(num)) return null;
   return negative ? -num : num;
 }

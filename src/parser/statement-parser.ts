@@ -1,12 +1,16 @@
-import type { Statement, VbGotoStatement, VbLabelStatement } from '../ast/index.ts';
-import type { TokenType } from '../lexer/index.ts';
-import { ParserState } from './parser-state.ts';
-import { ExpressionParser } from './expression-parser.ts';
-import { DeclarationParser } from './declarations.ts';
-import { ProcedureParser } from './procedures.ts';
-import { ControlFlowParser } from './control-flow.ts';
-import { StatementsParser } from './statements.ts';
-import { createLocation } from './location.ts';
+import type {
+  Statement,
+  VbGotoStatement,
+  VbLabelStatement,
+} from "../ast/index.ts";
+import type { TokenType } from "../lexer/index.ts";
+import { ParserState } from "./parser-state.ts";
+import { ExpressionParser } from "./expression-parser.ts";
+import { DeclarationParser } from "./declarations.ts";
+import { ProcedureParser } from "./procedures.ts";
+import { ControlFlowParser } from "./control-flow.ts";
+import { StatementsParser } from "./statements.ts";
+import { createLocation } from "./location.ts";
 
 export class StatementParser {
   private state: ParserState;
@@ -21,12 +25,14 @@ export class StatementParser {
     this.exprParser = new ExpressionParser(state);
 
     this.declarationParser = new DeclarationParser(state, this.exprParser);
-    this.procedureParser = new ProcedureParser(state, this.exprParser, () => this.parseStatement());
+    this.procedureParser = new ProcedureParser(state, this.exprParser, () =>
+      this.parseStatement(),
+    );
     this.controlFlowParser = new ControlFlowParser(state, this.exprParser, () =>
-      this.parseStatement()
+      this.parseStatement(),
     );
     this.statementsParser = new StatementsParser(state, this.exprParser, () =>
-      this.parseStatement()
+      this.parseStatement(),
     );
   }
 
@@ -36,29 +42,29 @@ export class StatementParser {
     const token = this.state.current;
 
     switch (token.type) {
-      case 'Dim' as TokenType:
+      case "Dim" as TokenType:
         return this.declarationParser.parseDimStatement();
-      case 'ReDim' as TokenType:
+      case "ReDim" as TokenType:
         return this.declarationParser.parseReDimStatement();
-      case 'Erase' as TokenType:
+      case "Erase" as TokenType:
         return this.declarationParser.parseEraseStatement();
-      case 'Const' as TokenType:
+      case "Const" as TokenType:
         return this.declarationParser.parseConstStatement();
-      case 'Enum' as TokenType:
+      case "Enum" as TokenType:
         return this.declarationParser.parseEnumStatement();
-      case 'Type' as TokenType:
+      case "Type" as TokenType:
         return this.declarationParser.parseTypeStatement();
-      case 'Public' as TokenType:
+      case "Public" as TokenType:
         return this.parseVisibilityStatement();
-      case 'Private' as TokenType:
+      case "Private" as TokenType:
         return this.parseVisibilityStatement();
-      case 'Sub' as TokenType:
+      case "Sub" as TokenType:
         return this.procedureParser.parseSubStatement();
-      case 'Function' as TokenType:
+      case "Function" as TokenType:
         return this.procedureParser.parseFunctionStatement();
-      case 'Class' as TokenType:
+      case "Class" as TokenType:
         return this.procedureParser.parseClassStatement();
-      case 'Property' as TokenType:
+      case "Property" as TokenType:
         // `Property` only actually starts a Property Get/Let/Set block when
         // followed by one of those three keywords - otherwise it's real
         // VBScript's "keywords are usable as ordinary identifiers" rule
@@ -67,40 +73,40 @@ export class StatementParser {
         // Found via Wine's own vbscript.dll conformance suite,
         // dlls/vbscript/tests/lang.vbs.
         if (
-          this.state.peek(1).type === ('Get' as TokenType) ||
-          this.state.peek(1).type === ('Let' as TokenType) ||
-          this.state.peek(1).type === ('Set' as TokenType)
+          this.state.peek(1).type === ("Get" as TokenType) ||
+          this.state.peek(1).type === ("Let" as TokenType) ||
+          this.state.peek(1).type === ("Set" as TokenType)
         ) {
           return this.procedureParser.parsePropertyStatement();
         }
         return this.statementsParser.parseExpressionStatement();
-      case 'If' as TokenType:
+      case "If" as TokenType:
         return this.controlFlowParser.parseIfStatement();
-      case 'For' as TokenType:
+      case "For" as TokenType:
         return this.controlFlowParser.parseForStatement();
-      case 'Do' as TokenType:
+      case "Do" as TokenType:
         return this.controlFlowParser.parseDoStatement();
-      case 'While' as TokenType:
+      case "While" as TokenType:
         return this.controlFlowParser.parseWhileStatement();
-      case 'Select' as TokenType:
+      case "Select" as TokenType:
         return this.controlFlowParser.parseSelectStatement();
-      case 'With' as TokenType:
+      case "With" as TokenType:
         return this.statementsParser.parseWithStatement();
-      case 'Exit' as TokenType:
+      case "Exit" as TokenType:
         return this.statementsParser.parseExitStatement();
-      case 'Option' as TokenType:
+      case "Option" as TokenType:
         return this.statementsParser.parseOptionStatement();
-      case 'Call' as TokenType:
+      case "Call" as TokenType:
         return this.statementsParser.parseCallStatement();
-      case 'Set' as TokenType:
+      case "Set" as TokenType:
         return this.statementsParser.parseSetStatement();
-      case 'On' as TokenType:
+      case "On" as TokenType:
         return this.statementsParser.parseOnStatement();
-      case 'Resume' as TokenType:
+      case "Resume" as TokenType:
         return this.statementsParser.parseResumeStatement();
-      case 'Goto' as TokenType:
+      case "Goto" as TokenType:
         return this.parseGotoStatement();
-      case 'Colon' as TokenType:
+      case "Colon" as TokenType:
         this.state.advance();
         return this.parseStatement();
       // `Stop` is a real VBScript statement (a debugger breakpoint) that was
@@ -109,12 +115,18 @@ export class StatementParser {
       // moment execution reached it. Without an attached debugger it's a
       // harmless no-op. Found via Wine's own vbscript.dll conformance
       // suite, dlls/vbscript/tests/lang.vbs.
-      case 'Stop' as TokenType: {
+      case "Stop" as TokenType: {
         const stopToken = this.state.advance();
-        return { type: 'EmptyStatement', loc: createLocation(stopToken, stopToken) };
+        return {
+          type: "EmptyStatement",
+          loc: createLocation(stopToken, stopToken),
+        };
       }
       default:
-        if (this.state.checkIdentifier() && this.state.peek(1).type === ('Colon' as TokenType)) {
+        if (
+          this.state.checkIdentifier() &&
+          this.state.peek(1).type === ("Colon" as TokenType)
+        ) {
           return this.parseLabelStatement();
         }
         return this.statementsParser.parseExpressionStatement();
@@ -126,7 +138,7 @@ export class StatementParser {
     const label = this.exprParser.parseIdentifier();
 
     return {
-      type: 'VbGotoStatement',
+      type: "VbGotoStatement",
       label,
       loc: createLocation(gotoToken, this.state.previous),
     };
@@ -134,12 +146,12 @@ export class StatementParser {
 
   private parseLabelStatement(): VbLabelStatement {
     const labelToken = this.state.advance();
-    this.state.expect('Colon' as TokenType);
+    this.state.expect("Colon" as TokenType);
 
     return {
-      type: 'VbLabelStatement',
+      type: "VbLabelStatement",
       label: {
-        type: 'Identifier',
+        type: "Identifier",
         name: labelToken.value,
         loc: labelToken.loc,
       },
@@ -149,35 +161,37 @@ export class StatementParser {
 
   private parseVisibilityStatement(): Statement {
     const visibilityToken = this.state.advance();
-    const visibility = visibilityToken.type === 'Public' ? 'public' : 'private';
+    const visibility = visibilityToken.type === "Public" ? "public" : "private";
 
-    if (this.state.check('Dim' as TokenType)) {
+    if (this.state.check("Dim" as TokenType)) {
       return this.declarationParser.parsePublicDimStatement();
     }
 
-    if (this.state.check('Const' as TokenType)) {
-      return visibility === 'public'
+    if (this.state.check("Const" as TokenType)) {
+      return visibility === "public"
         ? this.declarationParser.parsePublicConstStatement()
         : this.declarationParser.parsePrivateConstStatement();
     }
 
-    if (this.state.check('Enum' as TokenType)) {
+    if (this.state.check("Enum" as TokenType)) {
       return this.declarationParser.parseEnumStatement(visibility);
     }
 
-    if (this.state.check('Type' as TokenType)) {
-      return this.declarationParser.parseTypeStatement(visibility as 'public' | 'private');
+    if (this.state.check("Type" as TokenType)) {
+      return this.declarationParser.parseTypeStatement(
+        visibility as "public" | "private",
+      );
     }
 
-    if (this.state.check('Sub' as TokenType)) {
+    if (this.state.check("Sub" as TokenType)) {
       return this.procedureParser.parseSubStatement(visibility);
     }
 
-    if (this.state.check('Function' as TokenType)) {
+    if (this.state.check("Function" as TokenType)) {
       return this.procedureParser.parseFunctionStatement(visibility);
     }
 
-    if (this.state.check('Property' as TokenType)) {
+    if (this.state.check("Property" as TokenType)) {
       return this.procedureParser.parsePropertyStatement(visibility);
     }
 
@@ -190,17 +204,26 @@ export class StatementParser {
     // vbscript.dll conformance suite, dlls/vbscript/tests/lang.vbs.
     if (
       this.state.checkIdentifier() ||
-      !this.state.checkAny('Newline' as TokenType, 'EOF' as TokenType, 'Colon' as TokenType)
+      !this.state.checkAny(
+        "Newline" as TokenType,
+        "EOF" as TokenType,
+        "Colon" as TokenType,
+      )
     ) {
       const declarations = this.declarationParser.parseVariableDeclarations();
       return {
-        type: 'VbDimStatement',
+        type: "VbDimStatement",
         declarations,
-        visibility: visibility as 'public' | 'private',
-        loc: { start: visibilityToken.loc.start, end: this.state.previous.loc.end },
+        visibility: visibility as "public" | "private",
+        loc: {
+          start: visibilityToken.loc.start,
+          end: this.state.previous.loc.end,
+        },
       };
     }
 
-    throw new Error(`Expected Dim, Const, Sub, Function, or Property after ${visibility}`);
+    throw new Error(
+      `Expected Dim, Const, Sub, Function, or Property after ${visibility}`,
+    );
   }
 }

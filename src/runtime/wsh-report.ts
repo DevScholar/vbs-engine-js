@@ -42,17 +42,20 @@ export interface WshFailure {
  * The one line Windows Script Host would print for a failure, or the same line without the script's name when the
  * host never named one.
  */
-export function formatWshErrorLine(failure: WshFailure, scriptName?: string | null): string {
+export function formatWshErrorLine(
+  failure: WshFailure,
+  scriptName?: string | null,
+): string {
   const described =
-    failure.source === undefined || failure.source === ''
+    failure.source === undefined || failure.source === ""
       ? failure.description
       : `${failure.source}: ${failure.description}`;
 
   // A failure with no line of its own, which the engine can raise before any script ran, has no position to show.
-  if (typeof failure.line !== 'number') return described;
+  if (typeof failure.line !== "number") return described;
 
   // The engine counts the column from zero the way `ScriptControl` does, and every host that prints counts from
   // one, so the number this writes is the engine's own plus one.
-  const column = (typeof failure.column === 'number' ? failure.column : 0) + 1;
-  return `${scriptName ?? ''}(${failure.line}, ${column}) ${described}`;
+  const column = (typeof failure.column === "number" ? failure.column : 0) + 1;
+  return `${scriptName ?? ""}(${failure.line}, ${column}) ${described}`;
 }

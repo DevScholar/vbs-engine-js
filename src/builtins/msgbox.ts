@@ -1,5 +1,5 @@
-import type { VbValue } from '../runtime/index.ts';
-import { getExecFileSync, psQuote, runPowerShellDialog } from './gui.ts';
+import type { VbValue } from "../runtime/index.ts";
+import { getExecFileSync, psQuote, runPowerShellDialog } from "./gui.ts";
 
 export const MsgBoxConstants = {
   vbOKOnly: 0,
@@ -28,8 +28,14 @@ export const MsgBoxConstants = {
 };
 
 export type MsgBoxButtonType =
-  'OK' | 'OKCancel' | 'AbortRetryIgnore' | 'YesNoCancel' | 'YesNo' | 'RetryCancel';
-export type MsgBoxIconType = 'Critical' | 'Question' | 'Exclamation' | 'Information' | null;
+  | "OK"
+  | "OKCancel"
+  | "AbortRetryIgnore"
+  | "YesNoCancel"
+  | "YesNo"
+  | "RetryCancel";
+export type MsgBoxIconType =
+  "Critical" | "Question" | "Exclamation" | "Information" | null;
 
 export interface MsgBoxResult {
   value: number;
@@ -49,40 +55,40 @@ function parseButtons(buttons: number | undefined): {
   let buttonType: MsgBoxButtonType;
   switch (buttonTypeValue) {
     case 0:
-      buttonType = 'OK';
+      buttonType = "OK";
       break;
     case 1:
-      buttonType = 'OKCancel';
+      buttonType = "OKCancel";
       break;
     case 2:
-      buttonType = 'AbortRetryIgnore';
+      buttonType = "AbortRetryIgnore";
       break;
     case 3:
-      buttonType = 'YesNoCancel';
+      buttonType = "YesNoCancel";
       break;
     case 4:
-      buttonType = 'YesNo';
+      buttonType = "YesNo";
       break;
     case 5:
-      buttonType = 'RetryCancel';
+      buttonType = "RetryCancel";
       break;
     default:
-      buttonType = 'OK';
+      buttonType = "OK";
   }
 
   let iconType: MsgBoxIconType = null;
   switch (iconValue) {
     case 16:
-      iconType = 'Critical';
+      iconType = "Critical";
       break;
     case 32:
-      iconType = 'Question';
+      iconType = "Question";
       break;
     case 48:
-      iconType = 'Exclamation';
+      iconType = "Exclamation";
       break;
     case 64:
-      iconType = 'Information';
+      iconType = "Information";
       break;
   }
 
@@ -91,20 +97,24 @@ function parseButtons(buttons: number | undefined): {
 
 function getIconPrefix(iconType: MsgBoxIconType): string {
   switch (iconType) {
-    case 'Critical':
-      return '[X] ';
-    case 'Question':
-      return '[?] ';
-    case 'Exclamation':
-      return '[!] ';
-    case 'Information':
-      return '[i] ';
+    case "Critical":
+      return "[X] ";
+    case "Question":
+      return "[?] ";
+    case "Exclamation":
+      return "[!] ";
+    case "Information":
+      return "[i] ";
     default:
-      return '';
+      return "";
   }
 }
 
-function buildPrompt(title: string | null, iconType: MsgBoxIconType, message: string): string {
+function buildPrompt(
+  title: string | null,
+  iconType: MsgBoxIconType,
+  message: string,
+): string {
   let prompt = getIconPrefix(iconType) + message;
   if (title) {
     prompt = `[${title}]\n` + prompt;
@@ -112,24 +122,29 @@ function buildPrompt(title: string | null, iconType: MsgBoxIconType, message: st
   return prompt;
 }
 
-function mapButtonToResult(button: string, buttonType: MsgBoxButtonType): number {
+function mapButtonToResult(
+  button: string,
+  buttonType: MsgBoxButtonType,
+): number {
   const b = button.toLowerCase();
   switch (buttonType) {
-    case 'OK':
-    case 'OKCancel':
-      return b === 'ok' || b === 'confirm' ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel;
-    case 'YesNo':
-    case 'YesNoCancel':
-      if (b === 'yes' || b === 'y') return MsgBoxConstants.vbYes;
-      if (b === 'no' || b === 'n') return MsgBoxConstants.vbNo;
+    case "OK":
+    case "OKCancel":
+      return b === "ok" || b === "confirm"
+        ? MsgBoxConstants.vbOK
+        : MsgBoxConstants.vbCancel;
+    case "YesNo":
+    case "YesNoCancel":
+      if (b === "yes" || b === "y") return MsgBoxConstants.vbYes;
+      if (b === "no" || b === "n") return MsgBoxConstants.vbNo;
       return MsgBoxConstants.vbCancel;
-    case 'RetryCancel':
-      if (b === 'retry' || b === 'r') return MsgBoxConstants.vbRetry;
+    case "RetryCancel":
+      if (b === "retry" || b === "r") return MsgBoxConstants.vbRetry;
       return MsgBoxConstants.vbCancel;
-    case 'AbortRetryIgnore':
-      if (b === 'abort' || b === 'a') return MsgBoxConstants.vbAbort;
-      if (b === 'retry' || b === 'r') return MsgBoxConstants.vbRetry;
-      if (b === 'ignore' || b === 'i') return MsgBoxConstants.vbIgnore;
+    case "AbortRetryIgnore":
+      if (b === "abort" || b === "a") return MsgBoxConstants.vbAbort;
+      if (b === "retry" || b === "r") return MsgBoxConstants.vbRetry;
+      if (b === "ignore" || b === "i") return MsgBoxConstants.vbIgnore;
       return MsgBoxConstants.vbCancel;
     default:
       return MsgBoxConstants.vbCancel;
@@ -139,18 +154,18 @@ function mapButtonToResult(button: string, buttonType: MsgBoxButtonType): number
 /** Ordered button labels for each MsgBox button type (left-to-right in the dialog). */
 export function getButtonLabels(buttonType: MsgBoxButtonType): string[] {
   switch (buttonType) {
-    case 'OK':
-      return ['OK'];
-    case 'OKCancel':
-      return ['OK', 'Cancel'];
-    case 'AbortRetryIgnore':
-      return ['Abort', 'Retry', 'Ignore'];
-    case 'YesNoCancel':
-      return ['Yes', 'No', 'Cancel'];
-    case 'YesNo':
-      return ['Yes', 'No'];
-    case 'RetryCancel':
-      return ['Retry', 'Cancel'];
+    case "OK":
+      return ["OK"];
+    case "OKCancel":
+      return ["OK", "Cancel"];
+    case "AbortRetryIgnore":
+      return ["Abort", "Retry", "Ignore"];
+    case "YesNoCancel":
+      return ["Yes", "No", "Cancel"];
+    case "YesNo":
+      return ["Yes", "No"];
+    case "RetryCancel":
+      return ["Retry", "Cancel"];
   }
 }
 
@@ -166,16 +181,22 @@ export const BUTTON_LABEL_TO_RESULT: Record<string, number> = {
 };
 
 /** 0 → first button, 256 → second, 512 → third, clamped to the button count. */
-export function defaultButtonIndex(defaultButton: number, count: number): number {
+export function defaultButtonIndex(
+  defaultButton: number,
+  count: number,
+): number {
   const idx = Math.floor(defaultButton / 256);
   return Math.min(Math.max(0, idx), count - 1);
 }
 
-function getButtonOptions(buttonType: MsgBoxButtonType, defaultButton: number): string {
+function getButtonOptions(
+  buttonType: MsgBoxButtonType,
+  defaultButton: number,
+): string {
   const labels = getButtonLabels(buttonType);
   const index = defaultButtonIndex(defaultButton, labels.length);
   const defaultLabel = labels[index]!.charAt(0);
-  const options = labels.map(l => `[${l.charAt(0)}] ${l}`).join(' / ');
+  const options = labels.map((l) => `[${l.charAt(0)}] ${l}`).join(" / ");
   return options + ` (default is "${defaultLabel}"): `;
 }
 
@@ -202,7 +223,11 @@ export interface MsgBoxOptions {
 }
 
 export function createMsgBox(options?: MsgBoxOptions) {
-  return function (promptVal: VbValue, buttons?: VbValue, title?: VbValue): VbValue {
+  return function (
+    promptVal: VbValue,
+    buttons?: VbValue,
+    title?: VbValue,
+  ): VbValue {
     const message = String(promptVal.value ?? promptVal);
     const buttonsVal = buttons ? Number(buttons.value ?? buttons) : 0;
     const titleStr = title ? String(title.value ?? title) : null;
@@ -211,34 +236,48 @@ export function createMsgBox(options?: MsgBoxOptions) {
     const fullPrompt = buildPrompt(titleStr, iconType, message);
     const buttonOptions = getButtonOptions(buttonType, defaultButton);
 
-    const finalPrompt = fullPrompt + '\n' + buttonOptions;
+    const finalPrompt = fullPrompt + "\n" + buttonOptions;
 
     if (options?.gui) {
-      const result = options.gui({ message, title: titleStr, buttonType, iconType, defaultButton });
-      return { type: 'Integer', value: result };
+      const result = options.gui({
+        message,
+        title: titleStr,
+        buttonType,
+        iconType,
+        defaultButton,
+      });
+      return { type: "Integer", value: result };
     }
 
-    if (options?.alert && buttonType === 'OK') {
+    if (options?.alert && buttonType === "OK") {
       options.alert(finalPrompt);
-      return { type: 'Integer', value: MsgBoxConstants.vbOK };
+      return { type: "Integer", value: MsgBoxConstants.vbOK };
     }
 
     if (options?.confirm) {
       const isYesNoType =
-        buttonType === 'YesNo' || buttonType === 'YesNoCancel' || buttonType === 'OKCancel';
+        buttonType === "YesNo" ||
+        buttonType === "YesNoCancel" ||
+        buttonType === "OKCancel";
       if (isYesNoType) {
         const confirmResult = options.confirm(finalPrompt);
         if (confirmResult === undefined) {
           // User cancelled - continue to readline
         } else if (confirmResult) {
           return {
-            type: 'Integer',
-            value: buttonType === 'OKCancel' ? MsgBoxConstants.vbOK : MsgBoxConstants.vbYes,
+            type: "Integer",
+            value:
+              buttonType === "OKCancel"
+                ? MsgBoxConstants.vbOK
+                : MsgBoxConstants.vbYes,
           };
         } else {
           return {
-            type: 'Integer',
-            value: buttonType === 'OKCancel' ? MsgBoxConstants.vbCancel : MsgBoxConstants.vbNo,
+            type: "Integer",
+            value:
+              buttonType === "OKCancel"
+                ? MsgBoxConstants.vbCancel
+                : MsgBoxConstants.vbNo,
           };
         }
       }
@@ -255,61 +294,86 @@ export function createMsgBox(options?: MsgBoxOptions) {
       while (true) {
         const input = readline();
         if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          return { type: "Integer", value: MsgBoxConstants.vbCancel };
         }
         const trimmed = input.trim().toLowerCase();
-        if (trimmed === '') {
-          return { type: 'Integer', value: getDefaultResult(buttonType, defaultButton) };
+        if (trimmed === "") {
+          return {
+            type: "Integer",
+            value: getDefaultResult(buttonType, defaultButton),
+          };
         }
         const result = mapButtonToResult(input, buttonType);
-        if (result !== MsgBoxConstants.vbCancel || isValidExplicitButton(trimmed, buttonType)) {
-          return { type: 'Integer', value: result };
+        if (
+          result !== MsgBoxConstants.vbCancel ||
+          isValidExplicitButton(trimmed, buttonType)
+        ) {
+          return { type: "Integer", value: result };
         }
         if (options?.console) {
-          options.console(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+          options.console(
+            `Invalid input: ${input}. Please try again.\n` + finalPrompt,
+          );
         } else {
-          console.log(`Invalid input: ${input}. Please try again.\n` + finalPrompt);
+          console.log(
+            `Invalid input: ${input}. Please try again.\n` + finalPrompt,
+          );
         }
       }
     }
 
-    return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+    return { type: "Integer", value: MsgBoxConstants.vbCancel };
   };
 }
 
-export function getDefaultResult(buttonType: MsgBoxButtonType, defaultButton: number): number {
+export function getDefaultResult(
+  buttonType: MsgBoxButtonType,
+  defaultButton: number,
+): number {
   const labels = getButtonLabels(buttonType);
   const index = defaultButtonIndex(defaultButton, labels.length);
   return BUTTON_LABEL_TO_RESULT[labels[index]!] ?? MsgBoxConstants.vbOK;
 }
 
-function isValidExplicitButton(input: string, buttonType: MsgBoxButtonType): boolean {
+function isValidExplicitButton(
+  input: string,
+  buttonType: MsgBoxButtonType,
+): boolean {
   switch (buttonType) {
-    case 'OK':
-      return input === 'o' || input === 'ok';
-    case 'OKCancel':
-      return input === 'o' || input === 'ok' || input === 'c' || input === 'cancel';
-    case 'YesNo':
-      return input === 'y' || input === 'yes' || input === 'n' || input === 'no';
-    case 'YesNoCancel':
+    case "OK":
+      return input === "o" || input === "ok";
+    case "OKCancel":
       return (
-        input === 'y' ||
-        input === 'yes' ||
-        input === 'n' ||
-        input === 'no' ||
-        input === 'c' ||
-        input === 'cancel'
+        input === "o" || input === "ok" || input === "c" || input === "cancel"
       );
-    case 'RetryCancel':
-      return input === 'r' || input === 'retry' || input === 'c' || input === 'cancel';
-    case 'AbortRetryIgnore':
+    case "YesNo":
       return (
-        input === 'a' ||
-        input === 'abort' ||
-        input === 'r' ||
-        input === 'retry' ||
-        input === 'i' ||
-        input === 'ignore'
+        input === "y" || input === "yes" || input === "n" || input === "no"
+      );
+    case "YesNoCancel":
+      return (
+        input === "y" ||
+        input === "yes" ||
+        input === "n" ||
+        input === "no" ||
+        input === "c" ||
+        input === "cancel"
+      );
+    case "RetryCancel":
+      return (
+        input === "r" ||
+        input === "retry" ||
+        input === "c" ||
+        input === "cancel"
+      );
+    case "AbortRetryIgnore":
+      return (
+        input === "a" ||
+        input === "abort" ||
+        input === "r" ||
+        input === "retry" ||
+        input === "i" ||
+        input === "ignore"
       );
     default:
       return false;
@@ -317,114 +381,136 @@ function isValidExplicitButton(input: string, buttonType: MsgBoxButtonType): boo
 }
 
 export function createBrowserMsgBox() {
-  return function (prompt: VbValue, buttons?: VbValue, title?: VbValue): VbValue {
+  return function (
+    prompt: VbValue,
+    buttons?: VbValue,
+    title?: VbValue,
+  ): VbValue {
     const message = String(prompt.value ?? prompt);
     const buttonsVal = buttons ? Number(buttons.value ?? buttons) : 0;
-    const titleStr = title ? String(title.value ?? title) : 'VBScript';
+    const titleStr = title ? String(title.value ?? title) : "VBScript";
 
     const { buttonType, iconType, defaultButton } = parseButtons(buttonsVal);
     const fullPrompt = buildPrompt(titleStr, iconType, message);
     const buttonOptions = getButtonOptions(buttonType, defaultButton);
     void buttonOptions;
 
-    if (buttonType === 'OK') {
+    if (buttonType === "OK") {
       alert(fullPrompt);
-      return { type: 'Integer', value: MsgBoxConstants.vbOK };
+      return { type: "Integer", value: MsgBoxConstants.vbOK };
     }
 
-    if (buttonType === 'OKCancel') {
-      const confirmed = confirm(fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ');
+    if (buttonType === "OKCancel") {
+      const confirmed = confirm(
+        fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ',
+      );
       return {
-        type: 'Integer',
+        type: "Integer",
         value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel,
       };
     }
 
-    if (buttonType === 'YesNo') {
-      const defaultLabel = defaultButton === 256 ? 'Y' : 'N';
+    if (buttonType === "YesNo") {
+      const defaultLabel = defaultButton === 256 ? "Y" : "N";
       const confirmed = confirm(
-        fullPrompt + '\n[Y] Yes / [N] No (default is "' + defaultLabel + '"): '
+        fullPrompt + '\n[Y] Yes / [N] No (default is "' + defaultLabel + '"): ',
       );
-      return { type: 'Integer', value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo };
+      return {
+        type: "Integer",
+        value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo,
+      };
     }
 
-    if (buttonType === 'YesNoCancel') {
+    if (buttonType === "YesNoCancel") {
       while (true) {
-        let defaultLabel = 'N';
-        if (defaultButton === 512) defaultLabel = 'C';
-        else if (defaultButton === 256) defaultLabel = 'Y';
+        let defaultLabel = "N";
+        if (defaultButton === 512) defaultLabel = "C";
+        else if (defaultButton === 256) defaultLabel = "Y";
 
         const input = window.prompt(
-          fullPrompt + '\n[Y] Yes / [N] No / [C] Cancel (default is "' + defaultLabel + '"): ',
-          ''
+          fullPrompt +
+            '\n[Y] Yes / [N] No / [C] Cancel (default is "' +
+            defaultLabel +
+            '"): ',
+          "",
         );
         if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          return { type: "Integer", value: MsgBoxConstants.vbCancel };
         }
         const normalized = input.trim().toLowerCase();
-        if (normalized === '') {
-          if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbCancel };
-          if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbYes };
-          return { type: 'Integer', value: MsgBoxConstants.vbNo };
+        if (normalized === "") {
+          if (defaultButton === 512)
+            return { type: "Integer", value: MsgBoxConstants.vbCancel };
+          if (defaultButton === 256)
+            return { type: "Integer", value: MsgBoxConstants.vbYes };
+          return { type: "Integer", value: MsgBoxConstants.vbNo };
         }
-        if (normalized === 'y' || normalized === 'yes') {
-          return { type: 'Integer', value: MsgBoxConstants.vbYes };
+        if (normalized === "y" || normalized === "yes") {
+          return { type: "Integer", value: MsgBoxConstants.vbYes };
         }
-        if (normalized === 'n' || normalized === 'no') {
-          return { type: 'Integer', value: MsgBoxConstants.vbNo };
+        if (normalized === "n" || normalized === "no") {
+          return { type: "Integer", value: MsgBoxConstants.vbNo };
         }
-        if (normalized === 'c' || normalized === 'cancel') {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+        if (normalized === "c" || normalized === "cancel") {
+          return { type: "Integer", value: MsgBoxConstants.vbCancel };
         }
-        alert('Invalid input: ' + input + '. Please try again.');
+        alert("Invalid input: " + input + ". Please try again.");
       }
     }
 
-    if (buttonType === 'RetryCancel') {
-      const defaultLabel = defaultButton === 256 ? 'R' : 'C';
+    if (buttonType === "RetryCancel") {
+      const defaultLabel = defaultButton === 256 ? "R" : "C";
       const confirmed = confirm(
-        fullPrompt + '\n[R] Retry / [C] Cancel (default is "' + defaultLabel + '"): '
+        fullPrompt +
+          '\n[R] Retry / [C] Cancel (default is "' +
+          defaultLabel +
+          '"): ',
       );
       return {
-        type: 'Integer',
+        type: "Integer",
         value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel,
       };
     }
 
-    if (buttonType === 'AbortRetryIgnore') {
+    if (buttonType === "AbortRetryIgnore") {
       while (true) {
-        let defaultLabel = 'A';
-        if (defaultButton === 512) defaultLabel = 'I';
-        else if (defaultButton === 256) defaultLabel = 'R';
+        let defaultLabel = "A";
+        if (defaultButton === 512) defaultLabel = "I";
+        else if (defaultButton === 256) defaultLabel = "R";
 
         const input = window.prompt(
-          fullPrompt + '\n[A] Abort / [R] Retry / [I] Ignore (default is "' + defaultLabel + '"): ',
-          ''
+          fullPrompt +
+            '\n[A] Abort / [R] Retry / [I] Ignore (default is "' +
+            defaultLabel +
+            '"): ',
+          "",
         );
         if (input === null) {
-          return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+          return { type: "Integer", value: MsgBoxConstants.vbCancel };
         }
         const normalized = input.trim().toLowerCase();
-        if (normalized === '') {
-          if (defaultButton === 512) return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
-          if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbRetry };
-          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+        if (normalized === "") {
+          if (defaultButton === 512)
+            return { type: "Integer", value: MsgBoxConstants.vbIgnore };
+          if (defaultButton === 256)
+            return { type: "Integer", value: MsgBoxConstants.vbRetry };
+          return { type: "Integer", value: MsgBoxConstants.vbAbort };
         }
-        if (normalized === 'a' || normalized === 'abort') {
-          return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+        if (normalized === "a" || normalized === "abort") {
+          return { type: "Integer", value: MsgBoxConstants.vbAbort };
         }
-        if (normalized === 'r' || normalized === 'retry') {
-          return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+        if (normalized === "r" || normalized === "retry") {
+          return { type: "Integer", value: MsgBoxConstants.vbRetry };
         }
-        if (normalized === 'i' || normalized === 'ignore') {
-          return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+        if (normalized === "i" || normalized === "ignore") {
+          return { type: "Integer", value: MsgBoxConstants.vbIgnore };
         }
-        alert('Invalid input: ' + input + '. Please try again.');
+        alert("Invalid input: " + input + ". Please try again.");
       }
     }
 
     alert(fullPrompt);
-    return { type: 'Integer', value: MsgBoxConstants.vbOK };
+    return { type: "Integer", value: MsgBoxConstants.vbOK };
   };
 }
 
@@ -433,12 +519,12 @@ export function registerMsgBox(context: {
     register: (
       name: string,
       func: (...args: VbValue[]) => VbValue,
-      options?: { isSub: boolean }
+      options?: { isSub: boolean },
     ) => void;
   };
 }): void {
   context.functionRegistry.register(
-    'MsgBox',
+    "MsgBox",
     (promptVal: VbValue, buttons?: VbValue, title?: VbValue): VbValue => {
       const message = String(promptVal.value ?? promptVal);
       const buttonsVal = buttons ? Number(buttons.value ?? buttons) : 0;
@@ -447,125 +533,152 @@ export function registerMsgBox(context: {
       const { buttonType, iconType, defaultButton } = parseButtons(buttonsVal);
       const fullPrompt = buildPrompt(titleStr, iconType, message);
       const buttonOptions = getButtonOptions(buttonType, defaultButton);
-      const finalPrompt = fullPrompt + '\n' + buttonOptions;
+      const finalPrompt = fullPrompt + "\n" + buttonOptions;
 
-      if (buttonType === 'OK') {
-        if (typeof alert !== 'undefined') {
+      if (buttonType === "OK") {
+        if (typeof alert !== "undefined") {
           alert(fullPrompt);
-        } else if (typeof process !== 'undefined' && getExecFileSync() !== null) {
+        } else if (
+          typeof process !== "undefined" &&
+          getExecFileSync() !== null
+        ) {
           return {
-            type: 'Integer',
+            type: "Integer",
             value: showNativeMsgBox(
               message,
-              titleStr ?? 'Windows Script Host',
+              titleStr ?? "Windows Script Host",
               buttonType,
               iconType,
-              defaultButton
+              defaultButton,
             ),
           };
         } else {
           console.log(fullPrompt);
         }
-        return { type: 'Integer', value: MsgBoxConstants.vbOK };
+        return { type: "Integer", value: MsgBoxConstants.vbOK };
       }
 
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-        if (buttonType === 'OKCancel') {
-          const confirmed = confirm(fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ');
+      if (
+        typeof window !== "undefined" &&
+        typeof window.confirm === "function"
+      ) {
+        if (buttonType === "OKCancel") {
+          const confirmed = confirm(
+            fullPrompt + '\n[O] OK / [C] Cancel (default is "O"): ',
+          );
           return {
-            type: 'Integer',
+            type: "Integer",
             value: confirmed ? MsgBoxConstants.vbOK : MsgBoxConstants.vbCancel,
           };
         }
 
-        if (buttonType === 'YesNo') {
-          const defaultLabel = defaultButton === 256 ? 'Y' : 'N';
+        if (buttonType === "YesNo") {
+          const defaultLabel = defaultButton === 256 ? "Y" : "N";
           const confirmed = confirm(
-            fullPrompt + '\n[Y] Yes / [N] No (default is "' + defaultLabel + '"): '
+            fullPrompt +
+              '\n[Y] Yes / [N] No (default is "' +
+              defaultLabel +
+              '"): ',
           );
           return {
-            type: 'Integer',
+            type: "Integer",
             value: confirmed ? MsgBoxConstants.vbYes : MsgBoxConstants.vbNo,
           };
         }
 
-        if (buttonType === 'YesNoCancel' && typeof window.prompt === 'function') {
+        if (
+          buttonType === "YesNoCancel" &&
+          typeof window.prompt === "function"
+        ) {
           while (true) {
-            let defaultLabel = 'N';
-            if (defaultButton === 512) defaultLabel = 'C';
-            else if (defaultButton === 256) defaultLabel = 'Y';
+            let defaultLabel = "N";
+            if (defaultButton === 512) defaultLabel = "C";
+            else if (defaultButton === 256) defaultLabel = "Y";
 
             const input = window.prompt(
-              fullPrompt + '\n[Y] Yes / [N] No / [C] Cancel (default is "' + defaultLabel + '"): ',
-              ''
+              fullPrompt +
+                '\n[Y] Yes / [N] No / [C] Cancel (default is "' +
+                defaultLabel +
+                '"): ',
+              "",
             );
             if (input === null) {
-              return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+              return { type: "Integer", value: MsgBoxConstants.vbCancel };
             }
             const normalized = input.trim().toLowerCase();
-            if (normalized === '') {
+            if (normalized === "") {
               if (defaultButton === 512)
-                return { type: 'Integer', value: MsgBoxConstants.vbCancel };
-              if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbYes };
-              return { type: 'Integer', value: MsgBoxConstants.vbNo };
+                return { type: "Integer", value: MsgBoxConstants.vbCancel };
+              if (defaultButton === 256)
+                return { type: "Integer", value: MsgBoxConstants.vbYes };
+              return { type: "Integer", value: MsgBoxConstants.vbNo };
             }
-            if (normalized === 'y' || normalized === 'yes') {
-              return { type: 'Integer', value: MsgBoxConstants.vbYes };
+            if (normalized === "y" || normalized === "yes") {
+              return { type: "Integer", value: MsgBoxConstants.vbYes };
             }
-            if (normalized === 'n' || normalized === 'no') {
-              return { type: 'Integer', value: MsgBoxConstants.vbNo };
+            if (normalized === "n" || normalized === "no") {
+              return { type: "Integer", value: MsgBoxConstants.vbNo };
             }
-            if (normalized === 'c' || normalized === 'cancel') {
-              return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+            if (normalized === "c" || normalized === "cancel") {
+              return { type: "Integer", value: MsgBoxConstants.vbCancel };
             }
-            alert('Invalid input: ' + input + '. Please try again.');
+            alert("Invalid input: " + input + ". Please try again.");
           }
         }
 
-        if (buttonType === 'RetryCancel') {
-          const defaultLabel = defaultButton === 256 ? 'R' : 'C';
+        if (buttonType === "RetryCancel") {
+          const defaultLabel = defaultButton === 256 ? "R" : "C";
           const confirmed = confirm(
-            fullPrompt + '\n[R] Retry / [C] Cancel (default is "' + defaultLabel + '"): '
+            fullPrompt +
+              '\n[R] Retry / [C] Cancel (default is "' +
+              defaultLabel +
+              '"): ',
           );
           return {
-            type: 'Integer',
-            value: confirmed ? MsgBoxConstants.vbRetry : MsgBoxConstants.vbCancel,
+            type: "Integer",
+            value: confirmed
+              ? MsgBoxConstants.vbRetry
+              : MsgBoxConstants.vbCancel,
           };
         }
 
-        if (buttonType === 'AbortRetryIgnore' && typeof window.prompt === 'function') {
+        if (
+          buttonType === "AbortRetryIgnore" &&
+          typeof window.prompt === "function"
+        ) {
           while (true) {
-            let defaultLabel = 'A';
-            if (defaultButton === 512) defaultLabel = 'I';
-            else if (defaultButton === 256) defaultLabel = 'R';
+            let defaultLabel = "A";
+            if (defaultButton === 512) defaultLabel = "I";
+            else if (defaultButton === 256) defaultLabel = "R";
 
             const input = window.prompt(
               fullPrompt +
                 '\n[A] Abort / [R] Retry / [I] Ignore (default is "' +
                 defaultLabel +
                 '"): ',
-              ''
+              "",
             );
             if (input === null) {
-              return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+              return { type: "Integer", value: MsgBoxConstants.vbCancel };
             }
             const normalized = input.trim().toLowerCase();
-            if (normalized === '') {
+            if (normalized === "") {
               if (defaultButton === 512)
-                return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
-              if (defaultButton === 256) return { type: 'Integer', value: MsgBoxConstants.vbRetry };
-              return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+                return { type: "Integer", value: MsgBoxConstants.vbIgnore };
+              if (defaultButton === 256)
+                return { type: "Integer", value: MsgBoxConstants.vbRetry };
+              return { type: "Integer", value: MsgBoxConstants.vbAbort };
             }
-            if (normalized === 'a' || normalized === 'abort') {
-              return { type: 'Integer', value: MsgBoxConstants.vbAbort };
+            if (normalized === "a" || normalized === "abort") {
+              return { type: "Integer", value: MsgBoxConstants.vbAbort };
             }
-            if (normalized === 'r' || normalized === 'retry') {
-              return { type: 'Integer', value: MsgBoxConstants.vbRetry };
+            if (normalized === "r" || normalized === "retry") {
+              return { type: "Integer", value: MsgBoxConstants.vbRetry };
             }
-            if (normalized === 'i' || normalized === 'ignore') {
-              return { type: 'Integer', value: MsgBoxConstants.vbIgnore };
+            if (normalized === "i" || normalized === "ignore") {
+              return { type: "Integer", value: MsgBoxConstants.vbIgnore };
             }
-            alert('Invalid input: ' + input + '. Please try again.');
+            alert("Invalid input: " + input + ". Please try again.");
           }
         }
       }
@@ -573,22 +686,22 @@ export function registerMsgBox(context: {
       // Browser-less (Node) host: prefer a native GUI dialog (matching real WSH,
       // where MsgBox is always a blocking modal dialog, even under cscript). If no
       // platform backend is available, fall back to a non-interactive console line.
-      if (typeof process !== 'undefined' && getExecFileSync() !== null) {
+      if (typeof process !== "undefined" && getExecFileSync() !== null) {
         return {
-          type: 'Integer',
+          type: "Integer",
           value: showNativeMsgBox(
             message,
-            titleStr ?? 'Windows Script Host',
+            titleStr ?? "Windows Script Host",
             buttonType,
             iconType,
-            defaultButton
+            defaultButton,
           ),
         };
       }
       console.log(finalPrompt);
-      return { type: 'Integer', value: MsgBoxConstants.vbCancel };
+      return { type: "Integer", value: MsgBoxConstants.vbCancel };
     },
-    { isSub: false }
+    { isSub: false },
   );
 }
 
@@ -601,19 +714,19 @@ export function registerMsgBox(context: {
 
 /** Windows MessageBoxButtons / MessageBoxIcon / MessageBoxDefaultButton names. */
 const MSGBOX_BUTTONS: Record<MsgBoxButtonType, string> = {
-  OK: 'OK',
-  OKCancel: 'OKCancel',
-  AbortRetryIgnore: 'AbortRetryIgnore',
-  YesNoCancel: 'YesNoCancel',
-  YesNo: 'YesNo',
-  RetryCancel: 'RetryCancel',
+  OK: "OK",
+  OKCancel: "OKCancel",
+  AbortRetryIgnore: "AbortRetryIgnore",
+  YesNoCancel: "YesNoCancel",
+  YesNo: "YesNo",
+  RetryCancel: "RetryCancel",
 };
 
 const MSGBOX_ICONS: Record<Exclude<MsgBoxIconType, null>, string> = {
-  Critical: 'Error',
-  Question: 'Question',
-  Exclamation: 'Warning',
-  Information: 'Information',
+  Critical: "Error",
+  Question: "Question",
+  Exclamation: "Warning",
+  Information: "Information",
 };
 
 /** Maps a MessageBox.Show DialogResult name back to a VBScript result code. */
@@ -633,39 +746,44 @@ function showNativeMsgBox(
   title: string,
   buttonType: MsgBoxButtonType,
   iconType: MsgBoxIconType,
-  defaultButton: number
+  defaultButton: number,
 ): number {
   const execFileSync = getExecFileSync()!;
   const labels = getButtonLabels(buttonType);
 
-  if (process.platform === 'win32') {
+  if (process.platform === "win32") {
     const icon = iconType
       ? `[System.Windows.Forms.MessageBoxIcon]::${MSGBOX_ICONS[iconType]}`
-      : '[System.Windows.Forms.MessageBoxIcon]::None';
+      : "[System.Windows.Forms.MessageBoxIcon]::None";
     const defIndex = defaultButtonIndex(defaultButton, labels.length);
     const def = `[System.Windows.Forms.MessageBoxDefaultButton]::Button${defIndex + 1}`;
     const body =
       `$r=[System.Windows.Forms.MessageBox]::Show($owner, ${psQuote(message)}, ${psQuote(title)}, ` +
       `[System.Windows.Forms.MessageBoxButtons]::${MSGBOX_BUTTONS[buttonType]}, ${icon}, ${def}); ` +
-      'Write-Output $r.ToString()';
+      "Write-Output $r.ToString()";
     const out = runPowerShellDialog(body);
     return DIALOG_RESULT_TO_VB[out.trim()] ?? MsgBoxConstants.vbCancel;
   }
 
-  if (process.platform === 'darwin') {
+  if (process.platform === "darwin") {
     const defLabel = labels[defaultButtonIndex(defaultButton, labels.length)]!;
-    const buttons = labels.map(l => `"${l}"`).join(', ');
+    const buttons = labels.map((l) => `"${l}"`).join(", ");
     const script =
       `display dialog ${JSON.stringify(message)} buttons {${buttons}} default button "${defLabel}"` +
-      (title ? ` with title ${JSON.stringify(title)}` : '');
-    const out = execFileSync('osascript', ['-e', script], { encoding: 'utf8' });
+      (title ? ` with title ${JSON.stringify(title)}` : "");
+    const out = execFileSync("osascript", ["-e", script], { encoding: "utf8" });
     const m = /button returned:(.+)/.exec(String(out));
-    return BUTTON_LABEL_TO_RESULT[(m?.[1] ?? defLabel).trim()] ?? MsgBoxConstants.vbCancel;
+    return (
+      BUTTON_LABEL_TO_RESULT[(m?.[1] ?? defLabel).trim()] ??
+      MsgBoxConstants.vbCancel
+    );
   }
 
   // Unix-like, non-macOS.
   if (labels.length === 1) {
-    execFileSync('zenity', ['--info', '--title', title, '--text', message], { stdio: 'inherit' });
+    execFileSync("zenity", ["--info", "--title", title, "--text", message], {
+      stdio: "inherit",
+    });
     return BUTTON_LABEL_TO_RESULT[labels[0]!] ?? MsgBoxConstants.vbCancel;
   }
 
@@ -676,21 +794,25 @@ function showNativeMsgBox(
   //   --extra-button   → exit 1, prints its label to stdout
   // So the first label goes on OK, the second on Cancel, an optional third on
   // --extra-button; the result is decoded from exit code + stdout.
-  const args = ['--question', '--title', title, '--text', message];
-  args.push('--ok-label', labels[0]!);
-  if (labels.length >= 2) args.push('--cancel-label', labels[1]!);
-  if (labels.length >= 3) args.push('--extra-button', labels[2]!);
+  const args = ["--question", "--title", title, "--text", message];
+  args.push("--ok-label", labels[0]!);
+  if (labels.length >= 2) args.push("--cancel-label", labels[1]!);
+  if (labels.length >= 3) args.push("--extra-button", labels[2]!);
   // `--default-cancel` focuses the Cancel button; otherwise OK is the default.
-  if (defaultButtonIndex(defaultButton, labels.length) === 1) args.push('--default-cancel');
+  if (defaultButtonIndex(defaultButton, labels.length) === 1)
+    args.push("--default-cancel");
 
   try {
-    execFileSync('zenity', args, { encoding: 'utf8' });
+    execFileSync("zenity", args, { encoding: "utf8" });
     return BUTTON_LABEL_TO_RESULT[labels[0]!] ?? MsgBoxConstants.vbCancel;
   } catch (e) {
-    const stdout = String((e as { stdout?: unknown }).stdout ?? '').trim();
-    if (stdout !== '') {
+    const stdout = String((e as { stdout?: unknown }).stdout ?? "").trim();
+    if (stdout !== "") {
       // Extra button clicked (its label was echoed to stdout).
-      return BUTTON_LABEL_TO_RESULT[stdout] ?? getDefaultResult(buttonType, defaultButton);
+      return (
+        BUTTON_LABEL_TO_RESULT[stdout] ??
+        getDefaultResult(buttonType, defaultButton)
+      );
     }
     return BUTTON_LABEL_TO_RESULT[labels[1]!] ?? MsgBoxConstants.vbCancel;
   }

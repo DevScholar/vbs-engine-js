@@ -10,16 +10,18 @@
  * Triggered by: "postpublish" in package.json (runs automatically after `npm publish`)
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkgPath = join(__dirname, '..', 'package.json');
-const localDepsPath = join(__dirname, '..', 'local-dependencies.json');
+const pkgPath = join(__dirname, "..", "package.json");
+const localDepsPath = join(__dirname, "..", "local-dependencies.json");
 
-const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-const { packages: localDeps } = JSON.parse(readFileSync(localDepsPath, 'utf-8'));
+const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+const { packages: localDeps } = JSON.parse(
+  readFileSync(localDepsPath, "utf-8"),
+);
 
 let changed = false;
 for (const [name, localRef] of Object.entries(localDeps)) {
@@ -38,8 +40,12 @@ for (const [name, localRef] of Object.entries(localDeps)) {
 }
 
 if (changed) {
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
-  console.log('[post-publish] package.json restored to local file: references.');
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
+  console.log(
+    "[post-publish] package.json restored to local file: references.",
+  );
 } else {
-  console.log('[post-publish] No published version references found, nothing to restore.');
+  console.log(
+    "[post-publish] No published version references found, nothing to restore.",
+  );
 }

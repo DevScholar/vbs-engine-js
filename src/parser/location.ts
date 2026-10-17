@@ -1,5 +1,5 @@
-import type { Position, SourceLocation } from '../ast/base.ts';
-import type { Token } from '../lexer/index.ts';
+import type { Position, SourceLocation } from "../ast/base.ts";
+import type { Token } from "../lexer/index.ts";
 
 export function tokenToPosition(token: Token): Position {
   return {
@@ -22,7 +22,10 @@ export function createLocation(start: Token, end: Token): SourceLocation {
   };
 }
 
-export function mergeLocations(start: SourceLocation, end: SourceLocation): SourceLocation {
+export function mergeLocations(
+  start: SourceLocation,
+  end: SourceLocation,
+): SourceLocation {
   return {
     start: start.start,
     end: end.end,
@@ -35,7 +38,7 @@ export function mergeLocations(start: SourceLocation, end: SourceLocation): Sour
  */
 export function createLocationFromNode(
   start: { loc?: SourceLocation | null },
-  end: { loc?: SourceLocation | null }
+  end: { loc?: SourceLocation | null },
 ): SourceLocation {
   if (!start.loc || !end.loc) {
     return {
@@ -55,7 +58,7 @@ export function createLocationFromNode(
  */
 export function createLocationFromTokenAndNode(
   start: Token,
-  end: { loc?: SourceLocation | null }
+  end: { loc?: SourceLocation | null },
 ): SourceLocation {
   if (!end.loc) {
     return {
@@ -75,7 +78,7 @@ export function createLocationFromTokenAndNode(
  */
 export function createLocationFromNodeAndToken(
   start: { loc?: SourceLocation | null },
-  end: Token
+  end: Token,
 ): SourceLocation {
   if (!start.loc) {
     return {

@@ -37,7 +37,7 @@ Create `index.html`:
     <div id="output"></div>
 
     <script type="module">
-      import { VbsEngine } from '@devscholar/vbs-engine-js';
+      import { VbsEngine } from "@devscholar/vbs-engine-js";
 
       const interpreter = new VbsEngine();
 
@@ -49,9 +49,11 @@ Create `index.html`:
 
       try {
         interpreter.executeStatement(vbsCode);
-        document.getElementById('output').textContent = 'VBScript executed successfully!';
+        document.getElementById("output").textContent =
+          "VBScript executed successfully!";
       } catch (error) {
-        document.getElementById('output').textContent = 'Error: ' + error.message;
+        document.getElementById("output").textContent =
+          "Error: " + error.message;
       }
     </script>
   </body>
@@ -95,7 +97,7 @@ npm install @devscholar/vbs-engine-js
 Create `demo.js`:
 
 ```javascript
-import { VbsEngine } from '@devscholar/vbs-engine-js';
+import { VbsEngine } from "@devscholar/vbs-engine-js";
 
 const interpreter = new VbsEngine();
 
@@ -117,9 +119,9 @@ const vbsCode = `
 
 try {
   interpreter.executeStatement(vbsCode);
-  console.log('VBScript executed successfully!');
+  console.log("VBScript executed successfully!");
 } catch (error) {
-  console.error('Error:', error.message);
+  console.error("Error:", error.message);
 }
 ```
 

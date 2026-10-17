@@ -189,11 +189,11 @@ const PACKED = `1025|.|,|3;0|2|1|1|-||\u20c1|SAR|2|2|12|.|,|3;0|\u0660\u0661\u06
 19466|.|,|3;0|2|1|1|-||C\u0024|NIO|2|0|1|.|,|3;0|0123456789
 20490|.|,|3;0|2|1|1|-||\u0024|USD|2|0|1|.|,|3;0|0123456789`;
 
-const FIELDS = PACKED.split('\n').map(row => row.split('|'));
+const FIELDS = PACKED.split("\n").map((row) => row.split("|"));
 
 /** The Windows number format for an LCID, or undefined when the table has no row for it. */
 export const NLS_NUMBER_FORMATS: ReadonlyMap<number, NlsNumberFormat> = new Map(
-  FIELDS.map(row => [
+  FIELDS.map((row) => [
     Number(row[0]),
     {
       decimal: row[1],
@@ -214,7 +214,7 @@ export const NLS_NUMBER_FORMATS: ReadonlyMap<number, NlsNumberFormat> = new Map(
       monGrouping: row[16],
       nativeDigits: row[17],
     },
-  ])
+  ]),
 );
 
 /** The Windows number format for an LCID, or undefined when the table has no row for it. */

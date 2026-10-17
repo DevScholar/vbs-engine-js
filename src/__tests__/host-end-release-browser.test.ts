@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { VbsEngine } from '../core/index.ts';
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { VbsEngine } from "../core/index.ts";
 
 /**
  * The host's end in a browser is the page going away, and `pagehide` is the event that says so. The engine wants
@@ -15,10 +15,10 @@ const pageHideListeners = new Set<PageHideListener>();
 
 const fakeWindow = {
   addEventListener(type: string, listener: PageHideListener) {
-    if (type === 'pagehide') pageHideListeners.add(listener);
+    if (type === "pagehide") pageHideListeners.add(listener);
   },
   removeEventListener(type: string, listener: PageHideListener) {
-    if (type === 'pagehide') pageHideListeners.delete(listener);
+    if (type === "pagehide") pageHideListeners.delete(listener);
   },
 };
 
@@ -28,7 +28,7 @@ function leavePage(persisted: boolean): void {
 }
 
 const BROWSER_OPTIONS = {
-  mode: 'browser' as const,
+  mode: "browser" as const,
   parseScriptElement: false,
   parseInlineEventAttributes: false,
   parseEventSubNames: false,
@@ -49,40 +49,43 @@ Set held = New Counter
 `;
 
 beforeAll(() => {
-  vi.stubGlobal('window', fakeWindow);
-  vi.stubGlobal('document', { readyState: 'complete' });
+  vi.stubGlobal("window", fakeWindow);
+  vi.stubGlobal("document", { readyState: "complete" });
 });
 
 afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-describe('the end of the host in a browser', () => {
-  it('lets the script go when the page leaves, but not when it only goes into the cache', () => {
+describe("the end of the host in a browser", () => {
+  it("lets the script go when the page leaves, but not when it only goes into the cache", () => {
     // The first engine of this file claims host integration, which is the one that stands for the host.
     const engine = new VbsEngine(BROWSER_OPTIONS);
     engine.executeStatement(SCRIPT);
-    expect(engine.eval('log')).toBe('');
+    expect(engine.eval("log")).toBe("");
     expect(pageHideListeners.size).toBe(1);
 
     leavePage(true);
     // The page can come back, so the instance the script still names has to stay alive.
-    expect(engine.eval('log')).toBe('');
+    expect(engine.eval("log")).toBe("");
 
     leavePage(false);
-    expect(engine.eval('log')).toBe('terminate;');
+    expect(engine.eval("log")).toBe("terminate;");
 
     engine.destroy();
     expect(pageHideListeners.size).toBe(0);
   });
 
-  it('leaves an isolated engine with no end of its own', () => {
-    const isolated = new VbsEngine({ ...BROWSER_OPTIONS, hostIntegration: false });
+  it("leaves an isolated engine with no end of its own", () => {
+    const isolated = new VbsEngine({
+      ...BROWSER_OPTIONS,
+      hostIntegration: false,
+    });
     isolated.executeStatement(SCRIPT);
     expect(pageHideListeners.size).toBe(0);
 
     leavePage(false);
 
-    expect(isolated.eval('log')).toBe('');
+    expect(isolated.eval("log")).toBe("");
   });
 });

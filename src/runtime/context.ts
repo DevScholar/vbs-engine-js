@@ -1,40 +1,48 @@
-import type { VbValue, VbObjectValueData } from './values.ts';
-import { VbEmpty, VbNothing } from './values.ts';
-import { Vbscope } from './scope.ts';
-import { VbFunctionRegistry } from './function-registry.ts';
-import { VbClassRegistry, VbObjectInstance, releaseValue } from './class-registry.ts';
-import { VbError } from './errors.ts';
+import type { VbValue, VbObjectValueData } from "./values.ts";
+import { VbEmpty, VbNothing } from "./values.ts";
+import { Vbscope } from "./scope.ts";
+import { VbFunctionRegistry } from "./function-registry.ts";
+import {
+  VbClassRegistry,
+  VbObjectInstance,
+  releaseValue,
+} from "./class-registry.ts";
+import { VbError } from "./errors.ts";
 
 function jsToVb(value: unknown, thisArg?: unknown): VbValue {
-  if (value === undefined) return { type: 'Empty', value: undefined };
-  if (value === null) return { type: 'Null', value: null };
-  if (value === Symbol.for('Nothing')) return VbNothing;
-  if (typeof value === 'boolean') return { type: 'Boolean', value };
-  if (typeof value === 'number') {
-    if (Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) {
-      return { type: 'Long', value };
+  if (value === undefined) return { type: "Empty", value: undefined };
+  if (value === null) return { type: "Null", value: null };
+  if (value === Symbol.for("Nothing")) return VbNothing;
+  if (typeof value === "boolean") return { type: "Boolean", value };
+  if (typeof value === "number") {
+    if (
+      Number.isInteger(value) &&
+      value >= -2147483648 &&
+      value <= 2147483647
+    ) {
+      return { type: "Long", value };
     }
-    return { type: 'Double', value };
+    return { type: "Double", value };
   }
-  if (typeof value === 'string') return { type: 'String', value };
-  if (value instanceof Date) return { type: 'Date', value };
+  if (typeof value === "string") return { type: "String", value };
+  if (value instanceof Date) return { type: "Date", value };
   if (Array.isArray(value)) {
-    return { type: 'Array', value };
+    return { type: "Array", value };
   }
-  if (typeof value === 'function') {
+  if (typeof value === "function") {
     return {
-      type: 'Object',
+      type: "Object",
       value: {
-        type: 'jsfunction',
+        type: "jsfunction",
         func: value as (...args: unknown[]) => unknown,
         thisArg: thisArg ?? null,
       },
     };
   }
-  if (typeof value === 'object') {
-    return { type: 'Object', value: value as VbObjectValueData };
+  if (typeof value === "object") {
+    return { type: "Object", value: value as VbObjectValueData };
   }
-  return { type: 'String', value: String(value) };
+  return { type: "String", value: String(value) };
 }
 
 export class VbContext {
@@ -55,9 +63,9 @@ export class VbContext {
     helpContext: number;
   } = {
     number: 0,
-    description: '',
-    source: '',
-    helpFile: '',
+    description: "",
+    source: "",
+    helpFile: "",
     helpContext: 0,
   };
   public currentInstance: VbObjectInstance | null = null;
@@ -72,9 +80,9 @@ export class VbContext {
    */
   public leftProcedureThroughExecute: boolean = false;
 
-  private procedureStack: Array<'sub' | 'function' | 'property'> = [];
+  private procedureStack: Array<"sub" | "function" | "property"> = [];
   public inPropertyGet: boolean = false;
-  public propertyGetName: string = '';
+  public propertyGetName: string = "";
   public evaluate: ((code: string) => VbValue) | null = null;
   public checkTimeout: (() => void) | null = null;
   public execute: ((code: string) => VbValue) | null = null;
@@ -82,7 +90,8 @@ export class VbContext {
 
   private withStack: VbValue[] = [];
   private callStack: string[] = [];
-  private exitFlag: 'none' | 'sub' | 'function' | 'property' | 'do' | 'for' | 'select' = 'none';
+  private exitFlag:
+    "none" | "sub" | "function" | "property" | "do" | "for" | "select" = "none";
 
   constructor() {
     this.globalScope = new Vbscope();
@@ -156,7 +165,7 @@ export class VbContext {
    * statements after it do not run, while the caller carries on at the statement after the call; and a handler a
    * Function set for itself is gone once it returns, so a later failure at script level is not swallowed.
    */
-  pushProcedure(target: 'sub' | 'function' | 'property'): void {
+  pushProcedure(target: "sub" | "function" | "property"): void {
     this.procedureStack.push(target);
     this.savedErrorHandlers.push(this.onErrorResumeNext);
     this.onErrorResumeNext = false;
@@ -171,7 +180,7 @@ export class VbContext {
    * The target an `Exit` should carry for the procedure whose statements are running, or null when the
    * statements are a script's own, where there is no procedure to leave.
    */
-  getCurrentCallTarget(): 'sub' | 'function' | 'property' | null {
+  getCurrentCallTarget(): "sub" | "function" | "property" | null {
     return this.procedureStack[this.procedureStack.length - 1] ?? null;
   }
 
@@ -184,7 +193,7 @@ export class VbContext {
   }
 
   clearExitFlag(): void {
-    this.exitFlag = 'none';
+    this.exitFlag = "none";
   }
 
   setError(error: VbError): void {
@@ -192,23 +201,23 @@ export class VbContext {
     this.err.number = error.number;
     this.err.description = error.description;
     this.err.source = error.source;
-    this.err.helpFile = error.helpFile ?? '';
+    this.err.helpFile = error.helpFile ?? "";
     this.err.helpContext = error.helpContext ?? 0;
   }
 
   clearError(): void {
     this.lastError = null;
     this.err.number = 0;
-    this.err.description = '';
-    this.err.source = '';
-    this.err.helpFile = '';
+    this.err.description = "";
+    this.err.source = "";
+    this.err.helpFile = "";
     this.err.helpContext = 0;
   }
 
   declareVariable(
     name: string,
     value: VbValue = VbEmpty,
-    options: { isArray?: boolean; isByRef?: boolean } = {}
+    options: { isArray?: boolean; isByRef?: boolean } = {},
   ): void {
     this.currentScope.declare(name, value, {
       isArray: options.isArray ?? false,
@@ -287,7 +296,8 @@ export class VbContext {
   // built-in functions (see evaluateIdentifier's comment in
   // expression-evaluator.ts for why that priority matters).
   hasDeclaredVariable(name: string): boolean {
-    if (this.currentInstance && this.currentInstance.hasProperty(name)) return true;
+    if (this.currentInstance && this.currentInstance.hasProperty(name))
+      return true;
     return this.currentScope.has(name);
   }
 

@@ -1,0 +1,2 @@
+# Build output, which the build writes and nothing reads back as source.
+dist/

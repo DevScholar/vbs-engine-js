@@ -1,21 +1,21 @@
 // VBScript dates are OLE Automation dates: a day count from 30 December 1899, with the time of day as
 // the fraction. A Date here carries the same instant as a local wall-clock time.
 
-import { nlsDateFormat } from './nls-date-table.generated.ts';
-import { NLS_MONTH_NAME_READS } from './nls-month-name-reads.generated.ts';
-import { ICU_MONTH_NAME_READS } from './icu-month-name-reads.generated.ts';
-import { NLS_COMMA_BEFORE_TIME } from './nls-comma-time.generated.ts';
-import { NLS_NO_TRAILING_DOT } from './nls-no-trailing-dot.generated.ts';
-import { dottedWrittenNames } from './nls-dotted-names.generated.ts';
+import { nlsDateFormat } from "./nls-date-table.ts";
+import { NLS_MONTH_NAME_READS } from "./nls-month-name-reads.ts";
+import { ICU_MONTH_NAME_READS } from "./icu-month-name-reads.ts";
+import { NLS_COMMA_BEFORE_TIME } from "./nls-comma-time.ts";
+import { NLS_NO_TRAILING_DOT } from "./nls-no-trailing-dot.ts";
+import { dottedWrittenNames } from "./nls-dotted-names.ts";
 import {
   HIJRI_FIRST_YEAR,
   HIJRI_YEAR_MONTH_MASKS,
   HIJRI_YEAR_START_SERIALS,
-} from './hijri-table.generated.ts';
-import { parseVbNumericString } from './nls-number.ts';
-import { NAME_IN_DATE, NAME_STANDALONE } from './name-tables.generated.ts';
-import { createVbError, VbErrorCodes } from './errors.ts';
-import { currentLcid, getCurrentBCP47Locale } from '../builtins/locale.ts';
+} from "./hijri-table.ts";
+import { parseVbNumericString } from "./nls-number.ts";
+import { NAME_IN_DATE, NAME_STANDALONE } from "./name-tables.ts";
+import { createVbError, VbErrorCodes } from "./errors.ts";
+import { currentLcid, getCurrentBCP47Locale } from "../builtins/locale.ts";
 
 const MS_PER_DAY = 86400000;
 const OLE_EPOCH_UTC = Date.UTC(1899, 11, 30);
@@ -33,7 +33,7 @@ const HIJRI = 23;
 const PERSIAN = 22;
 
 /** U+200F RIGHT-TO-LEFT MARK, which Windows writes before each date field in the locales that use one. */
-const RLM = '\u200f';
+const RLM = "\u200f";
 
 /** The OLE Automation number of a date: whole days since 30 December 1899, time of day as the fraction. */
 /**
@@ -44,12 +44,17 @@ const RLM = '\u200f';
  */
 export function dateToSerial(date: Date): number {
   const dayCount = Math.round(
-    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - OLE_EPOCH_UTC) / MS_PER_DAY
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
+      OLE_EPOCH_UTC) /
+      MS_PER_DAY,
   );
   const timeOfDay =
-    (date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds()) / 86400 +
+    (date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds()) /
+      86400 +
     date.getMilliseconds() / MS_PER_DAY;
-  return dayCount < 0 && timeOfDay > 0 ? dayCount - timeOfDay : dayCount + timeOfDay;
+  return dayCount < 0 && timeOfDay > 0
+    ? dayCount - timeOfDay
+    : dayCount + timeOfDay;
 }
 
 /**
@@ -62,7 +67,9 @@ export function dateToSerial(date: Date): number {
 export function serialToDate(serial: number): Date {
   const wholeDays = Math.trunc(serial);
   const timeOfDay = Math.abs(serial - wholeDays);
-  const wallClock = new Date(OLE_EPOCH_UTC + Math.round((wholeDays + timeOfDay) * MS_PER_DAY));
+  const wallClock = new Date(
+    OLE_EPOCH_UTC + Math.round((wholeDays + timeOfDay) * MS_PER_DAY),
+  );
   return new Date(
     wallClock.getUTCFullYear(),
     wallClock.getUTCMonth(),
@@ -70,16 +77,22 @@ export function serialToDate(serial: number): Date {
     wallClock.getUTCHours(),
     wallClock.getUTCMinutes(),
     wallClock.getUTCSeconds(),
-    wallClock.getUTCMilliseconds()
+    wallClock.getUTCMilliseconds(),
   );
 }
 
 function isDayZero(date: Date): boolean {
-  return date.getFullYear() === 1899 && date.getMonth() === 11 && date.getDate() === 30;
+  return (
+    date.getFullYear() === 1899 &&
+    date.getMonth() === 11 &&
+    date.getDate() === 30
+  );
 }
 
 function isMidnight(date: Date): boolean {
-  return date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0;
+  return (
+    date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0
+  );
 }
 
 /**
@@ -99,15 +112,15 @@ function onUtcTimeline(date: Date): Date {
       date.getHours(),
       date.getMinutes(),
       date.getSeconds(),
-      date.getMilliseconds()
-    )
+      date.getMilliseconds(),
+    ),
   );
 }
 
 // Windows' default short date keeps day and month at two digits in nearly every locale; US English is the
 // common exception (M/d/yyyy).
 function unpaddedDayMonth(locale: string): boolean {
-  return locale.toLowerCase() === 'en-us' || locale.toLowerCase() === 'en';
+  return locale.toLowerCase() === "en-us" || locale.toLowerCase() === "en";
 }
 
 /**
@@ -146,13 +159,21 @@ const answersInOwnLanguageCache: Map<string, boolean> = new Map();
 function nameFormatters(locale: string): NameFormatters {
   const cached = nameCache.get(locale);
   if (cached) return cached;
-  const utc = { timeZone: 'UTC' } as const;
+  const utc = { timeZone: "UTC" } as const;
   const formatters: NameFormatters = {
     // A day beside the month is what selects the format form of the name.
-    monthLong: new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', ...utc }),
-    monthShort: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', ...utc }),
-    weekdayLong: new Intl.DateTimeFormat(locale, { weekday: 'long', ...utc }),
-    weekdayShort: new Intl.DateTimeFormat(locale, { weekday: 'short', ...utc }),
+    monthLong: new Intl.DateTimeFormat(locale, {
+      month: "long",
+      day: "numeric",
+      ...utc,
+    }),
+    monthShort: new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+      ...utc,
+    }),
+    weekdayLong: new Intl.DateTimeFormat(locale, { weekday: "long", ...utc }),
+    weekdayShort: new Intl.DateTimeFormat(locale, { weekday: "short", ...utc }),
   };
   nameCache.set(locale, formatters);
   return formatters;
@@ -172,7 +193,9 @@ function answersInItsOwnLanguage(locale: string): boolean {
   let own: boolean;
   try {
     const resolved = new Intl.DateTimeFormat(locale).resolvedOptions().locale;
-    own = resolved.toLowerCase().split('-')[0] === locale.toLowerCase().split(/[-_]/)[0];
+    own =
+      resolved.toLowerCase().split("-")[0] ===
+      locale.toLowerCase().split(/[-_]/)[0];
   } catch {
     own = false;
   }
@@ -192,7 +215,7 @@ function marksDateFields(locale: string): boolean {
   const cached = marksFieldsCache.get(locale);
   if (cached !== undefined) return cached;
   const language = locale.toLowerCase().split(/[-_]/)[0];
-  const marked = language === 'ar' || language === 'he';
+  const marked = language === "ar" || language === "he";
   marksFieldsCache.set(locale, marked);
   return marked;
 }
@@ -205,7 +228,7 @@ function marksDateFields(locale: string): boolean {
  * other locales whose names contain a space write it plain.
  */
 function scriptName(value: string, locale: string): string {
-  return marksDateFields(locale) ? value.replace(/ /g, '\u00a0') : value;
+  return marksDateFields(locale) ? value.replace(/ /g, "\u00a0") : value;
 }
 
 /**
@@ -218,17 +241,20 @@ function scriptName(value: string, locale: string): string {
  * locale's month names are untouched.
  */
 function weekdayName(value: string, locale: string, short: string): string {
-  if (locale.toLowerCase().split(/[-_]/)[0] !== 'he') return value;
-  return short.startsWith('יום') ? value : value.replace(/^יום\s+/, '');
+  if (locale.toLowerCase().split(/[-_]/)[0] !== "he") return value;
+  return short.startsWith("יום") ? value : value.replace(/^יום\s+/, "");
 }
 
 /** One part of an Intl-formatted date, or '' when the locale gives none. */
 function partOf(
   formatter: Intl.DateTimeFormat,
   date: Date,
-  type: Intl.DateTimeFormatPartTypes
+  type: Intl.DateTimeFormatPartTypes,
 ): string {
-  return formatter.formatToParts(date).find(part => part.type === type)?.value ?? '';
+  return (
+    formatter.formatToParts(date).find((part) => part.type === type)?.value ??
+    ""
+  );
 }
 
 /**
@@ -241,13 +267,16 @@ function partOf(
  */
 const standaloneMonthCache: Map<string, Intl.DateTimeFormat> = new Map();
 
-function standaloneMonthFormatter(locale: string, short: boolean): Intl.DateTimeFormat {
-  const key = `${locale}\u0000${short ? 'short' : 'long'}`;
+function standaloneMonthFormatter(
+  locale: string,
+  short: boolean,
+): Intl.DateTimeFormat {
+  const key = `${locale}\u0000${short ? "short" : "long"}`;
   const cached = standaloneMonthCache.get(key);
   if (cached) return cached;
   const formatter = new Intl.DateTimeFormat(locale, {
-    month: short ? 'short' : 'long',
-    timeZone: 'UTC',
+    month: short ? "short" : "long",
+    timeZone: "UTC",
   });
   standaloneMonthCache.set(key, formatter);
   return formatter;
@@ -268,16 +297,21 @@ export function standaloneMonthName(
   lcid: number,
   locale: string,
   month: number,
-  short: boolean
+  short: boolean,
 ): string {
   const names = NAME_STANDALONE[lcid];
-  const override = short ? names?.monthsShort?.[month - 1] : names?.monthsLong?.[month - 1];
+  const override = short
+    ? names?.monthsShort?.[month - 1]
+    : names?.monthsLong?.[month - 1];
   if (override !== undefined) return override;
   // MonthName has no numeric form to fall back on, so a locale Intl will not answer for gives '' rather
   // than another language's word.
-  if (!answersInItsOwnLanguage(locale)) return '';
+  if (!answersInItsOwnLanguage(locale)) return "";
   const formatter = standaloneMonthFormatter(locale, short);
-  return scriptName(partOf(formatter, new Date(Date.UTC(2026, month - 1, 15)), 'month'), locale);
+  return scriptName(
+    partOf(formatter, new Date(Date.UTC(2026, month - 1, 15)), "month"),
+    locale,
+  );
 }
 
 /**
@@ -292,20 +326,30 @@ export function standaloneWeekdayName(
   lcid: number,
   locale: string,
   weekday: number,
-  short: boolean
+  short: boolean,
 ): string {
   const index = weekday - 1;
   const names = NAME_STANDALONE[lcid];
-  const override = short ? names?.weekdaysShort?.[index] : names?.weekdaysLong?.[index];
+  const override = short
+    ? names?.weekdaysShort?.[index]
+    : names?.weekdaysLong?.[index];
   if (override !== undefined) return override;
   // WeekdayName has no numeric form to fall back on either.
-  if (!answersInItsOwnLanguage(locale)) return '';
+  if (!answersInItsOwnLanguage(locale)) return "";
   const formatters = nameFormatters(locale);
   const date = new Date(WEEKDAY_ORIGIN + index * 86400000);
-  const value = partOf(short ? formatters.weekdayShort : formatters.weekdayLong, date, 'weekday');
+  const value = partOf(
+    short ? formatters.weekdayShort : formatters.weekdayLong,
+    date,
+    "weekday",
+  );
   return scriptName(
-    weekdayName(value, locale, partOf(formatters.weekdayShort, date, 'weekday')),
-    locale
+    weekdayName(
+      value,
+      locale,
+      partOf(formatters.weekdayShort, date, "weekday"),
+    ),
+    locale,
   );
 }
 
@@ -317,18 +361,18 @@ export function standaloneWeekdayName(
  * refuses to write at all; everything else is the Gregorian reading of the date. Which one applies comes
  * from the table's LOCALE_ICALENDARTYPE and was confirmed per locale against vbscript.dll.
  */
-type DateSource = { kind: 'date' } | { kind: 'calendar'; type: number };
+type DateSource = { kind: "date" } | { kind: "calendar"; type: number };
 
 /** The reading a date with no calendar of its own has: the Gregorian year, month and day it carries. */
-const GREGORIAN_DATE: DateSource = { kind: 'date' };
+const GREGORIAN_DATE: DateSource = { kind: "date" };
 
 /** The Unicode calendar name for a LOCALE_ICALENDARTYPE the table can carry. */
 const CALENDAR_NAME: Record<number, string> = {
-  1: 'gregory',
-  6: 'islamic-umalqura',
-  7: 'buddhist',
-  22: 'persian',
-  23: 'islamic-umalqura',
+  1: "gregory",
+  6: "islamic-umalqura",
+  7: "buddhist",
+  22: "persian",
+  23: "islamic-umalqura",
 };
 
 /**
@@ -351,8 +395,9 @@ function usesOwnCalendar(calendarType: number): boolean {
  * Hijri year.
  */
 function taggedLocale(locale: string, source: DateSource): string {
-  const calendar = source.kind === 'calendar' ? CALENDAR_NAME[source.type] : 'gregory';
-  return `${locale}-u-ca-${calendar ?? 'gregory'}`;
+  const calendar =
+    source.kind === "calendar" ? CALENDAR_NAME[source.type] : "gregory";
+  return `${locale}-u-ca-${calendar ?? "gregory"}`;
 }
 
 /** The same tag with Latin digits asked for, for the parts the engine reads as numbers. */
@@ -369,10 +414,14 @@ function taggedNumericLocale(locale: string, source: DateSource): string {
 function dateFields(
   date: Date,
   source: DateSource,
-  locale: string
+  locale: string,
 ): { day: number; month: number; year: number } {
-  if (source.kind !== 'calendar') {
-    return { day: date.getUTCDate(), month: date.getUTCMonth() + 1, year: date.getUTCFullYear() };
+  if (source.kind !== "calendar") {
+    return {
+      day: date.getUTCDate(),
+      month: date.getUTCMonth() + 1,
+      year: date.getUTCFullYear(),
+    };
   }
   if (source.type === THAI_BUDDHIST) {
     // The Buddhist year is the Gregorian one plus 543, and the months and days are the Gregorian ones. ICU
@@ -396,7 +445,11 @@ function dateFields(
     };
   }
   if (source.type === PERSIAN) {
-    return icuCalendarFields(persianFieldDate(date, source, locale), source, locale);
+    return icuCalendarFields(
+      persianFieldDate(date, source, locale),
+      source,
+      locale,
+    );
   }
   return icuCalendarFields(date, source, locale);
 }
@@ -405,17 +458,17 @@ function dateFields(
 function icuCalendarFields(
   date: Date,
   source: DateSource,
-  locale: string
+  locale: string,
 ): { day: number; month: number; year: number } {
   const parts = new Intl.DateTimeFormat(taggedNumericLocale(locale, source), {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    timeZone: 'UTC',
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    timeZone: "UTC",
   }).formatToParts(date);
   const read = (type: Intl.DateTimeFormatPartTypes): number =>
-    Number(parts.find(part => part.type === type)?.value ?? '0');
-  return { day: read('day'), month: read('month'), year: read('year') };
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+  return { day: read("day"), month: read("month"), year: read("year") };
 }
 
 /**
@@ -426,7 +479,11 @@ function icuCalendarFields(
  * the two agree again from 1601-03-21, which is 1 Farvardin 980. Windows writes no date before 1601-01-01,
  * so the last months of 979 are the only place the two can be seen apart.
  */
-function persianFieldDate(date: Date, source: DateSource, locale: string): Date {
+function persianFieldDate(
+  date: Date,
+  source: DateSource,
+  locale: string,
+): Date {
   if (icuCalendarFields(date, source, locale).year <= 979) {
     return new Date(date.getTime() - MS_PER_DAY);
   }
@@ -435,7 +492,10 @@ function persianFieldDate(date: Date, source: DateSource, locale: string): Date 
 
 /** A Gregorian day number brought inside the days the Umm al-Qura table covers. */
 function clampedHijriDay(dayNumber: number): number {
-  return Math.min(Math.max(dayNumber, HIJRI_YEAR_START_SERIALS[0]!), hijriLastDayNumber());
+  return Math.min(
+    Math.max(dayNumber, HIJRI_YEAR_START_SERIALS[0]!),
+    hijriLastDayNumber(),
+  );
 }
 
 /** The first day of a Hijri month, as a date on the UTC timeline, or null for a year the table has not. */
@@ -458,8 +518,12 @@ function hijriMonthStartDate(year: number, month: number): Date | null {
  * 30 December 1899 is before the Hijri table, and ICU falls back there to a calendar that calls it Sha'ban
  * while the fields say Muharram. The name of a Hijri month is read from that month's first day instead.
  */
-function calendarNameDate(date: Date, source: DateSource, locale: string): Date {
-  if (source.kind !== 'calendar') return date;
+function calendarNameDate(
+  date: Date,
+  source: DateSource,
+  locale: string,
+): Date {
+  if (source.kind !== "calendar") return date;
   if (source.type === HIJRI) {
     const fields = hijriFieldsOf(clampedHijriDay(wallClockDayNumber(date)));
     if (!fields) return date;
@@ -482,8 +546,9 @@ function yearValue(source: DateSource, date: Date, locale: string): number {
  */
 function wallClockDayNumber(date: Date): number {
   return Math.round(
-    (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - OLE_EPOCH_UTC) /
-      MS_PER_DAY
+    (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) -
+      OLE_EPOCH_UTC) /
+      MS_PER_DAY,
   );
 }
 
@@ -492,7 +557,8 @@ function hijriLastDayNumber(): number {
   const lastIndex = HIJRI_YEAR_START_SERIALS.length - 1;
   const mask = HIJRI_YEAR_MONTH_MASKS[lastIndex]!;
   let last = HIJRI_YEAR_START_SERIALS[lastIndex]! - 1;
-  for (let month = 0; month < 12; month++) last += ((mask >> month) & 1) === 1 ? 30 : 29;
+  for (let month = 0; month < 12; month++)
+    last += ((mask >> month) & 1) === 1 ? 30 : 29;
   return last;
 }
 
@@ -502,8 +568,14 @@ function hijriLastDayNumber(): number {
  * The table is a start day and twelve month lengths a year, so the fields of any day inside it come from
  * walking the months of the one year whose start is the last at or before that day.
  */
-function hijriFieldsOf(dayNumber: number): { day: number; month: number; year: number } | null {
-  if (dayNumber < HIJRI_YEAR_START_SERIALS[0]! || dayNumber > hijriLastDayNumber()) return null;
+function hijriFieldsOf(
+  dayNumber: number,
+): { day: number; month: number; year: number } | null {
+  if (
+    dayNumber < HIJRI_YEAR_START_SERIALS[0]! ||
+    dayNumber > hijriLastDayNumber()
+  )
+    return null;
 
   let low = 0;
   let high = HIJRI_YEAR_START_SERIALS.length - 1;
@@ -518,7 +590,11 @@ function hijriFieldsOf(dayNumber: number): { day: number; month: number; year: n
   for (let month = 0; month < 12; month++) {
     const length = ((mask >> month) & 1) === 1 ? 30 : 29;
     if (remaining < length) {
-      return { day: remaining + 1, month: month + 1, year: HIJRI_FIRST_YEAR + low };
+      return {
+        day: remaining + 1,
+        month: month + 1,
+        year: HIJRI_FIRST_YEAR + low,
+      };
     }
     remaining -= length;
   }
@@ -537,28 +613,29 @@ function dateNumericToken(
   date: Date,
   source: DateSource,
   locale: string,
-  unpaddedPersianDay = false
+  unpaddedPersianDay = false,
 ): string | null {
-  const pad = (value: number, width: number): string => String(value).padStart(width, '0');
+  const pad = (value: number, width: number): string =>
+    String(value).padStart(width, "0");
   const { day, month, year } = dateFields(date, source, locale);
-  const persian = source.kind === 'calendar' && source.type === PERSIAN;
+  const persian = source.kind === "calendar" && source.type === PERSIAN;
   switch (token) {
-    case 'd':
+    case "d":
       return String(day);
-    case 'dd':
+    case "dd":
       // The Persian short date asks for a padded day and gets one ("04/09/1405"), while its long date asks
       // for the same "dd" and Windows leaves the zero off ("7 اسفند 1405"). Both were measured across a
       // Persian year, and the flag says which of the two expansions is running.
       return persian && unpaddedPersianDay ? String(day) : pad(day, 2);
-    case 'M':
+    case "M":
       return String(month);
-    case 'MM':
+    case "MM":
       return pad(month, 2);
-    case 'y':
+    case "y":
       return String(year % 100);
-    case 'yy':
+    case "yy":
       return pad(year % 100, 2);
-    case 'yyyy':
+    case "yyyy":
       // Windows writes the digits a year has, so year 100 is "100" and not "0100": under 1031,
       // CDate("1/1/100") is written "01.01.100" by a fresh cscript.
       return String(year);
@@ -571,7 +648,7 @@ function dateNumericToken(
  * The marker for a name Intl could not answer for. A picture string writes its separators for the fields
  * around them, so a field that is dropped takes its neighbouring punctuation with it.
  */
-const NO_NAME = '\u0000';
+const NO_NAME = "\u0000";
 
 /** The value of one picture-string token, or null for a token this does not map. */
 function localizedToken(
@@ -581,7 +658,7 @@ function localizedToken(
   year: DateSource,
   am: string,
   pm: string,
-  lcid: number
+  lcid: number,
 ): string | null {
   // A Hijri date wants the Hijri month names and a Gregorian date the Gregorian ones, so the names are
   // asked of the same calendar-tagged locale the numbers came from.
@@ -589,7 +666,11 @@ function localizedToken(
   const formatters = nameFormatters(nameLocale);
   // A month name depends on the month and a weekday name on the weekday, and a picture string can ask for
   // the same one many times over one date, so the answer is remembered per locale, token and index.
-  const name = (index: number, override: string | undefined, read: () => string): string => {
+  const name = (
+    index: number,
+    override: string | undefined,
+    read: () => string,
+  ): string => {
     // The few names Windows spells differently are listed rather than derived: nothing in either source says
     // which spelling vbscript.dll used.
     if (override !== undefined) return override;
@@ -608,48 +689,56 @@ function localizedToken(
   // days shorter than the Gregorian one, so a Gregorian month number picks the wrong name for the instants
   // near a month boundary, and the table is keyed the same way this looks it up.
   const monthIndex =
-    year.kind === 'calendar' ? dateFields(date, year, locale).month - 1 : date.getUTCMonth();
+    year.kind === "calendar"
+      ? dateFields(date, year, locale).month - 1
+      : date.getUTCMonth();
   // The month's name is read from the day the fields themselves name, which for a Hijri date is a day of
   // that month in the Umm al-Qura table and for a Persian date before 980 is the day before.
   const nameDate = calendarNameDate(date, year, locale);
 
   const hour = date.getUTCHours();
-  const meridiem = hour < 12 ? am || 'AM' : pm || 'PM';
+  const meridiem = hour < 12 ? am || "AM" : pm || "PM";
 
   switch (token) {
-    case 'MMM':
+    case "MMM":
       return name(monthIndex, overrides?.months?.[monthIndex], () =>
-        partOf(formatters.monthShort, nameDate, 'month')
+        partOf(formatters.monthShort, nameDate, "month"),
       );
-    case 'MMMM':
+    case "MMMM":
       return name(monthIndex, overrides?.months?.[monthIndex], () =>
-        partOf(formatters.monthLong, nameDate, 'month')
+        partOf(formatters.monthLong, nameDate, "month"),
       );
-    case 'ddd':
-      return name(date.getUTCDay(), overrides?.weekdays?.[date.getUTCDay()], () =>
-        weekdayName(
-          partOf(formatters.weekdayShort, date, 'weekday'),
-          locale,
-          partOf(formatters.weekdayShort, date, 'weekday')
-        )
+    case "ddd":
+      return name(
+        date.getUTCDay(),
+        overrides?.weekdays?.[date.getUTCDay()],
+        () =>
+          weekdayName(
+            partOf(formatters.weekdayShort, date, "weekday"),
+            locale,
+            partOf(formatters.weekdayShort, date, "weekday"),
+          ),
       );
-    case 'dddd':
-      return name(date.getUTCDay(), overrides?.weekdays?.[date.getUTCDay()], () =>
-        weekdayName(
-          partOf(formatters.weekdayLong, date, 'weekday'),
-          locale,
-          partOf(formatters.weekdayShort, date, 'weekday')
-        )
+    case "dddd":
+      return name(
+        date.getUTCDay(),
+        overrides?.weekdays?.[date.getUTCDay()],
+        () =>
+          weekdayName(
+            partOf(formatters.weekdayLong, date, "weekday"),
+            locale,
+            partOf(formatters.weekdayShort, date, "weekday"),
+          ),
       );
-    case 'yy':
-      return String(yearValue(year, date, locale) % 100).padStart(2, '0');
-    case 'yyyy':
+    case "yy":
+      return String(yearValue(year, date, locale) % 100).padStart(2, "0");
+    case "yyyy":
       // Windows writes the digits a year has, so year 100 is "100" and not "0100": under 1031,
       // CDate("1/1/100") is written "01.01.100" by a fresh cscript.
       return String(yearValue(year, date, locale));
-    case 'tt':
+    case "tt":
       return meridiem;
-    case 't':
+    case "t":
       return meridiem.charAt(0);
     default:
       return null;
@@ -682,17 +771,21 @@ function expandNlsPattern(
   clock = false,
   lcid = 0,
   persianDayUnpadded = false,
-  widenTwoDigitYear = false
+  widenTwoDigitYear = false,
 ): string | null {
   // Windows writes a date to the second, rounding the fraction of a second rather than dropping it: the
   // serial 46028.2345 is 5:37:41 and not the 5:37:40 a truncation gives, measured on a fresh cscript.
   const milliseconds = date.getUTCMilliseconds();
   if (milliseconds !== 0) {
-    date = new Date(date.getTime() + (milliseconds >= 500 ? 1000 - milliseconds : -milliseconds));
+    date = new Date(
+      date.getTime() +
+        (milliseconds >= 500 ? 1000 - milliseconds : -milliseconds),
+    );
   }
   const hour = date.getUTCHours();
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  const pad = (value: number, width: number): string => String(value).padStart(width, '0');
+  const pad = (value: number, width: number): string =>
+    String(value).padStart(width, "0");
   // A two digit year is written with four digits outside 1950 to 2049, which GeneralDate and CStr do while
   // the short date does not: measured on 1059 and 2060, whose short dates are the only ones in the table
   // that ask for two digits, GeneralDate gives "15.06.1949" and "15.06.2050" but "15.06.50" for 1950, and
@@ -702,15 +795,23 @@ function expandNlsPattern(
   const wideYear = calendarYear < 1950 || calendarYear > 2049;
   const yearShort = String(calendarYear % 100);
   const yearTwoDigits =
-    widenTwoDigitYear && wideYear ? String(calendarYear) : pad(calendarYear % 100, 2);
+    widenTwoDigitYear && wideYear
+      ? String(calendarYear)
+      : pad(calendarYear % 100, 2);
   const fields: Record<string, string> = {
-    d: dateNumericToken('d', date, year, locale) as string,
-    dd: dateNumericToken('dd', date, year, locale, persianDayUnpadded) as string,
-    M: dateNumericToken('M', date, year, locale) as string,
-    MM: dateNumericToken('MM', date, year, locale) as string,
+    d: dateNumericToken("d", date, year, locale) as string,
+    dd: dateNumericToken(
+      "dd",
+      date,
+      year,
+      locale,
+      persianDayUnpadded,
+    ) as string,
+    M: dateNumericToken("M", date, year, locale) as string,
+    MM: dateNumericToken("MM", date, year, locale) as string,
     y: widenTwoDigitYear && wideYear ? String(calendarYear) : yearShort,
     yy: yearTwoDigits,
-    yyyy: dateNumericToken('yyyy', date, year, locale) as string,
+    yyyy: dateNumericToken("yyyy", date, year, locale) as string,
     h: String(hour12),
     hh: pad(hour12, 2),
     H: String(hour),
@@ -745,10 +846,10 @@ function expandNlsPattern(
     let run = 1;
     while (pattern[index + run] === char) run++;
     const token = char.repeat(run);
-    if (token === '\u202f') {
+    if (token === "\u202f") {
       // Windows separates the time from the AM/PM designator with U+202F in LOCALE_STIMEFORMAT, but the
       // formatting it produces uses a normal space there, while keeping any U+202F inside LOCALE_S1159.
-      pieces.push({ text: clock ? ' ' : token, isDateField: false });
+      pieces.push({ text: clock ? " " : token, isDateField: false });
     } else if (token in fields) {
       // Only a date field is marked; a clock's is not, which is why the token is asked about rather than
       // every value in the table being taken for one.
@@ -769,18 +870,20 @@ function expandNlsPattern(
         // A Thai picture string writes "'วัน'dddd", where "วัน" is the day-word the long weekday name
         // already begins with, so Windows prints the short name there ("วันจันทร์", not "วันวันจันทร์").
         if (
-          token === 'dddd' &&
+          token === "dddd" &&
           pieces
-            .map(piece => piece.text)
-            .join('')
+            .map((piece) => piece.text)
+            .join("")
             .endsWith(value.slice(0, 3)) &&
           value.length > 3
         ) {
-          value = localizedToken('ddd', date, locale, year, am, pm, lcid) ?? value;
+          value =
+            localizedToken("ddd", date, locale, year, am, pm, lcid) ?? value;
         }
         pieces.push({
           text: value,
-          isDateField: !clock && dateNumericToken(token, date, year, locale) === null,
+          isDateField:
+            !clock && dateNumericToken(token, date, year, locale) === null,
         });
       }
     }
@@ -791,11 +894,13 @@ function expandNlsPattern(
   // "‏יום שני ‏05 ‏ינואר ‏2026" and ar-SA's short date "‏05/‏01/‏2026". A clock's fields are not dated, so none
   // of them takes one.
   const out = pieces
-    .map(piece => (piece.isDateField && markFields ? RLM + piece.text : piece.text))
-    .join('');
+    .map((piece) =>
+      piece.isDateField && markFields ? RLM + piece.text : piece.text,
+    )
+    .join("");
   // The punctuation a dropped field was written with belongs to it, so it goes too: Tsonga's
   // "yyyy MMMM d, dddd" would otherwise print "2026 1 5," with nothing after the comma.
-  return dropped ? out.replace(/[\s\p{P}]+$/u, '') : out;
+  return dropped ? out.replace(/[\s\p{P}]+$/u, "") : out;
 }
 
 /**
@@ -810,7 +915,7 @@ function expandNlsPattern(
 function shortTimePicture(shortTime: string): string {
   // Walking the picture string rather than rewriting it with a regular expression keeps a literal that
   // happens to contain an "h" - Upper Sorbian's "HH:mm 'hodź.'" - out of the way.
-  let out = '';
+  let out = "";
   let designator = false;
   for (let index = 0; index < shortTime.length;) {
     const char = shortTime[index];
@@ -825,9 +930,9 @@ function shortTimePicture(shortTime: string): string {
     let run = 1;
     while (shortTime[index + run] === char) run++;
     const token = char.repeat(run);
-    if (token === 'h' || token === 'H' || token === 'hh' || token === 'HH') {
-      out += 'HH';
-    } else if (token === 't' || token === 'tt') {
+    if (token === "h" || token === "H" || token === "hh" || token === "HH") {
+      out += "HH";
+    } else if (token === "t" || token === "tt") {
       designator = true;
     } else {
       out += token;
@@ -836,8 +941,8 @@ function shortTimePicture(shortTime: string): string {
   }
   // A designator that stood apart leaves a space behind; "H.mm" keeps its own spacing. A dot that followed
   // a dropped quoted word is that word's own punctuation (Upper Sorbian's "hodź'."), so it goes too.
-  const trimmed = designator ? out.replace(/\s+/g, ' ').trim() : out;
-  return trimmed.replace(/[\s.]+$/g, '');
+  const trimmed = designator ? out.replace(/\s+/g, " ").trim() : out;
+  return trimmed.replace(/[\s.]+$/g, "");
 }
 
 /** A picture string's pieces: a quoted literal, a run of one letter, or anything else on its own. */
@@ -854,13 +959,21 @@ function patternChunks(pattern: string): PatternChunk[] {
     if (char === "'") {
       const end = pattern.indexOf("'", index + 1);
       const stop = end < 0 ? pattern.length : end + 1;
-      chunks.push({ text: pattern.slice(index, stop), quoted: true, letters: false });
+      chunks.push({
+        text: pattern.slice(index, stop),
+        quoted: true,
+        letters: false,
+      });
       index = stop;
       continue;
     }
     let run = 1;
     while (pattern[index + run] === char) run++;
-    chunks.push({ text: char.repeat(run), quoted: false, letters: /[A-Za-z]/.test(char) });
+    chunks.push({
+      text: char.repeat(run),
+      quoted: false,
+      letters: /[A-Za-z]/.test(char),
+    });
     index += run;
   }
   return chunks;
@@ -880,12 +993,15 @@ const DATE_FIELD_TOKEN = /^(d{1,4}|M{1,4}|y{1,4})$/;
  */
 export function withoutWeekdayGroup(picture: string): string {
   const chunks = patternChunks(picture);
-  const weekday = chunks.findIndex(chunk => chunk.letters && /^d{3,4}$/.test(chunk.text));
+  const weekday = chunks.findIndex(
+    (chunk) => chunk.letters && /^d{3,4}$/.test(chunk.text),
+  );
   if (weekday < 0) return picture;
   const dropped = new Set([weekday]);
   // The literals touching the weekday belong to it, and so does the space that followed the group: Thai
   // writes the three as one run at the head of the picture, and the date fields start after them.
-  for (let index = weekday - 1; index >= 0 && chunks[index].quoted; index--) dropped.add(index);
+  for (let index = weekday - 1; index >= 0 && chunks[index].quoted; index--)
+    dropped.add(index);
   for (let index = weekday + 1; index < chunks.length; index++) {
     const chunk = chunks[index];
     if (!chunk.quoted && !/^\s+$/.test(chunk.text)) break;
@@ -893,8 +1009,8 @@ export function withoutWeekdayGroup(picture: string): string {
   }
   return chunks
     .filter((_, index) => !dropped.has(index))
-    .map(chunk => chunk.text)
-    .join('')
+    .map((chunk) => chunk.text)
+    .join("")
     .trimStart();
 }
 
@@ -908,7 +1024,7 @@ export function withoutWeekdayGroup(picture: string): string {
  */
 export function hijriLongDatePicture(picture: string): string {
   const chunks = patternChunks(picture);
-  let separated = '';
+  let separated = "";
   let afterField = false;
   for (const [index, chunk] of chunks.entries()) {
     if (chunk.letters && DATE_FIELD_TOKEN.test(chunk.text)) {
@@ -918,11 +1034,11 @@ export function hijriLongDatePicture(picture: string): string {
     }
     const fieldAfter = chunks
       .slice(index + 1)
-      .some(part => part.letters && DATE_FIELD_TOKEN.test(part.text));
+      .some((part) => part.letters && DATE_FIELD_TOKEN.test(part.text));
     if (afterField && fieldAfter) {
       // The run of literals between two fields is one separator, written once: ar-SA's picture has both a
       // comma and a space there, and Windows writes a single "/".
-      if (!separated.endsWith('/')) separated += '/';
+      if (!separated.endsWith("/")) separated += "/";
       continue;
     }
     separated += chunk.text;
@@ -932,18 +1048,19 @@ export function hijriLongDatePicture(picture: string): string {
 
 /** The Intl-based date, kept for a locale with no NLS row and for patterns this cannot expand. */
 function formatVbDateViaIntl(date: Date, locale: string): string {
-  const padding = unpaddedDayMonth(locale) ? 'numeric' : '2-digit';
+  const padding = unpaddedDayMonth(locale) ? "numeric" : "2-digit";
   const datePart = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
+    year: "numeric",
     month: padding,
     day: padding,
   }).format(date);
   const hour12 =
-    new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hour12 === true;
+    new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions()
+      .hour12 === true;
   const timePart = new Intl.DateTimeFormat(locale, {
-    hour: hour12 ? 'numeric' : '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: hour12 ? "numeric" : "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12,
   }).format(date);
 
@@ -956,7 +1073,7 @@ function formatVbDateViaIntl(date: Date, locale: string): string {
  * CStr of a date, as VBScript writes it: the locale's short date and long time, without the date when it
  * is day 0 (30 December 1899) and without the time at midnight.
  *
- * The patterns come from Windows NLS, shipped as data (see nls-date-table.generated.ts), because a browser
+ * The patterns come from Windows NLS, shipped as data (see nls-date-table.ts), because a browser
  * has no NLS to ask and CLDR disagrees with it: the two agree for 46 of the 133 locales the engine knows
  * when Intl is left to choose the layout itself.
  *
@@ -974,7 +1091,7 @@ export function formatVbDate(date: Date, lcid: number, locale: string): string {
     // is "5/1/2569", measured on a fresh process like everything else in this file.
     const year: DateSource =
       format.calendarType === THAI_BUDDHIST
-        ? { kind: 'calendar', type: THAI_BUDDHIST }
+        ? { kind: "calendar", type: THAI_BUDDHIST }
         : GREGORIAN_DATE;
     const datePart = expandNlsPattern(
       format.shortDate,
@@ -987,7 +1104,7 @@ export function formatVbDate(date: Date, lcid: number, locale: string): string {
       false,
       lcid,
       false,
-      true
+      true,
     );
     const timePart = expandNlsPattern(
       format.timeFormat,
@@ -997,7 +1114,7 @@ export function formatVbDate(date: Date, lcid: number, locale: string): string {
       am,
       pm,
       false,
-      true
+      true,
     );
     if (datePart !== null && timePart !== null) {
       if (isDayZero(date)) return timePart;
@@ -1049,7 +1166,12 @@ export const VbDateTimeFormat = {
  * long-date samples a locale. The two readings that still differ are in the parser, not the writer, and are
  * written down beside parseVbDate.
  */
-export function formatVbDateTime(date: Date, lcid: number, style: number, locale: string): string {
+export function formatVbDateTime(
+  date: Date,
+  lcid: number,
+  style: number,
+  locale: string,
+): string {
   const format = nlsDateFormat(lcid);
   if (!format) return formatVbDateViaIntl(date, locale);
 
@@ -1061,14 +1183,17 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
   // locale's own calendar, so there the date fields follow it.
   const gregorian: DateSource = GREGORIAN_DATE;
   const ownCalendar: DateSource = usesOwnCalendar(calendarType)
-    ? { kind: 'calendar', type: calendarType }
+    ? { kind: "calendar", type: calendarType }
     : GREGORIAN_DATE;
   const hijri = calendarType === HIJRI;
   // A date Windows' own date writers cannot write is error 5, measured on a fresh cscript over every locale:
   // a day before 1601 (1033 gives error 5 for the long and short dates of 1483 but a plain date for its
   // GeneralDate), and for ar-SA a day outside the Hijri range the calendar covers, 1318-01-01 to 1500-12-30,
   // which is 30 April 1900 to 16 November 2077.
-  if (style === VbDateTimeFormat.LongDate || style === VbDateTimeFormat.ShortDate) {
+  if (
+    style === VbDateTimeFormat.LongDate ||
+    style === VbDateTimeFormat.ShortDate
+  ) {
     assertDateStyleWritable(wallClock, locale, hijri);
   }
   // Thai is the one locale whose calendar reaches the styles that are Gregorian everywhere else: its year is
@@ -1088,7 +1213,7 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     am,
     pm,
     false,
-    true
+    true,
   );
   const longDate = expandNlsPattern(
     longDatePicture,
@@ -1100,7 +1225,7 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     marks,
     false,
     lcid,
-    true
+    true,
   );
   const generalDate = expandNlsPattern(
     format.shortDate,
@@ -1113,7 +1238,7 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     false,
     0,
     false,
-    true
+    true,
   );
   const shortDate = expandNlsPattern(
     format.shortDate,
@@ -1124,7 +1249,7 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
     pm,
     marks,
     false,
-    lcid
+    lcid,
   );
 
   switch (style) {
@@ -1139,7 +1264,9 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
       // A Hijri date is written with two year digits where the same row's Gregorian short date asks for
       // four: ar-SA prints "16/07/47" and not "16/07/1447". The Persian year is four digits either way.
       if (!hijri) return written;
-      return written.replace(/\d{4}(?![\s\S]*\d{4})/, match => match.slice(2));
+      return written.replace(/\d{4}(?![\s\S]*\d{4})/, (match) =>
+        match.slice(2),
+      );
     }
     case VbDateTimeFormat.LongTime:
       return longTime ?? formatVbDateViaIntl(date, locale);
@@ -1152,7 +1279,7 @@ export function formatVbDateTime(date: Date, lcid: number, style: number, locale
         am,
         pm,
         false,
-        true
+        true,
       );
       return shortTime ?? longTime ?? formatVbDateViaIntl(date, locale);
     }
@@ -1186,12 +1313,19 @@ const FIRST_WRITABLE_DAY = Date.UTC(1601, 0, 1);
  * calendar of the current locale", where every other locale answers 5, measured for 1400, 1500 and 1600
  * alike; its GeneralDate and CStr answer normally for all of them.
  */
-function assertDateStyleWritable(date: Date, locale: string, hijri: boolean): void {
+function assertDateStyleWritable(
+  date: Date,
+  locale: string,
+  hijri: boolean,
+): void {
   const refused = (): never => {
-    const number = locale.toLowerCase().startsWith('he')
+    const number = locale.toLowerCase().startsWith("he")
       ? 32812
       : VbErrorCodes.InvalidProcedureCall;
-    throw createVbError(number, 'This date has no long or short form in this locale');
+    throw createVbError(
+      number,
+      "This date has no long or short form in this locale",
+    );
   };
   if (date.getTime() < FIRST_WRITABLE_DAY) refused();
   if (!hijri) return;
@@ -1204,7 +1338,7 @@ function assertDateStyleWritable(date: Date, locale: string, hijri: boolean): vo
 function unreachableLongDate(lcid: number): never {
   throw createVbError(
     VbErrorCodes.InvalidProcedureCall,
-    `FormatDateTime: the locale ${lcid} has no long date format`
+    `FormatDateTime: the locale ${lcid} has no long date format`,
   );
 }
 
@@ -1215,36 +1349,46 @@ function unreachableLongDate(lcid: number): never {
 // Korean locale's own names ("一月", "1月", "1월") are never matched and only the English names are read
 // there; Thai reads both. Every other locale reads only its own names, which is why "1 January 2026" is a
 // type mismatch under 1031 while "1 Januar 2026" is not.
-type MonthNamePolicy = 'own' | 'english' | 'own+english';
+type MonthNamePolicy = "own" | "english" | "own+english";
 
 const MONTH_NAME_POLICY: Record<string, MonthNamePolicy> = {
-  zh: 'english',
-  ja: 'english',
-  ko: 'english',
-  th: 'own+english',
+  zh: "english",
+  ja: "english",
+  ko: "english",
+  th: "own+english",
 };
 
-const monthTableCache: Map<string, { month: number; name: string }[]> = new Map();
+const monthTableCache: Map<string, { month: number; name: string }[]> =
+  new Map();
 
-function bareMonthNames(locale: string): { month: number; name: string; short: boolean }[] {
-  const long = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
-  const short = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' });
+function bareMonthNames(
+  locale: string,
+): { month: number; name: string; short: boolean }[] {
+  const long = new Intl.DateTimeFormat(locale, {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const short = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    timeZone: "UTC",
+  });
   // A month name has a stand-alone and a format form, and they differ where the language inflects the
   // month ("январь" and "января" in Russian); vbscript.dll reads both, so both are collected here.
   const longInDateFormat = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC',
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
   });
   const shortInDateFormat = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
   });
   const named = (formatter: Intl.DateTimeFormat, day: Date): string =>
-    formatter.formatToParts(day).find(part => part.type === 'month')?.value ?? '';
+    formatter.formatToParts(day).find((part) => part.type === "month")?.value ??
+    "";
 
   const names: { month: number; name: string; short: boolean }[] = [];
   for (let month = 1; month <= 12; month++) {
@@ -1253,10 +1397,10 @@ function bareMonthNames(locale: string): { month: number; name: string; short: b
       { month, name: long.format(day), short: false },
       { month, name: short.format(day), short: true },
       { month, name: named(longInDateFormat, day), short: false },
-      { month, name: named(shortInDateFormat, day), short: true }
+      { month, name: named(shortInDateFormat, day), short: true },
     );
   }
-  return names.filter(entry => entry.name !== '');
+  return names.filter((entry) => entry.name !== "");
 }
 
 function monthTable(locale: string): { month: number; name: string }[] {
@@ -1264,10 +1408,12 @@ function monthTable(locale: string): { month: number; name: string }[] {
   const cacheKey = `${lcid}|${locale}`;
   const cached = monthTableCache.get(cacheKey);
   if (cached) return cached;
-  const policy = MONTH_NAME_POLICY[locale.toLowerCase().split(/[-_]/)[0]] ?? 'own';
-  const english = policy === 'own' ? [] : bareMonthNames('en-US');
-  const ownNames = policy === 'english' ? [] : bareMonthNames(locale);
-  const windowsNames = policy === 'english' ? [] : standaloneNamesFromWindows(lcid);
+  const policy =
+    MONTH_NAME_POLICY[locale.toLowerCase().split(/[-_]/)[0]] ?? "own";
+  const english = policy === "own" ? [] : bareMonthNames("en-US");
+  const ownNames = policy === "english" ? [] : bareMonthNames(locale);
+  const windowsNames =
+    policy === "english" ? [] : standaloneNamesFromWindows(lcid);
   // Windows writes its own spelling where CLDR has changed one, and its parser reads that spelling back:
   // under 1031 "5. Mrz 2026" is March, while CLDR's short name for March is "Mär". A locale that reads only
   // English names keeps none of its own, which is the measured rule for Chinese, Japanese and Korean: their
@@ -1283,23 +1429,25 @@ function monthTable(locale: string): { month: number; name: string }[] {
   // A name that is only digits is left out: Intl answers a bare number for the short form of a few locales
   // (Slovak's is "9" for September), and a fresh cscript reads no such text as a name, so "29.9.26" is error
   // 13 under 1051 rather than 29 September. The names that carry a marker do stay, since "1月" is a name.
-  const readable = (masks: number | undefined) => (entry: { month: number; short: boolean }) => {
-    if (masks === undefined) return true;
-    const bits = entry.short ? masks & 0xfff : (masks >> 12) & 0xfff;
-    return (bits & (1 << (entry.month - 1))) !== 0;
-  };
+  const readable =
+    (masks: number | undefined) =>
+    (entry: { month: number; short: boolean }) => {
+      if (masks === undefined) return true;
+      const bits = entry.short ? masks & 0xfff : (masks >> 12) & 0xfff;
+      return (bits & (1 << (entry.month - 1))) !== 0;
+    };
   const usable = [
     ...ownNames.filter(readable(ICU_MONTH_NAME_READS.get(lcid))),
     ...windowsNames.filter(readable(NLS_MONTH_NAME_READS.get(lcid))),
     ...english,
-  ].filter(entry => /\p{L}/u.test(entry.name));
+  ].filter((entry) => /\p{L}/u.test(entry.name));
   monthTableCache.set(cacheKey, usable);
   return usable;
 }
 
 /** The names Windows writes for a month on its own, which its parser reads as well as CLDR's. */
 function standaloneNamesFromWindows(
-  lcid: number
+  lcid: number,
 ): { month: number; name: string; short: boolean }[] {
   const row = NAME_STANDALONE[lcid];
   if (!row) return [];
@@ -1323,11 +1471,11 @@ function standaloneNamesFromWindows(
  */
 function monthOfWord(word: string, locale: string): number | null {
   const written = word.toLowerCase();
-  if (written === '') return null;
+  if (written === "") return null;
   let best: { month: number; length: number } | null = null;
   for (const entry of monthTable(locale)) {
     const name = entry.name.toLowerCase();
-    const bare = name.replace(/\.+$/, '');
+    const bare = name.replace(/\.+$/, "");
     if (name === written || bare === written) return entry.month;
     if (written.length < 3) continue;
     if (!name.startsWith(written) && !bare.startsWith(written)) continue;
@@ -1350,7 +1498,7 @@ function monthOfWord(word: string, locale: string): number | null {
 function monthOfDottedWord(word: string, locale: string): number | null {
   const exact = monthOfWord(word, locale);
   if (exact !== null) return exact;
-  if (!word.endsWith('.') || word.endsWith('..')) return null;
+  if (!word.endsWith(".") || word.endsWith("..")) return null;
   if (NLS_NO_TRAILING_DOT.has(currentLcid())) return null;
   return monthOfWord(word.slice(0, -1), locale);
 }
@@ -1368,19 +1516,28 @@ function monthOfDottedWord(word: string, locale: string): number | null {
  */
 function findCompleteMonthName(
   text: string,
-  locale: string
+  locale: string,
 ): { month: number; start: number; end: number } | null {
   const lower = text.toLowerCase();
   const isSeparator = (char: string | undefined): boolean =>
     char === undefined || /[\s,./-]/.test(char);
-  let best: { month: number; start: number; end: number; length: number } | null = null;
+  let best: {
+    month: number;
+    start: number;
+    end: number;
+    length: number;
+  } | null = null;
 
   for (const entry of monthTable(locale)) {
     if (!/[\s.]/.test(entry.name)) continue;
-    for (const candidate of [entry.name, entry.name.replace(/\.+$/, '')]) {
-      if (candidate === '') continue;
+    for (const candidate of [entry.name, entry.name.replace(/\.+$/, "")]) {
+      if (candidate === "") continue;
       const needle = candidate.toLowerCase();
-      for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
+      for (
+        let at = lower.indexOf(needle);
+        at >= 0;
+        at = lower.indexOf(needle, at + 1)
+      ) {
         if (!isSeparator(text[at - 1])) continue;
         let end = at + needle.length;
         // How a dot right after the name is read, all of it measured: a name written without a dot takes one
@@ -1391,24 +1548,24 @@ function findCompleteMonthName(
         // "15 ม.ค. 2026" is January.
         // The name the locale writes may carry a dot, and the text may write it without that dot, so both
         // forms count as a dotted name for the two rules below.
-        const nameHasDot = entry.name.endsWith('.');
+        const nameHasDot = entry.name.endsWith(".");
         // Thai reads its own dotted abbreviations wherever they stand, measured: "15/ม.ค./2026" is January
         // there while the same text is a type mismatch under the 14 locales that write a dot in their own
         // short date picture.
         if (
           nameHasDot &&
           !NLS_NO_TRAILING_DOT.has(currentLcid()) &&
-          /[,/.-]/.test(text[end] ?? '')
+          /[,/.-]/.test(text[end] ?? "")
         ) {
           continue;
         }
-        if (text[end] === '.') {
+        if (text[end] === ".") {
           // Only a name written without a dot takes exactly one dot after it, and only where the locale reads
           // a dot there at all: a name written with a dot refuses a second one, and Thai refuses every one.
           if (nameHasDot || NLS_NO_TRAILING_DOT.has(currentLcid())) continue;
           end += 1;
         }
-        if (text[end] === '.') continue;
+        if (text[end] === ".") continue;
         if (!isSeparator(text[end])) continue;
         if (best === null || end - at > best.length) {
           best = { month: entry.month, start: at, end, length: end - at };
@@ -1416,14 +1573,16 @@ function findCompleteMonthName(
       }
     }
   }
-  return best === null ? null : { month: best.month, start: best.start, end: best.end };
+  return best === null
+    ? null
+    : { month: best.month, start: best.start, end: best.end };
 }
 
 // ---------------------------------------------------------------------------
 // Reading a date or a time
 // ---------------------------------------------------------------------------
 
-type DateOrder = 'DMY' | 'MDY' | 'YMD';
+type DateOrder = "DMY" | "MDY" | "YMD";
 
 /** A date that was read, with whether the text named a year of its own. */
 interface WrittenDate {
@@ -1461,9 +1620,9 @@ function dateOrderOf(): {
   dottedDates: boolean;
   trailingDot: boolean;
 } {
-  const picture = nlsDateFormat(currentLcid())?.shortDate ?? '';
+  const picture = nlsDateFormat(currentLcid())?.shortDate ?? "";
   const fields: string[] = [];
-  let separator = '/';
+  let separator = "/";
   let separatorSeen = false;
   let dottedDates = false;
   for (let index = 0; index < picture.length;) {
@@ -1476,22 +1635,22 @@ function dateOrderOf(): {
     let run = 1;
     while (picture[index + run] === character) run++;
     const token = character.repeat(run);
-    if (token === 'd' || token === 'dd') fields.push('D');
-    else if (token === 'M' || token === 'MM') fields.push('M');
-    else if (/^y+$/.test(token)) fields.push('Y');
+    if (token === "d" || token === "dd") fields.push("D");
+    else if (token === "M" || token === "MM") fields.push("M");
+    else if (/^y+$/.test(token)) fields.push("Y");
     else if (!separatorSeen && fields.length > 0 && !/[A-Za-z]/.test(token)) {
       separator = token;
       separatorSeen = true;
-      dottedDates = token === '.' && picture[index + run] !== ' ';
+      dottedDates = token === "." && picture[index + run] !== " ";
     }
     index += run;
   }
-  const order = fields.join('');
+  const order = fields.join("");
   // A picture that ends with a dot writes that dot into a date it prints, and Windows reads it back only
   // there: 1038 writes "yyyy. MM. dd." and reads CDate("2026. 05. 01."), while 1031, 1051 and 1060 write no
   // trailing dot and answer a type mismatch for the same text.
   return {
-    order: order === 'MDY' || order === 'YMD' ? order : 'DMY',
+    order: order === "MDY" || order === "YMD" ? order : "DMY",
     separator,
     dottedDates,
     trailingDot: /\.\s*$/.test(picture),
@@ -1523,11 +1682,13 @@ function toFullYear(year: number): number {
 /** The current year as the locale's own calendar counts it, which a Buddhist calendar counts as 2569 where
  * the Gregorian one counts 2026. */
 function currentYearInItsOwnCalendar(): number {
-  const parts = new Intl.DateTimeFormat(getCurrentBCP47Locale(), { year: 'numeric' }).formatToParts(
-    new Date()
-  );
-  const ownYear = Number(parts.find(part => part.type === 'year')?.value);
-  return Number.isFinite(ownYear) && ownYear > 0 ? ownYear : new Date().getFullYear();
+  const parts = new Intl.DateTimeFormat(getCurrentBCP47Locale(), {
+    year: "numeric",
+  }).formatToParts(new Date());
+  const ownYear = Number(parts.find((part) => part.type === "year")?.value);
+  return Number.isFinite(ownYear) && ownYear > 0
+    ? ownYear
+    : new Date().getFullYear();
 }
 
 /** A year field: a value under a hundred is a year of the near past or present, as vbscript.dll reads it. */
@@ -1586,15 +1747,15 @@ function dateWords(
   text: string,
   locale: string,
   dotsAreMarks: boolean,
-  dotsAreMarksAfterNames: boolean
+  dotsAreMarksAfterNames: boolean,
 ): string[] {
   const words: string[] = [];
   const refusesDot = NLS_NO_TRAILING_DOT.has(currentLcid());
   const dottedNames = dottedWrittenNames(currentLcid());
-  let word = '';
+  let word = "";
   const flush = (): void => {
-    if (word !== '') words.push(word);
-    word = '';
+    if (word !== "") words.push(word);
+    word = "";
   };
   for (let at = 0; at < text.length; at++) {
     const char = text[at]!;
@@ -1602,7 +1763,7 @@ function dateWords(
       flush();
       continue;
     }
-    if (char !== '.') {
+    if (char !== ".") {
       word += char;
       continue;
     }
@@ -1613,7 +1774,7 @@ function dateWords(
     if (
       !refusesDot &&
       /[\p{L}]$/u.test(word) &&
-      /[,/.-]/.test(text[at + 1] ?? '') &&
+      /[,/.-]/.test(text[at + 1] ?? "") &&
       dottedNames.has(`${word.toLowerCase()}.`)
     ) {
       // A name Windows writes with a dot is read only where a space or the end of the text follows it:
@@ -1635,9 +1796,13 @@ function dateWords(
       continue;
     }
     let run = 1;
-    while (text[at + run] === '.') run += 1;
-    if (run > 1 && /[\p{L}.]$/u.test(word) && !/\d/.test(text[at + run] ?? '')) {
-      word += '.'.repeat(run);
+    while (text[at + run] === ".") run += 1;
+    if (
+      run > 1 &&
+      /[\p{L}.]$/u.test(word) &&
+      !/\d/.test(text[at + run] ?? "")
+    ) {
+      word += ".".repeat(run);
       at += run - 1;
       continue;
     }
@@ -1656,28 +1821,36 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
   // locale's reading of dotted dates.
   const ownMark = dateOrderOf().separator;
   const { dottedDates } = dateOrderOf();
-  const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
+  const buddhistDates =
+    nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
   // A name with a dot or a space in it is taken out of the text first, so the words cannot break it in two.
   const complete = findCompleteMonthName(text, locale);
   const rest =
-    complete === null ? text : text.slice(0, complete.start) + ' ' + text.slice(complete.end);
-  const words = dateWords(rest, locale, ownMark === '.' || buddhistDates, dottedDates);
+    complete === null
+      ? text
+      : text.slice(0, complete.start) + " " + text.slice(complete.end);
+  const words = dateWords(
+    rest,
+    locale,
+    ownMark === "." || buddhistDates,
+    dottedDates,
+  );
 
   let month: number;
   let numbers: string[];
   if (complete !== null) {
     if (words.length < 1 || words.length > 2) return null;
-    if (!words.every(word => /^\d+$/.test(word))) return null;
+    if (!words.every((word) => /^\d+$/.test(word))) return null;
     month = complete.month;
     numbers = words;
   } else {
     if (words.length < 2 || words.length > 3) return null;
-    const months = words.map(word => monthOfDottedWord(word, locale));
-    const named = months.filter(entry => entry !== null).length;
+    const months = words.map((word) => monthOfDottedWord(word, locale));
+    const named = months.filter((entry) => entry !== null).length;
     if (named !== 1) return null;
-    month = months[months.findIndex(entry => entry !== null)] as number;
+    month = months[months.findIndex((entry) => entry !== null)] as number;
     numbers = words.filter((_, index) => months[index] === null);
-    if (!/^\d+$/.test(numbers.join(''))) return null;
+    if (!/^\d+$/.test(numbers.join(""))) return null;
   }
 
   // "Jan 2026" is January 1st of that year; "1 Jan" is the 1st of January this year.
@@ -1685,20 +1858,23 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
     const [only] = numbers;
     if (only.length === 4 || Number(only) > 31)
       return written(validDate(yearOf(only), month, 1), true);
-    return written(validDate(new Date().getFullYear(), month, Number(only)), false);
+    return written(
+      validDate(new Date().getFullYear(), month, Number(only)),
+      false,
+    );
   }
 
   // A four-digit number names the year wherever it stands ("1 Jan 2026"). With two short numbers the
   // locale's own order decides: a year-first locale reads "1 Jan 26" as 2001-01-26, the others as
   // 1 January 2026.
   const [first, second] = numbers;
-  const fourDigit = numbers.find(number => number.length === 4);
+  const fourDigit = numbers.find((number) => number.length === 4);
   if (fourDigit !== undefined) {
-    const other = numbers.find(number => number !== fourDigit) as string;
+    const other = numbers.find((number) => number !== fourDigit) as string;
     return written(validDate(Number(fourDigit), month, Number(other)), true);
   }
   const { order } = dateOrderOf();
-  const [year, day] = order === 'YMD' ? [first, second] : [second, first];
+  const [year, day] = order === "YMD" ? [first, second] : [second, first];
   return written(validDate(yearOf(year), month, Number(day)), true);
 }
 
@@ -1710,27 +1886,35 @@ function parseMonthNameDate(text: string, locale: string): WrittenDate | null {
  */
 function parseLocalizedDate(text: string, locale: string): WrittenDate | null {
   const parts = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC',
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
   }).formatToParts(new Date(Date.UTC(2026, 8, 29)));
   // Nothing to add when the locale spells its dates with "/", "-" or "." alone.
-  if (!parts.some(part => part.type === 'literal' && /[^\s./-]/.test(part.value))) return null;
+  if (
+    !parts.some(
+      (part) => part.type === "literal" && /[^\s./-]/.test(part.value),
+    )
+  )
+    return null;
 
-  const escape = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  let pattern = '^';
-  const order: ('year' | 'month' | 'day')[] = [];
+  const escape = (value: string): string =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let pattern = "^";
+  const order: ("year" | "month" | "day")[] = [];
   for (const part of parts) {
-    if (part.type === 'literal') {
+    if (part.type === "literal") {
       pattern += escape(part.value);
       continue;
     }
-    if (part.type !== 'year' && part.type !== 'month' && part.type !== 'day') return null;
+    if (part.type !== "year" && part.type !== "month" && part.type !== "day")
+      return null;
     // A month can carry its own marker ("9월"); everything after the digits stays a literal.
     const field = /^(\d+)(.*)$/s.exec(part.value);
     if (!field) return null;
-    pattern += (part.type === 'year' ? '(\\d{1,4})' : '(\\d{1,2})') + escape(field[2]);
+    pattern +=
+      (part.type === "year" ? "(\\d{1,4})" : "(\\d{1,2})") + escape(field[2]);
     order.push(part.type);
   }
 
@@ -1742,8 +1926,8 @@ function parseLocalizedDate(text: string, locale: string): WrittenDate | null {
     let day = 0;
     fields.forEach((field, index) => {
       const value = Number(found[index + 1]);
-      if (field === 'year') year = value;
-      else if (field === 'month') month = value;
+      if (field === "year") year = value;
+      else if (field === "month") month = value;
       else day = value;
     });
     return validDate(year, month, day);
@@ -1754,7 +1938,10 @@ function parseLocalizedDate(text: string, locale: string): WrittenDate | null {
   // The ideographic form as well as the locale's own markers: vbscript.dll reads "2026年9月29日" under
   // Korean too, even though Korean writes its own dates as "2026년 9월 29일". Measured on 2052, 1028,
   // 1041 and 1042; en-US and de-DE reject both forms.
-  return written(read(/^(\d{1,4})年(\d{1,2})月(\d{1,2})日$/, ['year', 'month', 'day']), true);
+  return written(
+    read(/^(\d{1,4})年(\d{1,2})月(\d{1,2})日$/, ["year", "month", "day"]),
+    true,
+  );
 }
 
 function parseDatePart(text: string, locale: string): WrittenDate | null {
@@ -1767,17 +1954,21 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
   // The year goes through the same reading as any other year field, so a written year under a hundred is a
   // year of the near past or present: CDate("0001-01-01") is 1 January 2001, as a fresh cscript answers.
-  if (iso) return written(validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3])), true);
+  if (iso)
+    return written(
+      validDate(yearOf(iso[1]), Number(iso[2]), Number(iso[3])),
+      true,
+    );
 
   const { order, separator, dottedDates, trailingDot } = dateOrderOf();
   // "/" and "-" are read everywhere, a comma is read too, and the locale's own field mark is read as well.
   // The locale's own mark holds the text to the locale's own order instead of letting the other order
   // rescue it ("29.9.26" is no date in Hungarian). A dot is that mark only where the locale's picture puts
   // it against the field, which is what keeps a dotted text out of the date reader under 1038, 1051 and 1060.
-  const ownMark = separator === '/' || separator === '-' ? null : separator;
-  const own = ownMark === '.' && !dottedDates ? null : ownMark;
+  const ownMark = separator === "/" || separator === "-" ? null : separator;
+  const own = ownMark === "." && !dottedDates ? null : ownMark;
   const separatorAllowed = (mark: string): boolean =>
-    mark === '/' || mark === '-' || mark === ',' || mark === own;
+    mark === "/" || mark === "-" || mark === "," || mark === own;
 
   // A dotted date written with the spaces its own locale puts in the picture, which Windows reads where the
   // locale writes its dates with a dot, and under 1054 as well: measured, CDate("2026. 05. 01.") is 1 May
@@ -1785,10 +1976,11 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   // 1041, 1042, 2052 and 2057 answer a type mismatch or read it as a time. The trailing dot is read only
   // under 1038, whose own picture ends with one, and under 1054. Why Thai takes both readings is not known,
   // only that it does.
-  const buddhistDates = nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
-  if (ownMark === '.' || buddhistDates) {
+  const buddhistDates =
+    nlsDateFormat(currentLcid())?.calendarType === THAI_BUDDHIST;
+  if (ownMark === "." || buddhistDates) {
     const spaced = /^(\d{1,4})\.\s+(\d{1,2})\.\s+(\d{1,4})(\.?)$/.exec(text);
-    if (spaced && (spaced[4] === '' || trailingDot || buddhistDates)) {
+    if (spaced && (spaced[4] === "" || trailingDot || buddhistDates)) {
       const read = threeFieldDate(order, spaced[1]!, spaced[2]!, spaced[3]!);
       if (read) return read;
     }
@@ -1809,7 +2001,12 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
   // 2026-9-29 and "15 1 2026" is 2026-1-15, exactly as the slashed forms of the same numbers are.
   const spacedNumbers = /^(\d{1,9})[\s,]+(\d{1,9})[\s,]+(\d{1,9})$/.exec(text);
   if (spacedNumbers) {
-    return threeFieldDate(order, spacedNumbers[1]!, spacedNumbers[2]!, spacedNumbers[3]!);
+    return threeFieldDate(
+      order,
+      spacedNumbers[1]!,
+      spacedNumbers[2]!,
+      spacedNumbers[3]!,
+    );
   }
   const spacedPair = /^(\d{1,9})[\s,]+(\d{1,9})$/.exec(text);
   if (spacedPair) {
@@ -1839,7 +2036,11 @@ function parseDatePart(text: string, locale: string): WrittenDate | null {
  * "31.12" is 31 December, "12.31" is 31 December too because the first field cannot be a day there, "2.30"
  * is February 2030 and "0.5" is May 2000.
  */
-function twoFieldDate(order: DateOrder, firstText: string, secondText: string): WrittenDate | null {
+function twoFieldDate(
+  order: DateOrder,
+  firstText: string,
+  secondText: string,
+): WrittenDate | null {
   const year = new Date().getFullYear();
   const first = Number(firstText);
   const second = Number(secondText);
@@ -1847,7 +2048,7 @@ function twoFieldDate(order: DateOrder, firstText: string, secondText: string): 
   // know: measured under 1054, CDate("2026. 05.") is May of the Buddhist year 2026, while CDate("1. 5.") is
   // 1 May of the current year.
   const byDayAndMonth: [number, number, number, boolean][] =
-    order === 'DMY'
+    order === "DMY"
       ? [
           [year, second, first, false],
           [year, first, second, false],
@@ -1862,7 +2063,10 @@ function twoFieldDate(order: DateOrder, firstText: string, secondText: string): 
     [yearOfNumber(wrapToDateField(second)), first, 1, true],
     [yearOfNumber(wrapToDateField(first)), second, 1, true],
   ];
-  for (const [candidateYear, month, day, yearWritten] of [...byDayAndMonth, ...byMonthAndYear]) {
+  for (const [candidateYear, month, day, yearWritten] of [
+    ...byDayAndMonth,
+    ...byMonthAndYear,
+  ]) {
     const date = validDate(candidateYear, month, day);
     if (date) return written(date, yearWritten);
   }
@@ -1882,21 +2086,21 @@ function threeFieldDate(
   order: DateOrder,
   first: string,
   second: string,
-  third: string
+  third: string,
 ): WrittenDate | null {
   const candidates: [number, number, number][] = [];
   if (first.length === 4) {
     // "2026/09/29" is year first wherever it is written.
     candidates.push([Number(first), Number(second), Number(third)]);
-  } else if (order === 'YMD') {
+  } else if (order === "YMD") {
     // A year written with fewer than four digits goes through the same window as any other year field, which
     // a fresh cscript shows under 1038, 1041, 1042 and 2052: CDate("1-5-26") is 26 May 2001.
     candidates.push([yearOf(first), Number(second), Number(third)]);
     candidates.push(
       [yearOf(third), Number(first), Number(second)],
-      [yearOf(third), Number(second), Number(first)]
+      [yearOf(third), Number(second), Number(first)],
     );
-  } else if (order === 'DMY') {
+  } else if (order === "DMY") {
     candidates.push([yearOf(third), Number(second), Number(first)]);
     // A first field that is no day and no month is a year: a fresh cscript reads "31/12/26" and "31 12 26"
     // as 2031-12-26 under 1033, not as the 2026-12-31 the day-first reading would give.
@@ -1915,7 +2119,9 @@ function threeFieldDate(
 }
 
 function parseTimePart(text: string): [number, number, number] | null {
-  const match = /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*([AaPp][Mm])?$/.exec(text);
+  const match = /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*([AaPp][Mm])?$/.exec(
+    text,
+  );
   if (!match) return null;
   let hours = Number(match[1]);
   const minutes = Number(match[2]);
@@ -1923,7 +2129,7 @@ function parseTimePart(text: string): [number, number, number] | null {
   const meridiem = match[4]?.toUpperCase();
   if (hours > 23 || minutes > 59 || seconds > 59) return null;
   // An hour above 12 wraps, as it does in vbscript.dll: "13:30 PM" is half past one in the afternoon.
-  if (meridiem) hours = (hours % 12) + (meridiem === 'PM' ? 12 : 0);
+  if (meridiem) hours = (hours % 12) + (meridiem === "PM" ? 12 : 0);
   return [hours, minutes, seconds];
 }
 
@@ -1938,15 +2144,26 @@ function parseDottedTimePart(text: string): [number, number, number] | null {
   // The spaces after the marks are read as well as the marks themselves, which a fresh cscript shows under
   // 1033: CDate("1. 5. 26") is 1:05:26 in the morning there, and CDate("1. 5 PM") is five past one in the
   // afternoon. A dot at the very end is not part of a time ("1. 5." is a type mismatch).
-  const match = /^(\d{1,9})\.\s*(\d{1,9})(?:\.\s*(\d{1,9}))?\s*([AaPp][Mm])?$/.exec(text);
+  const match =
+    /^(\d{1,9})\.\s*(\d{1,9})(?:\.\s*(\d{1,9}))?\s*([AaPp][Mm])?$/.exec(text);
   if (!match) return null;
   const hours = wrapToDateField(Number(match[1]));
   const minutes = wrapToDateField(Number(match[2]));
-  const seconds = match[3] === undefined ? 0 : wrapToDateField(Number(match[3]));
+  const seconds =
+    match[3] === undefined ? 0 : wrapToDateField(Number(match[3]));
   const meridiem = match[4]?.toUpperCase();
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59)
+  if (
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    seconds < 0 ||
+    seconds > 59
+  )
     return null;
-  const hourOfDay = meridiem ? (hours % 12) + (meridiem === 'PM' ? 12 : 0) : hours;
+  const hourOfDay = meridiem
+    ? (hours % 12) + (meridiem === "PM" ? 12 : 0)
+    : hours;
   return [hourOfDay, minutes, seconds];
 }
 
@@ -1993,7 +2210,8 @@ export function parseVbDate(text: string, locale: string): Date | null {
  * never answers: under 1054 CDate("1,5") is 1 May 2026 and CDate("1:05") is 1:05 on 30 December 1899.
  */
 function fromBuddhistYear(date: Date, locale: string): Date {
-  if (new Intl.DateTimeFormat(locale).resolvedOptions().calendar !== 'buddhist') return date;
+  if (new Intl.DateTimeFormat(locale).resolvedOptions().calendar !== "buddhist")
+    return date;
   const shifted = new Date(date.getTime());
   shifted.setFullYear(shifted.getFullYear() - BUDDHIST_YEAR_OFFSET);
   return shifted;
@@ -2002,9 +2220,12 @@ function fromBuddhistYear(date: Date, locale: string): Date {
 /** The years between the Buddhist and the Gregorian count. */
 const BUDDHIST_YEAR_OFFSET = 543;
 
-function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate | null {
+function parseVbDateInItsOwnCalendar(
+  text: string,
+  locale: string,
+): WrittenDate | null {
   const trimmed = text.trim();
-  if (trimmed === '') return null;
+  if (trimmed === "") return null;
 
   const time = parseTimePart(trimmed);
   if (time) return written(new Date(1899, 11, 30, ...time), false);
@@ -2014,11 +2235,12 @@ function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate 
     // A comma may stand between the fields of a date, but not between a date and its time: a fresh cscript
     // reads "January 15, 2026 13:05" and refuses "15 January 2026, 13:05" under almost every locale. Five
     // locales accept the comma there as well, and only when the date part names its month.
-    const dateText = words.slice(0, split).join(' ');
-    if (words[split - 1]!.endsWith(',') && !commaMayPrecedeTime(dateText)) continue;
+    const dateText = words.slice(0, split).join(" ");
+    if (words[split - 1]!.endsWith(",") && !commaMayPrecedeTime(dateText))
+      continue;
     const read = parseDatePart(dateText, locale);
     if (!read) continue;
-    const timeOfDay = parseTimePart(words.slice(split).join(' '));
+    const timeOfDay = parseTimePart(words.slice(split).join(" "));
     if (!timeOfDay) continue;
     read.date.setHours(...timeOfDay);
     return read;
@@ -2030,9 +2252,13 @@ function parseVbDateInItsOwnCalendar(text: string, locale: string): WrittenDate 
   // 1031 a dot is the date separator and the same text is 2 May. 1054 is the one locale that takes neither
   // reading: its calendar is the Buddhist one, and Windows reads "2.5" there as the day count 2.5.
   const { dottedDates } = dateOrderOf();
-  if (!dottedDates && nlsDateFormat(currentLcid())?.calendarType !== THAI_BUDDHIST) {
+  if (
+    !dottedDates &&
+    nlsDateFormat(currentLcid())?.calendarType !== THAI_BUDDHIST
+  ) {
     const dottedTime = parseDottedTimePart(trimmed);
-    if (dottedTime) return written(new Date(1899, 11, 30, ...dottedTime), false);
+    if (dottedTime)
+      return written(new Date(1899, 11, 30, ...dottedTime), false);
   }
   return null;
 }
@@ -2103,7 +2329,9 @@ function readMarkedNumber(text: string): Date | null {
 
 /** A whole number written the way VB writes one, as a day count, or null when the text is something else. */
 function readVbNumberLiteral(text: string): Date | null {
-  const match = /^([+-]?)(?:&[Hh]([0-9A-Fa-f]+)|&[Oo]([0-7]+)|(\d+))$/.exec(text.trim());
+  const match = /^([+-]?)(?:&[Hh]([0-9A-Fa-f]+)|&[Oo]([0-7]+)|(\d+))$/.exec(
+    text.trim(),
+  );
   if (!match) return null;
   const magnitude =
     match[2] !== undefined
@@ -2111,7 +2339,7 @@ function readVbNumberLiteral(text: string): Date | null {
       : match[3] !== undefined
         ? parseInt(match[3], 8)
         : Number(match[4]);
-  const serial = match[1] === '-' ? -magnitude : magnitude;
+  const serial = match[1] === "-" ? -magnitude : magnitude;
   if (serial < EARLIEST_SERIAL || serial > LATEST_SERIAL) return null;
   return serialToDate(serial);
 }

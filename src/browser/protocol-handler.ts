@@ -1,4 +1,4 @@
-import type { VbsEngine } from '../core/index.ts';
+import type { VbsEngine } from "../core/index.ts";
 
 export interface ProtocolHandlerResult {
   navigateHandler: ((event: Event) => void) | null;
@@ -14,7 +14,7 @@ function decodeVbscriptCode(rawCode: string): string {
 }
 
 function writeVbscriptResult(result: unknown): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === "undefined") return;
   if (result === undefined) return;
 
   document.open();
@@ -32,52 +32,60 @@ function executeVbscriptUrl(engine: VbsEngine, url: string): void {
   writeVbscriptResult(result);
 }
 
-export function setupVbscriptProtocol(engine: VbsEngine): ProtocolHandlerResult {
-  if (typeof window === 'undefined') {
+export function setupVbscriptProtocol(
+  engine: VbsEngine,
+): ProtocolHandlerResult {
+  if (typeof window === "undefined") {
     return { navigateHandler: null, clickHandler: null };
   }
 
   let navigateHandler: ((event: Event) => void) | null = null;
   let clickHandler: ((event: MouseEvent) => void) | null = null;
 
-  if ('navigation' in window && window.navigation) {
+  if ("navigation" in window && window.navigation) {
     navigateHandler = (event: Event): void => {
       const navEvent = event as { destination?: { url?: string } };
       const url = navEvent.destination?.url;
-      if (url && url.toLowerCase().startsWith('vbscript:')) {
+      if (url && url.toLowerCase().startsWith("vbscript:")) {
         event.preventDefault();
         executeVbscriptUrl(engine, url);
       }
     };
 
-    (window.navigation as EventTarget).addEventListener('navigate', navigateHandler);
+    (window.navigation as EventTarget).addEventListener(
+      "navigate",
+      navigateHandler,
+    );
   } else {
     clickHandler = (event: MouseEvent): void => {
       const target = event.target as Element | null;
-      const link = target?.closest('a,area');
+      const link = target?.closest("a,area");
       if (!link) return;
 
-      const href = link.getAttribute('href');
-      if (href && href.toLowerCase().startsWith('vbscript:')) {
+      const href = link.getAttribute("href");
+      if (href && href.toLowerCase().startsWith("vbscript:")) {
         event.preventDefault();
         executeVbscriptUrl(engine, href);
       }
     };
 
-    document.addEventListener('click', clickHandler, true);
+    document.addEventListener("click", clickHandler, true);
   }
 
   return { navigateHandler, clickHandler };
 }
 
 export function cleanupVbscriptProtocol(result: ProtocolHandlerResult): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
-  if (result.navigateHandler && 'navigation' in window && window.navigation) {
-    (window.navigation as EventTarget).removeEventListener('navigate', result.navigateHandler);
+  if (result.navigateHandler && "navigation" in window && window.navigation) {
+    (window.navigation as EventTarget).removeEventListener(
+      "navigate",
+      result.navigateHandler,
+    );
   }
 
   if (result.clickHandler) {
-    document.removeEventListener('click', result.clickHandler, true);
+    document.removeEventListener("click", result.clickHandler, true);
   }
 }
